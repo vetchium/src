@@ -1340,3 +1340,70 @@ test("Opening tags round-trip through create-opening, save-opening-working-copy,
     orgSQL(`DELETE FROM vetchium.opening_tags WHERE tag_oid = '${deprecated}'`);
   }
 });
+
+test("list-openings filters by tag_oid", async ({ request }) => {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  try {
+    const owner = await loginOrg(api, org);
+    const create = async (title: string, tags?: string[]) => {
+      const response = await api.createOpening(owner, {
+        content: tags === undefined ? { title } : { title, tags },
+        team_member_emails: [],
+      });
+      expect(response.status(), await response.text()).toBe(201);
+      return ((await response.json()) as OrgOpening).opening_number;
+    };
+    const goAndRust = await create("Go and Rust", ["golang", "rust"]);
+    await create("Untagged");
+    await create("Python", ["python"]);
+    const goOnly = await create("Go only", ["golang"]);
+
+    const tagged = await api.listOpenings(owner, { tag_oid: "golang" });
+    expect(tagged.status(), await tagged.text()).toBe(200);
+    expect(
+      (await tagged.json()).openings.map(
+        (opening: { opening_number: number }) => opening.opening_number,
+      ),
+    ).toEqual([goOnly, goAndRust]);
+
+    const firstPage = await api.listOpenings(owner, {
+      tag_oid: "golang",
+      limit: 1,
+    });
+    expect(firstPage.status(), await firstPage.text()).toBe(200);
+    const firstBody = await firstPage.json();
+    expect(firstBody.next_pagination_key).toBeDefined();
+    const nextPage = await api.listOpenings(owner, {
+      tag_oid: "golang",
+      limit: 1,
+      pagination_key: firstBody.next_pagination_key,
+    });
+    expect(nextPage.status(), await nextPage.text()).toBe(200);
+    expect((await nextPage.json()).openings).toMatchObject([
+      { opening_number: goAndRust },
+    ]);
+    const otherTag = await api.listOpenings(owner, {
+      tag_oid: "rust",
+      limit: 1,
+      pagination_key: firstBody.next_pagination_key,
+    });
+    expect(otherTag.status(), await otherTag.text()).toBe(400);
+    expect((await otherTag.json()).type).toContain("invalid-pagination-key");
+
+    const catalogless = await api.listOpenings(owner, {
+      tag_oid: "no-such-tag",
+    });
+    expect(catalogless.status(), await catalogless.text()).toBe(200);
+    expect((await catalogless.json()).openings).toEqual([]);
+
+    const malformed = await api.listOpenings(owner, { tag_oid: "Go Lang" });
+    expect(malformed.status(), await malformed.text()).toBe(400);
+    const malformedBody = await malformed.json();
+    expect(malformedBody.type).toContain("validation-failed");
+    expect(malformedBody.fields).toEqual(["tag_oid"]);
+  } finally {
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+  }
+});

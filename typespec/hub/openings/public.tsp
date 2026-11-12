@@ -42,6 +42,9 @@ model PublicOpeningSummary {
   work_arrangement: Vetchium.OpeningWorkArrangement;
   employment_type: Vetchium.OpeningEmploymentType;
   first_published_at: utcDateTime;
+
+  /** OIDs only, `[]` when none (OPN-HUB-002, OPN-TAG-012). */
+  tags: Vetchium.OpeningTagOID[];
 }
 
 model PublishedOpening {
@@ -71,6 +74,10 @@ model ListOrgOpeningsRequest {
   employing_country?: Vetchium.CountryCode;
   work_arrangement?: Vetchium.OpeningWorkArrangement;
   employment_type?: Vetchium.OpeningEmploymentType;
+
+  /** A well-formed OID missing from the catalog matches nothing. */
+  tag_oid?: Vetchium.OpeningTagOID;
+
   title_query?: OpeningTitleQuery;
   pagination_key?: Vetchium.PaginationKey;
 

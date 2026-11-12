@@ -853,3 +853,95 @@ test("Hub get-org-opening carries live tag OIDs, locally and across regions", as
     cleanupHubUser(viewerEmail, "sgp");
   }
 });
+
+test("Hub list-org-openings filters by tag_oid and carries tag OIDs, locally and across regions", async ({
+  request,
+}) => {
+  const viewerEmail = `e2e+${randomUUID()}@e2e-${randomUUID()}.example.test`;
+  const hub = new HubAPI(request, "sgp");
+  const orgs: [OrgsAPI, Awaited<ReturnType<typeof signupOrg>>][] = [];
+  try {
+    const { sessionToken: token } = seedActiveHubUser(
+      "sgp",
+      viewerEmail,
+      "Tag Filterer",
+    );
+    for (const api of [
+      new OrgsAPI(request, "sgp"),
+      new OrgsAPI(request, "usa1"),
+    ]) {
+      const org = await signupOrg(api);
+      orgs.push([api, org]);
+      const owner = await loginOrg(api, org);
+      const publishTagged = async (title: string, tags: string[]) => {
+        const createdResponse = await api.createOpening(owner, {
+          content: { ...content(title), tags },
+          hiring_manager_email: org.emailAddress,
+          recruiter_email: org.emailAddress,
+          team_member_emails: [],
+        });
+        expect(createdResponse.status(), await createdResponse.text()).toBe(
+          201,
+        );
+        const created = (await createdResponse.json()) as OrgOpening;
+        const publishedResponse = await api.requestOpeningChange(owner, {
+          opening_number: created.opening_number,
+          version: created.version,
+          kind: "publish",
+        });
+        expect(publishedResponse.status()).toBe(200);
+        return created.opening_number;
+      };
+      const goAndRust = await publishTagged("Go and Rust", ["rust", "golang"]);
+      const python = await publishTagged("Python", ["python"]);
+      const untagged = (
+        await publish(api, owner, org.emailAddress, "Untagged Engineer")
+      ).opening_number;
+      const list = async (tag_oid?: string) => {
+        const response = await hub.listOrgOpenings(
+          tag_oid === undefined
+            ? { domain: org.domain }
+            : { domain: org.domain, tag_oid },
+          token,
+        );
+        expect(response.status(), await response.text()).toBe(200);
+        return ((await response.json()) as ListOrgOpeningsResponse).openings;
+      };
+
+      const all = await list();
+      expect(
+        all.map(({ opening_number, tags }) => ({ opening_number, tags })),
+        api.tenant,
+      ).toEqual([
+        { opening_number: untagged, tags: [] },
+        { opening_number: python, tags: ["python"] },
+        { opening_number: goAndRust, tags: ["rust", "golang"] },
+      ]);
+      for (const summary of all) {
+        for (const tag of summary.tags) {
+          expect(tag, api.tenant).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+        }
+      }
+      expect(
+        (await list("golang")).map(({ opening_number }) => opening_number),
+        api.tenant,
+      ).toEqual([goAndRust]);
+      expect(await list("no-such-tag"), api.tenant).toEqual([]);
+
+      const malformed = await hub.listOrgOpenings(
+        { domain: org.domain, tag_oid: "Go Lang" },
+        token,
+      );
+      expect(malformed.status(), await malformed.text()).toBe(400);
+      const malformedBody = await malformed.json();
+      expect(malformedBody.type).toContain("validation-failed");
+      expect(malformedBody.fields).toEqual(["tag_oid"]);
+    }
+  } finally {
+    for (const [api, org] of orgs) {
+      await deleteOrgVerificationRecord(org.domain);
+      cleanupOrg(org.domain, api.tenant);
+    }
+    cleanupHubUser(viewerEmail, "sgp");
+  }
+});

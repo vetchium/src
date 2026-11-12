@@ -171,6 +171,9 @@ func ListOpenings(s *orgsruntime.Server) http.HandlerFunc {
 		if request.EmploymentType != nil {
 			params.EmploymentType = dbvalue.Text(string(*request.EmploymentType))
 		}
+		if request.TagOID != nil {
+			params.TagOid = dbvalue.Text(string(*request.TagOID))
+		}
 		if request.TitleQuery != nil {
 			params.TitleQuery = dbvalue.Text(string(*request.TitleQuery))
 		}

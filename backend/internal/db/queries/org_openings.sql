@@ -204,6 +204,8 @@ WHERE o.org_did = sqlc.arg(org_did)
       OR c.work_arrangement::text = sqlc.narg(work_arrangement)::text)
   AND (sqlc.narg(employment_type)::text IS NULL
       OR c.employment_type::text = sqlc.narg(employment_type)::text)
+  AND (sqlc.narg(tag_oid)::text IS NULL
+      OR sqlc.narg(tag_oid)::text = ANY(c.tag_oids))
   AND (sqlc.narg(title_query)::text IS NULL
       OR strpos(lower(c.title), lower(sqlc.narg(title_query)::text)) > 0)
   AND (sqlc.narg(after_updated_at)::timestamptz IS NULL

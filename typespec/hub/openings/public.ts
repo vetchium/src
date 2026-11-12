@@ -1,5 +1,9 @@
 import { isCountryCode } from "../../common/countries.ts";
 import type { CountryCode } from "../../common/localization.ts";
+import {
+  isOpeningTagOID,
+  type OpeningTagOID,
+} from "../../common/opening_tags.ts";
 import type {
   OpeningContent,
   OpeningEmploymentType,
@@ -33,6 +37,8 @@ export interface PublicOpeningSummary {
   work_arrangement: OpeningWorkArrangement;
   employment_type: OpeningEmploymentType;
   first_published_at: string;
+  /** OIDs only, `[]` when none. */
+  tags: OpeningTagOID[];
 }
 
 export type PublicOpening =
@@ -55,6 +61,7 @@ export interface ListOrgOpeningsRequest {
   employing_country?: CountryCode;
   work_arrangement?: OpeningWorkArrangement;
   employment_type?: OpeningEmploymentType;
+  tag_oid?: OpeningTagOID;
   title_query?: OpeningTitleQuery;
   pagination_key?: PaginationKey;
   limit?: OpeningPageSize;
@@ -113,6 +120,8 @@ export function validateListOrgOpeningsRequest(
     )
   )
     fields.push("employment_type");
+  if (request.tag_oid !== undefined && !isOpeningTagOID(request.tag_oid))
+    fields.push("tag_oid");
   if (
     request.title_query !== undefined &&
     ([...request.title_query].length < 2 ||
