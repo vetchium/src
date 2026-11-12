@@ -1178,6 +1178,7 @@ export const en = {
     filters: {
       more: "More filters",
       awaitingActive: "Showing Openings with a request awaiting your approval.",
+      tag: "Tag",
       pendingKinds: "Pending request types",
       awaitingApproval: "Awaiting my approval",
       hiringManager: "Hiring manager email",
@@ -1334,6 +1335,7 @@ export const en = {
         positions: "How many people you will hire, from 1 to 10.",
         salary:
           "Optional. To show a salary, fill in all four fields; otherwise leave them all empty.",
+        tags: "Optional. Up to five tags, such as skills or the field of work, help candidates find this Opening.",
         hiringManager:
           "Required to publish. Must be an active member of your organization.",
         recruiter:
@@ -1386,6 +1388,7 @@ export const en = {
       recruiter: "Recruiter",
       teamMembers: "Team members",
       internalNotes: "Internal notes",
+      tagsPlaceholder: "Search tags",
       minimumYears: "Minimum years",
       maximumYears: "Maximum years",
       currency: "Currency",
@@ -1474,6 +1477,8 @@ export const en = {
         "The Opening quota is full: {{count}} of {{quota}} slots are used.",
       invalidTeam:
         "These addresses are not active members of this organization: {{addresses}}.",
+      unknownTags:
+        "These tags are not in the tag catalog: {{tags}}. Remove them and try again.",
       invalidField: "Check this field.",
       incomplete:
         "This Opening is incomplete. Complete these fields and try again:",
@@ -2740,6 +2745,7 @@ export const en = {
         "Results may be incomplete: {{count}} client region did not respond.",
       searchPlaceholder: "Search title or number",
       filterClient: "Search clients",
+      filterTag: "Tag",
       filterCountry: "Employing country",
       tableOpening: "Opening",
       tableClient: "Client",

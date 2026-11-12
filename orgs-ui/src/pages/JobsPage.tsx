@@ -1,5 +1,6 @@
 import { FilterOutlined, QuestionCircleOutlined } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { OpeningTagFilter } from "@vetchium/portal-ui/opening-tags";
 import {
   Alert,
   Badge,
@@ -23,6 +24,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { isCountryCode } from "typespec/common/countries";
+import { isOpeningTagOID } from "typespec/common/opening_tags";
 import {
   isJobSearchText,
   type Job,
@@ -46,6 +48,7 @@ import {
   ClientPicker,
   JobOwnerPicker,
 } from "../features/marketplace/SuggestionSelect";
+import { useOpeningTags } from "../features/openings/queries";
 
 const pageSize = 25;
 
@@ -85,6 +88,7 @@ export function JobsPage() {
   const list = useListState();
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [ownerTarget, setOwnerTarget] = useState<Job>();
+  const tagCatalog = useOpeningTags();
 
   const scope = ownerScopeOf(list.get("owner"));
   // A hand-edited URL never sends a filter the API would refuse.
@@ -103,6 +107,9 @@ export function JobsPage() {
     countryParam !== undefined && isCountryCode(countryParam)
       ? countryParam
       : undefined;
+  const tagParam = list.get("tag");
+  const tag =
+    tagParam !== undefined && isOpeningTagOID(tagParam) ? tagParam : undefined;
   const stateParam = list.get("state");
   const state: OpeningState = isListedState(stateParam)
     ? stateParam
@@ -122,6 +129,7 @@ export function JobsPage() {
     ...(client !== undefined && { client_domain: client }),
     ...(search !== undefined && { search }),
     ...(country !== undefined && { employing_country: country }),
+    ...(tag !== undefined && { tag_oid: tag }),
     ...(list.paginationKey !== undefined && {
       pagination_key: list.paginationKey,
     }),
@@ -129,9 +137,13 @@ export function JobsPage() {
   const jobsQuery = useJobsQuery(request, me !== undefined);
   const jobs = jobsQuery.data?.jobs ?? [];
   const unavailableTenants = jobsQuery.data?.unavailable_tenants ?? [];
-  const moreFiltersCount = country === undefined ? 0 : 1;
+  const moreFiltersCount =
+    (country === undefined ? 0 : 1) + (tag === undefined ? 0 : 1);
   const filtered =
-    client !== undefined || search !== undefined || country !== undefined;
+    client !== undefined ||
+    search !== undefined ||
+    country !== undefined ||
+    tag !== undefined;
 
   const countryNames = new Intl.DisplayNames([i18n.language], {
     type: "region",
@@ -242,7 +254,12 @@ export function JobsPage() {
 
   const clearFilters = () => {
     setSearchInput("");
-    list.set({ client: undefined, q: undefined, country: undefined });
+    list.set({
+      client: undefined,
+      q: undefined,
+      country: undefined,
+      tag: undefined,
+    });
   };
 
   const emptyState =
@@ -371,6 +388,18 @@ export function JobsPage() {
                     options={countryOptions(i18n.language)}
                     showSearch={{ optionFilterProp: "label" }}
                     allowClear
+                  />
+                </Form.Item>
+                <Form.Item
+                  label={t("marketplace.jobs.filterTag")}
+                  style={{ marginBottom: 0, marginTop: 16, maxWidth: 320 }}
+                >
+                  <OpeningTagFilter
+                    label={t("marketplace.jobs.filterTag")}
+                    value={tag}
+                    onChange={(value) => list.set({ tag: value })}
+                    locale={i18n.language}
+                    catalog={tagCatalog}
                   />
                 </Form.Item>
               </Form>

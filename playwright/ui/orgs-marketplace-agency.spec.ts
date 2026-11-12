@@ -2,6 +2,7 @@ import type {
   ChatRequest,
   ListChatRequestsResponse,
 } from "typespec/orgs/marketplace/contacts/contacts";
+import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { cleanupApplicant, seedApplicant } from "../lib/hub-applicant.ts";
 import { addOrgMember, inviteeAddress, orgDID } from "../lib/orgs-api.ts";
@@ -684,5 +685,55 @@ test("chat requests: an agency sends from a Job, meets each refusal, answers peo
       ),
     ).toBeVisible();
     await expect(sendButton).toBeDisabled();
+  });
+});
+
+test("Jobs filter by tag under More filters, kept in the URL, and Job detail shows the tags", async ({
+  page,
+  request,
+}) => {
+  await withAgency(request, async (agency) => {
+    const { consumer, provider } = agency.pair;
+    const [engineer] = agency.openings;
+    const read = await consumer.api.getOpening(consumer.owner, {
+      opening_number: engineer.opening_number,
+    });
+    const current = (await read.json()) as OrgOpening;
+    const saved = await consumer.api.saveOpeningWorkingCopy(consumer.owner, {
+      opening_number: current.opening_number,
+      version: current.version,
+      content: { ...current.live_content, tags: ["golang", "rust"] },
+    });
+    expect(saved.status(), await saved.text()).toBe(200);
+    const revised = await consumer.api.requestOpeningChange(consumer.owner, {
+      opening_number: current.opening_number,
+      version: ((await saved.json()) as OrgOpening).version,
+      kind: "revise",
+    });
+    expect(revised.status(), await revised.text()).toBe(200);
+
+    await signIn(page, provider.org, provider.tenant);
+    await page.goto(`${ORGS_PORTAL}/sourcing/jobs?owner=all`);
+    await expect(page.getByRole("link", { name: "Designer" })).toBeVisible();
+    await page.getByRole("button", { name: "More filters" }).click();
+    await page.getByRole("combobox", { name: "Tag", exact: true }).fill("rus");
+    await page
+      .locator(".ant-select-dropdown:visible")
+      .getByTitle("Rust", { exact: true })
+      .click();
+    await expect(page).toHaveURL(/[?&]tag=rust/);
+    await expect(page.getByRole("link", { name: "Engineer" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Designer" })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole("link", { name: "Engineer" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Designer" })).toHaveCount(0);
+
+    await page.getByRole("link", { name: "Engineer" }).click();
+    await expect(
+      page
+        .getByRole("tabpanel")
+        .getByRole("list", { name: "Tags" })
+        .getByRole("listitem"),
+    ).toHaveText(["Go", "Rust"]);
   });
 });

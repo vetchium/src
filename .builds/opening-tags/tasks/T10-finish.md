@@ -42,3 +42,4 @@ The full suite.
 - `make test` passes; `docs/todo.md` reflects what is deferred.
 
 ## Carried over
+From T07: The Orgs Openings list keeps only the tag filter in the URL; its other filters (state, title, hiring manager, recruiter, pending kinds, country, work arrangement, employment type) stay in component state, against ux.md's URL-kept filters. Add this to docs/todo.md.

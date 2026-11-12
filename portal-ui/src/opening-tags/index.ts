@@ -5,6 +5,8 @@ export {
   openingTagMatches,
   openingTagName,
 } from "./names.ts";
+export type { OpeningTagFilterProps } from "./OpeningTagFilter.tsx";
+export { OpeningTagFilter } from "./OpeningTagFilter.tsx";
 export type { OpeningTagListProps } from "./OpeningTagList.tsx";
 export { OpeningTagList } from "./OpeningTagList.tsx";
 export type { OpeningTagSelectProps } from "./OpeningTagSelect.tsx";

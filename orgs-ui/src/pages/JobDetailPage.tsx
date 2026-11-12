@@ -1,13 +1,12 @@
 import { MessageOutlined, SendOutlined, UserOutlined } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
-import { OpeningDescription } from "@vetchium/portal-ui/openings";
+import { OpeningView } from "@vetchium/portal-ui/openings";
 import {
   Avatar,
   Breadcrumb,
   Button,
   Card,
   Col,
-  Descriptions,
   Flex,
   Row,
   Space,
@@ -21,6 +20,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
+import type { OpeningContent } from "typespec/common/openings";
 import type {
   JobCreditedApplication,
   JobSuggestedContact,
@@ -40,22 +40,13 @@ import {
 import { useJobQuery } from "../features/marketplace/queries";
 import { SendChatRequestModal } from "../features/marketplace/SendChatRequestModal";
 import { SuggestToContactModal } from "../features/marketplace/SuggestToContactModal";
-
-interface OpeningContent {
-  description?: string;
-  work_arrangement?: string;
-  location_details?: string;
-  employment_type?: string;
-  positions?: number;
-  experience?: string;
-  salary_range?: string;
-  language?: string;
-  [key: string]: unknown;
-}
+import { openingPresentation } from "../features/openings/presentation";
+import { useOpeningTags } from "../features/openings/queries";
 
 export function JobDetailPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { date } = useDateTimeFormat();
+  const tagCatalog = useOpeningTags();
   const { engagement_id = "", opening_number = "" } = useParams();
   const openingNum = Number(opening_number);
 
@@ -88,6 +79,14 @@ export function JobDetailPage() {
   }
 
   const creditedApps = detail?.credited_applications ?? [];
+  const basePresentation = openingPresentation(t, i18n.language, tagCatalog);
+  const presentation = {
+    ...basePresentation,
+    labels: {
+      ...basePresentation.labels,
+      description: t("marketplace.jobs.aboutTheRole"),
+    },
+  };
   const suggestedContacts = detail?.suggested_contacts ?? [];
 
   const creditedColumns: ColumnsType<JobCreditedApplication> = [
@@ -164,69 +163,14 @@ export function JobDetailPage() {
             {t("marketplace.jobs.asCandidatesSeeIt")}
           </Typography.Text>
 
-          {content?.description && (
-            <section
-              aria-label={t("marketplace.jobs.aboutTheRole")}
-              style={{ marginBottom: 24 }}
-            >
-              <Typography>
-                <OpeningDescription source={String(content.description)} />
-              </Typography>
-            </section>
+          {content && (
+            <OpeningView
+              // The page heading already names the Opening.
+              content={{ ...content, title: undefined }}
+              presentation={presentation}
+              titleLevel={2}
+            />
           )}
-
-          <Descriptions
-            column={{ xs: 1, sm: 2 }}
-            size="small"
-            style={{ marginTop: 16 }}
-          >
-            {job.opening.employing_country && (
-              <Descriptions.Item label={t("openings.fields.country")}>
-                {t(`countries.${job.opening.employing_country}`, {
-                  defaultValue: job.opening.employing_country,
-                })}
-              </Descriptions.Item>
-            )}
-            {content?.work_arrangement && (
-              <Descriptions.Item label={t("openings.fields.workArrangement")}>
-                {t(`openings.workArrangements.${content.work_arrangement}`, {
-                  defaultValue: content.work_arrangement,
-                })}
-              </Descriptions.Item>
-            )}
-            {content?.location_details && (
-              <Descriptions.Item label={t("openings.fields.locationDetails")}>
-                {content.location_details}
-              </Descriptions.Item>
-            )}
-            {content?.employment_type && (
-              <Descriptions.Item label={t("openings.fields.employmentType")}>
-                {t(`openings.employmentTypes.${content.employment_type}`, {
-                  defaultValue: content.employment_type,
-                })}
-              </Descriptions.Item>
-            )}
-            {content?.positions !== undefined && (
-              <Descriptions.Item label={t("openings.fields.positions")}>
-                {content.positions}
-              </Descriptions.Item>
-            )}
-            {content?.experience && (
-              <Descriptions.Item label={t("openings.fields.experienceYears")}>
-                {content.experience}
-              </Descriptions.Item>
-            )}
-            {content?.salary_range && (
-              <Descriptions.Item label={t("openings.fields.salary")}>
-                {content.salary_range}
-              </Descriptions.Item>
-            )}
-            {content?.language && (
-              <Descriptions.Item label={t("openings.fields.language")}>
-                {content.language}
-              </Descriptions.Item>
-            )}
-          </Descriptions>
         </div>
       ),
     },
@@ -424,7 +368,7 @@ export function JobDetailPage() {
         open={suggestModalOpen}
         onClose={() => setSuggestModalOpen(false)}
         job={job}
-        jobContent={content}
+        jobContent={detail?.content}
         alreadySuggestedHandles={alreadySuggestedHandles}
         onSuccess={() => void jobQuery.refetch()}
       />

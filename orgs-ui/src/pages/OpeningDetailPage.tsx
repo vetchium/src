@@ -74,6 +74,7 @@ import {
   useDuplicateOpeningMutation,
   useOpeningHistoryQuery,
   useOpeningQuery,
+  useOpeningTags,
   useRequestOpeningChangeMutation,
   useWithdrawOpeningRequestMutation,
 } from "../features/openings/queries";
@@ -179,7 +180,8 @@ export function OpeningDetailPage() {
     canManage &&
     opening !== undefined &&
     ["draft", "published", "paused"].includes(opening.state);
-  const presentation = openingPresentation(t, i18n.language);
+  const tags = useOpeningTags();
+  const presentation = openingPresentation(t, i18n.language, tags);
   const [contentView, setContentView] = useState<"live" | "working">("working");
   const publicURL =
     me && opening

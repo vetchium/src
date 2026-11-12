@@ -24,6 +24,7 @@ export interface OpeningTagSelectProps {
 interface TagOption {
   value: string;
   label: ReactNode;
+  title: string;
   oid: string;
 }
 
@@ -43,16 +44,20 @@ export function OpeningTagSelect({
   disabled,
 }: OpeningTagSelectProps) {
   const selected = value ?? [];
-  const option = (oid: string): TagOption => ({
-    value: oid,
-    oid,
-    label: (
-      <Flex gap="small" align="center">
-        <OpeningTagIcon oid={oid} />
-        {openingTagName(catalog, oid, locale)}
-      </Flex>
-    ),
-  });
+  const option = (oid: string): TagOption => {
+    const name = openingTagName(catalog, oid, locale);
+    return {
+      value: oid,
+      oid,
+      title: name,
+      label: (
+        <Flex gap="small" align="center">
+          <OpeningTagIcon oid={oid} />
+          {name}
+        </Flex>
+      ),
+    };
+  };
   const offered = [...catalog.values()]
     .filter((tag) => !tag.deprecated || selected.includes(tag.tag_oid))
     .sort((a, b) => a.display_name.localeCompare(b.display_name, "en"))

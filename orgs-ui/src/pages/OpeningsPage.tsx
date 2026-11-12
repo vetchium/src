@@ -6,6 +6,7 @@ import {
   RightOutlined,
 } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { OpeningTagFilter } from "@vetchium/portal-ui/opening-tags";
 import {
   Alert,
   Badge,
@@ -29,8 +30,9 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { countryCodeValues } from "typespec/common/countries";
+import { isOpeningTagOID } from "typespec/common/opening_tags";
 import type { PaginationKey } from "typespec/common/pagination";
 import {
   ApproveOpenings,
@@ -51,6 +53,7 @@ import { openingStateColors } from "../features/openings/presentation";
 import {
   useOpeningSummaryQuery,
   useOpeningsQuery,
+  useOpeningTags,
 } from "../features/openings/queries";
 
 const pageSize = 25;
@@ -71,11 +74,18 @@ const advancedFilterKeys = [
 ] as const satisfies readonly (keyof ListOpeningsRequest)[];
 
 export function OpeningsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { dateTime } = useDateTimeFormat();
   const navigate = useNavigate();
   const { data: me } = useMyInfoQuery();
-  const [showFilters, setShowFilters] = useState(false);
+  const tagCatalog = useOpeningTags();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The tag is kept in the URL; a hand-edited one the API would refuse is
+  // ignored.
+  const tagParam = searchParams.get("tag") ?? undefined;
+  const tag =
+    tagParam !== undefined && isOpeningTagOID(tagParam) ? tagParam : undefined;
+  const [showFilters, setShowFilters] = useState(tag !== undefined);
   const [filters, setFilters] = useState<ListOpeningsRequest>({});
   const [titleInput, setTitleInput] = useState("");
   const [managerInput, setManagerInput] = useState("");
@@ -92,12 +102,26 @@ export function OpeningsPage() {
   );
   const query = useOpeningsQuery({
     ...filters,
+    ...(tag !== undefined && { tag_oid: tag }),
     limit: pageSize,
     ...(pageKeys[pageIndex] ? { pagination_key: pageKeys[pageIndex] } : {}),
   });
 
   const applyFilters = (next: ListOpeningsRequest) => {
     setFilters(next);
+    setPageKeys([undefined]);
+    setPageIndex(0);
+  };
+  const setTag = (value: string | undefined) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value === undefined) next.delete("tag");
+        else next.set("tag", value);
+        return next;
+      },
+      { replace: true },
+    );
     setPageKeys([undefined]);
     setPageIndex(0);
   };
@@ -118,10 +142,12 @@ export function OpeningsPage() {
   const countOf = (state: string) =>
     summary.data?.counts.find((entry) => entry.state === state)?.count ?? 0;
   const activeState = filters.states?.[0] ?? "all";
-  const advancedCount = advancedFilterKeys.filter(
-    (key) => filters[key] !== undefined,
-  ).length;
-  const anyFilter = Object.values(filters).some((value) => value !== undefined);
+  const advancedCount =
+    advancedFilterKeys.filter((key) => filters[key] !== undefined).length +
+    (tag === undefined ? 0 : 1);
+  const anyFilter =
+    tag !== undefined ||
+    Object.values(filters).some((value) => value !== undefined);
   const awaitingCount = awaiting.data
     ? `${awaiting.data.openings.length}${awaiting.data.next_pagination_key ? "+" : ""}`
     : undefined;
@@ -129,6 +155,7 @@ export function OpeningsPage() {
     setTitleInput("");
     setManagerInput("");
     setRecruiterInput("");
+    setTag(undefined);
     applyFilters({});
   };
 
@@ -292,6 +319,17 @@ export function OpeningsPage() {
                   label: t(`openings.employmentTypes.${value}`),
                 }))}
                 allowClear
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12} lg={8}>
+            <Form.Item label={t("openings.filters.tag")}>
+              <OpeningTagFilter
+                label={t("openings.filters.tag")}
+                value={tag}
+                onChange={setTag}
+                locale={i18n.language}
+                catalog={tagCatalog}
               />
             </Form.Item>
           </Col>

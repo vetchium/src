@@ -7,6 +7,7 @@ import {
 } from "@ant-design/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { OpeningTagSelect } from "@vetchium/portal-ui/opening-tags";
 import { SidePanel } from "@vetchium/portal-ui/shell";
 import {
   Alert,
@@ -69,6 +70,7 @@ import { QuestionsEditor } from "./QuestionsEditor";
 import {
   useCreateOpeningMutation,
   useOpeningSummaryQuery,
+  useOpeningTags,
   useRequestOpeningChangeMutation,
   useSaveOpeningWorkingCopyMutation,
   useSetOpeningTeamMutation,
@@ -86,7 +88,7 @@ interface EditorValues {
 
 function cleanContent(
   input: OpeningContent | undefined,
-  withQuestions = true,
+  forDrafting = false,
 ): OpeningContent {
   const content = input ?? {};
   const result: OpeningContent = {};
@@ -128,8 +130,9 @@ function cleanContent(
     Object.values(content.salary).some((value) => value != null && value !== "")
   )
     result.salary = content.salary;
-  if (withQuestions && content.questions?.length)
+  if (!forDrafting && content.questions?.length)
     result.questions = cleanQuestions(content.questions);
+  if (!forDrafting && content.tags?.length) result.tags = [...content.tags];
   return result;
 }
 
@@ -191,6 +194,7 @@ const fieldSections: Readonly<Record<string, string>> = {
   positions: "role",
   experience_years: "role",
   minimum_education: "role",
+  tags: "role",
   salary: "salary",
   questions: "questions",
   hiring_manager_email: "team",
@@ -262,6 +266,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
     ["content", "remote_eligibility", "kind"],
     form,
   );
+  const tagCatalog = useOpeningTags();
   const hiringManagerEmail = Form.useWatch("hiring_manager_email", form);
   const recruiterEmail = Form.useWatch("recruiter_email", form);
   const [memberSearch, setMemberSearch] = useState("");
@@ -433,6 +438,15 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
           count: problem.count,
         }),
       );
+    } else if (problem.kind === "tag-unknown") {
+      const unknownTags = t("openings.errors.unknownTags", {
+        tags: problem.tagOIDs.join(", "),
+      });
+      setActiveTab("edit");
+      openEverySection();
+      form.setFields([{ name: ["content", "tags"], errors: [unknownTags] }]);
+      refreshErrorSections();
+      setError(unknownTags);
     } else if (problem.kind === "hiring-team-invalid") {
       const values = form.getFieldsValue();
       for (const field of [
@@ -931,6 +945,17 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
                         allowClear
                       />
                     </Form.Item>
+                    <Form.Item
+                      name={["content", "tags"]}
+                      label={t("openings.fields.tags")}
+                      extra={t("openings.editor.help.tags")}
+                    >
+                      <OpeningTagSelect
+                        locale={i18n.language}
+                        catalog={tagCatalog}
+                        placeholder={t("openings.editor.tagsPlaceholder")}
+                      />
+                    </Form.Item>
                   </>,
                 ),
               },
@@ -1365,10 +1390,10 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
               onChange={setActiveTab}
               tabBarExtraContent={
                 <DraftWithAIButton
-                  // AI drafting never returns questions (HP-QST-002), so
-                  // they would only cost prompt tokens.
+                  // AI drafting never returns questions or tags (HP-QST-002,
+                  // OPN-TAG-010), so they would only cost prompt tokens.
                   currentContent={() =>
-                    cleanContent(form.getFieldValue("content"), false)
+                    cleanContent(form.getFieldValue("content"), true)
                   }
                   onDrafted={applyDraft}
                   disabled={contentLocked || pending}

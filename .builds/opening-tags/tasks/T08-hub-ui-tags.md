@@ -49,3 +49,4 @@ of the Org page and Opening page at phone and desktop widths.
 
 ## Carried over
 From T06: OpeningView now shows tags with a temporary formatter returning the OID; replace it in hub-ui/src/features/openings/presentation.ts with openingTagName from the catalog, and run the ux.md screenshot check of the tags in OpeningView (light, dark, 390px, German).
+From T07: portal-ui/src/opening-tags exports OpeningTagFilter (a single-tag Select for list filters); reuse it for the Hub Org page tag filter.

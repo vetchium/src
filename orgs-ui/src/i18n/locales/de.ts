@@ -1216,6 +1216,7 @@ export const de = {
       more: "Weitere Filter",
       awaitingActive:
         "Angezeigt werden Stellenanzeigen mit einer Anfrage, die auf Ihre Genehmigung wartet.",
+      tag: "Schlagwort",
       pendingKinds: "Ausstehende Antragsarten",
       awaitingApproval: "Wartet auf meine Genehmigung",
       hiringManager: "E-Mail der einstellungsverantwortlichen Person",
@@ -1373,6 +1374,7 @@ export const de = {
         positions: "Wie viele Personen Sie einstellen, von 1 bis 10.",
         salary:
           "Optional. Um ein Gehalt anzuzeigen, füllen Sie alle vier Felder aus; andernfalls lassen Sie alle leer.",
+        tags: "Optional. Bis zu fünf Schlagwörter, etwa Fähigkeiten oder das Fachgebiet, helfen Bewerbenden, diese Stelle zu finden.",
         hiringManager:
           "Zum Veröffentlichen erforderlich. Muss ein aktives Mitglied Ihrer Organisation sein.",
         recruiter:
@@ -1428,6 +1430,7 @@ export const de = {
       recruiter: "Rekrutierende Person",
       teamMembers: "Teammitglieder",
       internalNotes: "Interne Notizen",
+      tagsPlaceholder: "Schlagwörter suchen",
       minimumYears: "Mindestjahre",
       maximumYears: "Höchstjahre",
       currency: "Währung",
@@ -1516,6 +1519,8 @@ export const de = {
         "Das Kontingent ist ausgeschöpft: {{count}} von {{quota}} Plätzen sind belegt.",
       invalidTeam:
         "Diese Adressen gehören keinen aktiven Mitgliedern dieser Organisation: {{addresses}}.",
+      unknownTags:
+        "Diese Schlagwörter sind nicht im Katalog: {{tags}}. Entfernen Sie sie und versuchen Sie es erneut.",
       invalidField: "Prüfen Sie dieses Feld.",
       incomplete:
         "Diese Stellenanzeige ist unvollständig. Füllen Sie diese Felder aus und versuchen Sie es erneut:",
@@ -2806,6 +2811,7 @@ export const de = {
         "Ergebnisse sind möglicherweise unvollständig: {{count}} Kundenregion hat nicht geantwortet.",
       searchPlaceholder: "Titel oder Nummer suchen",
       filterClient: "Kunden suchen",
+      filterTag: "Schlagwort",
       filterCountry: "Beschäftigungsland",
       tableOpening: "Stelle",
       tableClient: "Kunde",
