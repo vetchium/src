@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  compareOpeningTagNames,
   openingTagCatalog,
   openingTagMatches,
   openingTagName,
@@ -45,4 +46,13 @@ test("the tag picker matches the default name, the portal name, and the OID", ()
   assert.equal(openingTagMatches(ai, "-intel", "en-US"), true);
   assert.equal(openingTagMatches(ai, "künstliche", "en-US"), false);
   assert.equal(openingTagMatches(ai, "golang", "en-US"), false);
+});
+
+test("tags are ordered by the name shown in the portal language", () => {
+  const order = (locale: string) =>
+    [...catalog.values()]
+      .sort((a, b) => compareOpeningTagNames(catalog, a, b, locale))
+      .map((tag) => tag.tag_oid);
+  assert.deepEqual(order("en-US"), ["artificial-intelligence", "golang"]);
+  assert.deepEqual(order("de-DE"), ["golang", "artificial-intelligence"]);
 });

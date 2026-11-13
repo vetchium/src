@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { maxOpeningTags } from "typespec/common/opening_tags";
 import { OpeningTagIcon } from "./icons.tsx";
 import {
+  compareOpeningTagNames,
   type OpeningTagCatalog,
   openingTagMatches,
   openingTagName,
@@ -60,7 +61,7 @@ export function OpeningTagSelect({
   };
   const offered = [...catalog.values()]
     .filter((tag) => !tag.deprecated || selected.includes(tag.tag_oid))
-    .sort((a, b) => a.display_name.localeCompare(b.display_name, "en"))
+    .sort((a, b) => compareOpeningTagNames(catalog, a, b, locale))
     .map((tag) => option(tag.tag_oid));
   const unknown = selected
     .filter((oid) => !catalog.has(oid))

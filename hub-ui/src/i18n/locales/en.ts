@@ -683,6 +683,7 @@ export const en = {
       minimumEducation: "Minimum education",
       salary: "Salary",
       tags: "Tags",
+      tag: "Tag",
     },
     workArrangements: {
       on_site: "On site",

@@ -29,6 +29,19 @@ export function openingTagName(
   return localizedName(tag, locale) ?? tag.display_name;
 }
 
+/** Orders tags by the name shown in the portal language. */
+export function compareOpeningTagNames(
+  catalog: OpeningTagCatalog,
+  a: OpeningTag,
+  b: OpeningTag,
+  locale: string,
+): number {
+  return openingTagName(catalog, a.tag_oid, locale).localeCompare(
+    openingTagName(catalog, b.tag_oid, locale),
+    locale,
+  );
+}
+
 /** Picker search over the default name, the portal-language name, and the OID. */
 export function openingTagMatches(
   tag: OpeningTag,

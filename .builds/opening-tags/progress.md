@@ -1,7 +1,7 @@
 # Opening tags build progress
 
 branch: opening-tags
-current: T08
+current: T09
 phase: implement
 
 ## Tasks
@@ -21,7 +21,7 @@ T05 done Marketplace: Tag filter on the agency Jobs list
 
 T06 done Portal UI: Opening tag names, icons, chips, and picker
 T07 done Orgs portal: Opening tags in the editor, views, and filters
-T08 todo Hub portal: Opening tags on the Org and Opening pages
+T08 done Hub portal: Opening tags on the Org and Opening pages
 
 ### M4 Fixtures and finish
 

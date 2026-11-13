@@ -178,6 +178,7 @@ test("Opening list follows and returns through keyset pages", async ({
             work_arrangement: "hybrid",
             employment_type: "full_time",
             first_published_at: "2026-01-01T00:00:00Z",
+            tags: [],
           },
         ],
         ...(secondPage ? {} : { next_pagination_key: "next-page" }),
@@ -197,6 +198,105 @@ test("Opening list follows and returns through keyset pages", async ({
   await page.getByRole("button", { name: "Previous" }).click();
   await expect(page.getByRole("link", { name: "First opening" })).toBeVisible();
   expect(keys).toEqual([undefined, "next-page"]);
+});
+
+test("Opening cards and the Opening page show tags in the portal language", async ({
+  hubUser,
+  org,
+  page,
+  request,
+}) => {
+  const remote = await org("usa1");
+  const api = new OrgsAPI(request, "usa1");
+  const token = await loginOrg(api, remote);
+  await publish(api, token, remote.emailAddress, {
+    title: "Tagged engineer",
+    description: "Build services.",
+    language: "en",
+    employing_country: "US",
+    work_arrangement: "remote",
+    remote_eligibility: { kind: "worldwide" },
+    employment_type: "full_time",
+    positions: 1,
+    tags: ["human-resources", "golang"],
+  });
+  await signIn(page, await hubUser("sgp"));
+  await page.goto(`${HUB_PORTAL}/org/${remote.domain}`);
+  const card = page.getByRole("list", { name: "Tags" });
+  await expect(card.getByRole("listitem")).toHaveText([
+    "Human Resources",
+    "Go",
+  ]);
+
+  await page.getByRole("combobox", { name: "Select language" }).click();
+  await page.getByRole("option", { name: "Deutsch (Deutschland)" }).click();
+  await expect(
+    page.getByRole("list", { name: "Schlagwörter" }).getByRole("listitem"),
+  ).toHaveText(["Personalwesen", "Go"]);
+
+  // Human Resources has no Tamil name, so Tamil shows the default name.
+  await page.getByRole("combobox", { name: "Sprache auswählen" }).click();
+  await page.getByRole("option", { name: "தமிழ்" }).click();
+  const tamilTags = page.getByRole("list", { name: "குறிச்சொற்கள்" });
+  await expect(tamilTags.getByRole("listitem")).toHaveText([
+    "Human Resources",
+    "Go",
+  ]);
+
+  await page.getByRole("link", { name: "Tagged engineer" }).click();
+  await expect(page.getByRole("article")).toBeVisible();
+  await expect(tamilTags.getByRole("listitem")).toHaveText([
+    "Human Resources",
+    "Go",
+  ]);
+});
+
+test("the Org page filters Openings by tag and keeps it across a reload", async ({
+  hubUser,
+  org,
+  page,
+  request,
+}) => {
+  const local = await org("sgp");
+  const api = new OrgsAPI(request, "sgp");
+  const token = await loginOrg(api, local);
+  const content: OpeningContent = {
+    title: "Plain role",
+    description: "Build services.",
+    language: "en",
+    employing_country: "SG",
+    work_arrangement: "on_site",
+    employment_type: "full_time",
+    positions: 1,
+  };
+  await publish(api, token, local.emailAddress, content);
+  await publish(api, token, local.emailAddress, {
+    ...content,
+    title: "Tagged role",
+    tags: ["golang"],
+  });
+  await signIn(page, await hubUser("sgp"));
+  // A hand-edited tag the API would refuse is ignored, not sent.
+  await page.goto(`${HUB_PORTAL}/org/${local.domain}?tag=Not_A_Tag`);
+  await expect(page.getByRole("link", { name: "Tagged role" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Plain role" })).toBeVisible();
+  // An Opening without tags shows no tag list.
+  await expect(page.getByRole("list", { name: "Tags" })).toHaveCount(1);
+
+  await page.getByRole("combobox", { name: "Tag", exact: true }).fill("go");
+  await page
+    .locator(".ant-select-dropdown:visible")
+    .getByTitle("Go", { exact: true })
+    .click();
+  await expect(page).toHaveURL(/[?&]tag=golang/);
+  await expect(page.getByRole("link", { name: "Tagged role" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Plain role" })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByRole("link", { name: "Tagged role" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Plain role" })).toHaveCount(0);
+  // The filter shows the active tag after the reload.
+  await expect(page.getByTitle("Go", { exact: true })).toBeVisible();
 });
 
 test("unknown and unavailable Orgs show distinct messages", async ({

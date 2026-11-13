@@ -1,6 +1,8 @@
 import { Flex, Select } from "antd";
+import type { CSSProperties } from "react";
 import { OpeningTagIcon } from "./icons.tsx";
 import {
+  compareOpeningTagNames,
   type OpeningTagCatalog,
   openingTagMatches,
   openingTagName,
@@ -15,6 +17,7 @@ export interface OpeningTagFilterProps {
   /** The control's accessible name, such as "Tag". */
   label: string;
   placeholder?: string;
+  style?: CSSProperties;
 }
 
 /**
@@ -28,6 +31,7 @@ export function OpeningTagFilter({
   catalog,
   label,
   placeholder,
+  style,
 }: OpeningTagFilterProps) {
   const option = (oid: string) => {
     const name = openingTagName(catalog, oid, locale);
@@ -44,7 +48,7 @@ export function OpeningTagFilter({
   };
   const offered = [...catalog.values()]
     .filter((tag) => !tag.deprecated)
-    .sort((a, b) => a.display_name.localeCompare(b.display_name, "en"));
+    .sort((a, b) => compareOpeningTagNames(catalog, a, b, locale));
   const options = offered.map((tag) => option(tag.tag_oid));
   if (value !== undefined && !offered.some((tag) => tag.tag_oid === value))
     options.push(option(value));
@@ -55,6 +59,9 @@ export function OpeningTagFilter({
       onChange={(next?: string) => onChange(next || undefined)}
       options={options}
       placeholder={placeholder}
+      style={style}
+      // Names are longer than a filter-sized field; never cut them off.
+      popupMatchSelectWidth={false}
       allowClear
       showSearch={{
         filterOption: (input, candidate) => {

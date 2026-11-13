@@ -715,6 +715,7 @@ export const de = {
       minimumEducation: "Mindestabschluss",
       salary: "Gehalt",
       tags: "Schlagwörter",
+      tag: "Schlagwort",
     },
     workArrangements: {
       on_site: "Vor Ort",
