@@ -1,7 +1,7 @@
 # Openings
 
 Applies to creating, approving, changing, and displaying Openings in the Orgs
-portal, and to displaying an Org's Openings in the Hub portal. Compose with
+portal, and to displaying and searching Openings in the Hub portal. Compose with
 [`orgs.md`](orgs.md), [`authorization.md`](authorization.md),
 [`org-subscriptions.md`](org-subscriptions.md) (plan quota), and
 [`federation.md`](federation.md) (cross-tenant Hub reads). Applications and
@@ -321,7 +321,8 @@ transition takes or returns one.
   employing country, work arrangement, employment type, tag, and title search, and
   keyset pagination (at most 50), ordered by first publication, newest first.
   Each Opening card shows its tags (`PublicOpeningSummary.tags`, `[]` when
-  none). The tag filter offers every catalog tag that is not deprecated.
+  none) and its salary when disclosed (`PublicOpeningSummary.salary`, absent
+  when none). The tag filter offers every catalog tag that is not deprecated.
   `/org/<domain>/openings/<number>` shows one Opening, tags included.
 - **OPN-HUB-003** The Hub representation is `PublicOpening`: live content,
   number, state, first publication time, `last_revised_at`, and the Org's
@@ -348,6 +349,78 @@ transition takes or returns one.
   problem.
 - **OPN-HUB-008** Ship every string in every `hub-ui` locale.
 
+## Hub search
+
+- **OPN-SRCH-001** Any signed-in Hub user, on any plan, may search the
+  `published`, unexpired Openings of every Org homed in one region (tenant)
+  per request. `search-openings` takes an optional `region` (`TenantID`)
+  defaulting to the caller's home tenant. Never fan out to or merge several
+  regions.
+- **OPN-SRCH-002** hub-api answers its own region from its own database. For
+  another region it calls its mesh relay (`/mesh/opening-search/search` with
+  `{tenant_id, query}`), and the relay calls that tenant's peer
+  (`/api/mesh/opening-search/search` with the query), which answers from its
+  own database and never forwards. No viewer identity crosses the mesh
+  (OPN-HUB-006). A local and a peer search build results with one function in
+  `backend/internal/openingsearch`. A transport failure, deadline, unknown
+  region, or undeclared peer problem is `hub-region-unavailable`; never return
+  a partial or cached answer.
+- **OPN-SRCH-003** An Org qualifies only under OPN-HUB-004 (active, holding
+  its domain as `verified`, `failing`, or `releasing`). Results name it by
+  that domain.
+- **OPN-SRCH-004** Filters, each optional, combine with AND:
+
+  | Field | Rule |
+  | --- | --- |
+  | `keyword` | 2–200 code points; case-insensitive substring of the live title or the Org display name |
+  | `org_domain` | one `OrgDomain`; that Org's Openings only |
+  | `tag_oids` | 1–5 unique OIDs; the Opening holds at least one; an OID missing from the catalog matches nothing |
+  | `work_countries` | 1–10 unique `CountryCode`s where the caller may work: an `on_site` or `hybrid` Opening whose employing country is listed, or a `remote` Opening eligible `worldwide` or listing one of them |
+  | `work_arrangements` | 1–3 unique values |
+  | `employment_types` | 1–4 unique values |
+  | `posted_within_days` | `1`, `7`, or `30`; first published within that many days |
+  | `experience_years` | 0–50; the Opening states no range, or `min ≤ N ≤ max` with a missing bound open |
+  | `education_level` | the caller's highest level; the Opening states no minimum, or one at or below it (`secondary` < `bachelor` < `master` < `doctorate`) |
+  | `salary_disclosed` | `true` limits to Openings with a salary; `false` or absent does not filter |
+
+- **OPN-SRCH-005** Order results by first publication, newest first, then Org
+  domain ascending, then opening number descending. With `tag_oids`, order
+  first by how many requested tags the Opening holds, descending. Keyset
+  pagination, `limit` 1–50, default 20. The key is opaque and binds every
+  filter and the answering tenant; a mismatch is `invalid-pagination-key`.
+  Index the order without tags.
+- **OPN-SRCH-006** A result is `{org: PublicOrg, opening:
+  PublicOpeningSummary}` and nothing else (OPN-HUB-003). Sign each Org's logo
+  once per page.
+- **OPN-SRCH-007** `suggest-opening-orgs` takes an optional `region` and a
+  `query` of 2–100 code points, and returns at most 10 `PublicOrg`s: Orgs
+  that qualify (OPN-SRCH-003) and hold an Opening search could return, whose
+  display name contains the query case-insensitively or whose domain starts
+  with it, ordered by lower-cased display name, then domain. Region routing
+  and failures follow OPN-SRCH-002, through `/mesh/opening-search/suggest-orgs`
+  and `/api/mesh/opening-search/suggest-orgs`.
+- **OPN-SRCH-008** Neither operation stores or logs the query or the viewer.
+- **OPN-SRCH-009** hub-ui `/openings`, with a navigation entry "Openings"
+  after Home, offers every OPN-SRCH-004 filter: a keyword box; a region picker
+  over every compiled region, starting at the session's region; a one-Org
+  typeahead from `suggest-opening-orgs` (at least two characters, debounced),
+  cleared when the region changes; a tag multi-select of catalog tags not
+  deprecated (at most five); a country multi-select (at most ten, starting
+  empty); arrangement and employment-type multi-selects; date posted;
+  experience years; education; and a salary-disclosed switch. Keep every filter
+  in the URL (`q`, `region`, `org`, repeated `tag`, `country`, `arrangement`,
+  `employment`, then `posted`, `experience`, `education`, `salary`), drop a
+  hand-edited value the API would refuse instead of sending it, and restart
+  paging on any change. Keep `NoIndex`.
+- **OPN-SRCH-010** A result card shows the Org logo and display name (linking
+  `/org/<domain>`), the title (linking `/org/<domain>/openings/<number>`),
+  employing country, work arrangement, employment type, salary when disclosed,
+  tags, and first publication date. The page shows loading, no results, and
+  region-unavailable states, and every other failure through `APIErrorAlert`.
+- **OPN-SRCH-011** The Hub Home page shows a keyword box that opens
+  `/openings?q=<keyword>`, or `/openings` when empty.
+- **OPN-SRCH-012** Ship every string in every `hub-ui` locale.
+
 ## Problem types
 
 | Type | Status | Meaning |
@@ -363,6 +436,7 @@ transition takes or returns one.
 | `hub-org-not-found` | 404 | no active Org holds the domain |
 | `hub-opening-not-found` | 404 | no published or formerly published Opening has the number |
 | `hub-org-unavailable` | 503 | the Org's home tenant or the directory did not answer |
+| `hub-region-unavailable` | 503 | the searched region did not answer or is unknown |
 
 ## Tests and fixtures
 
@@ -383,7 +457,18 @@ transition takes or returns one.
   another tenant, a suspended Org, a released domain, and `ind1` failing closed
   with `hub-org-unavailable`. Assert that no internal field appears in any Hub
   or mesh response.
+- **OPN-TST-005** Cover search in `playwright/api/`: each filter on both sides
+  of its boundary (date posted, experience bounds, education order, remote
+  eligibility `worldwide` and `countries`, on-site and hybrid countries), tag
+  ranking, ordering, pagination and a key reused under changed filters, a
+  remote region (`usa1`) through the mesh, `ind1` as
+  `hub-region-unavailable`, exclusion of drafts, paused, closed, and expired
+  Openings, suspended Orgs, and released domains, `suggest-opening-orgs`, and
+  no internal field in any Hub or mesh response. Other tests publish in the
+  same tenants at once, so assert within unique titles or `org_domain`.
 - **OPN-TST-003** `make dev-seed` gives each seeded Org Openings in every state
   except `expired` (only time reaches it, and fixtures go through the portal
   APIs), a pending request of each kind, Recruiter and Hiring approver
-  users, and tags on most published Openings.
+  users, tags on most published Openings, and published Openings that vary
+  salary, remote eligibility, experience, and education so every search
+  filter matches some.
