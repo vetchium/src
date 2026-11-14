@@ -1,7 +1,7 @@
 # Opening search build progress
 
 branch: opening-search
-current: T05
+current: T06
 phase: implement
 
 ## Tasks
@@ -15,7 +15,7 @@ T04 done Openings: Opening search API tests
 
 ### M2 Hub portal
 
-T05 todo Hub portal: Opening search page
+T05 done Hub portal: Opening search page
 T06 todo Hub portal: Home search box and salary on Org page cards
 
 ### M3 Job search preferences

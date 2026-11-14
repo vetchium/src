@@ -48,3 +48,4 @@ dark.
   to add one when missing.
 
 ## Carried over
+- From T05: `/openings` reads and writes its URL through `hub-ui/src/features/openings/searchParams.ts` (`searchStateFromParams`, `paramsFromSearchState`, unit-tested in `searchParams.test.ts`); add `sort=match` there, after `salary`, and drop it there when no ideal job is saved.

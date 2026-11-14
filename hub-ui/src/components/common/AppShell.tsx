@@ -5,6 +5,7 @@ import {
   MailOutlined,
   MessageOutlined,
   SafetyOutlined,
+  SearchOutlined,
   SettingOutlined,
   UserOutlined,
 } from "@ant-design/icons";
@@ -33,6 +34,7 @@ import { SubscriptionEndingAlert } from "../../features/subscriptions/Subscripti
 import { ProfileAvatar } from "./ProfileAvatar";
 
 const navigationPaths = [
+  "/openings",
   "/applications",
   "/messages",
   "/settings/profile",
@@ -90,6 +92,11 @@ export function AppShell() {
     ) ?? "/";
   const navigationItems: ItemType[] = [
     { key: "/", icon: <HomeOutlined />, label: t("navigation.home") },
+    {
+      key: "/openings",
+      icon: <SearchOutlined />,
+      label: t("openingSearch.navigation"),
+    },
     {
       key: "/settings/profile",
       icon: <UserOutlined />,

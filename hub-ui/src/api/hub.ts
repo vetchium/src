@@ -73,6 +73,12 @@ import type {
   ListOrgOpeningsResponse,
 } from "typespec/hub/openings/public";
 import type {
+  SearchOpeningsRequest,
+  SearchOpeningsResponse,
+  SuggestOpeningOrgsRequest,
+  SuggestOpeningOrgsResponse,
+} from "typespec/hub/openings/search";
+import type {
   GetOperationRequest,
   OperationStatus,
   PendingOperation,
@@ -229,6 +235,12 @@ export const hubAPI = {
     apiRequest<ListOrgOpeningsResponse>(`${base}/list-org-openings`, { body }),
   getOrgOpening: (body: GetOrgOpeningRequest) =>
     apiRequest<GetOrgOpeningResponse>(`${base}/get-org-opening`, { body }),
+  searchOpenings: (body: SearchOpeningsRequest) =>
+    apiRequest<SearchOpeningsResponse>(`${base}/search-openings`, { body }),
+  suggestOpeningOrgs: (body: SuggestOpeningOrgsRequest) =>
+    apiRequest<SuggestOpeningOrgsResponse>(`${base}/suggest-opening-orgs`, {
+      body,
+    }),
   listOpeningTags: () =>
     apiRequest<ListOpeningTagsResponse>(`${base}/list-opening-tags`, {
       body: {},
