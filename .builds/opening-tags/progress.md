@@ -1,7 +1,7 @@
 # Opening tags build progress
 
 branch: opening-tags
-current: T09
+current: T10
 phase: implement
 
 ## Tasks
@@ -25,7 +25,7 @@ T08 done Hub portal: Opening tags on the Org and Opening pages
 
 ### M4 Fixtures and finish
 
-T09 todo Dev seed: Tags on seeded Openings
+T09 done Dev seed: Tags on seeded Openings
 T10 todo Opening tags: Finish the build
 
 ## Notes
