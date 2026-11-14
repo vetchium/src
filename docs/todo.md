@@ -39,6 +39,11 @@ Each item: what is not done, and what must be decided first.
 - The database integration tests (`TENANT_DATABASE_URL`,
   `GLOBAL_DATABASE_URL`) run in no make target. Decide where they run (a
   scratch database like `make migration-check`, or the CI stack).
+- Opening tags: no test shows a Simple Icons icon, the `TagOutlined`
+  fallback, or `aria-hidden` on either (OPN-TAG-005); none shows that
+  applying an AI draft keeps the editor's tags (OPN-TAG-010); and the
+  `check_opening_tag_oids` trigger is reached by no test, because the write
+  statement refuses an unknown OID first (OPN-TAG-009).
 
 ## Hub
 
@@ -109,13 +114,25 @@ Each item: what is not done, and what must be decided first.
 
 - Not specified: watchers and email
   notifications for requests and decisions (decide recipients, batching, and
-  opt-out); tags (seeded opening-tag OIDs) and cost centers; multi-step or
-  per-Org approval chains; extending expiry without a new quota slot.
+  opt-out); cost centers; multi-step or per-Org approval chains; extending
+  expiry without a new quota slot.
 - Cross-Org discovery: searching Openings of every Org, filtered by preferred
-  job countries. Decide between a mesh fan-out and a rebuildable per-tenant
-  projection fed by the outbox, and how ranking and pagination work across
-  tenants. Also decide entry points to `/org/<domain>`, such as profile
-  employer domains.
+  job countries and by tag OID. Decide between a mesh fan-out and a
+  rebuildable per-tenant projection fed by the outbox, and how ranking and
+  pagination work across tenants. Also decide entry points to
+  `/org/<domain>`, such as profile employer domains.
+- AI drafting suggesting Opening tags; drafting returns none (OPN-TAG-010).
+  Decide the prompt cost of listing the catalog and how suggested OIDs are
+  validated.
+- Localized Opening tag names: German covers 20 tags and Tamil only
+  `artificial-intelligence`. Decide who reviews Tamil and other translations
+  before they are seeded.
+- Admin visibility of the Opening tag catalog: the Admin portal shows no
+  tags. Decide whether Admins only read the catalog or also see its use.
+- Orgs Openings list keeps only the tag filter in the URL; state, title,
+  hiring manager, recruiter, pending kinds, country, work arrangement, and
+  employment type stay in component state, against `ux.md`'s URL-kept
+  filters.
 - Moderation: Admin takedown of an Opening. Decide whether a takedown is a
   state, the notice to the Org, appeal, audit, and which tenant's admins
   act.
