@@ -1,7 +1,7 @@
 # Opening search build progress
 
 branch: opening-search
-current: T12
+current: T13
 phase: implement
 
 ## Tasks
@@ -31,7 +31,7 @@ T10 done Portals: Ideal job on apply and application pages
 ### M5 Ideal job match
 
 T11 done Openings: Ideal job match contracts and query
-T12 todo Openings: Ideal job match in hub-api and across regions
+T12 done Openings: Ideal job match in hub-api and across regions
 T13 todo Hub portal: Ideal job match sort on Opening search
 
 ### M6 Fixtures and finish

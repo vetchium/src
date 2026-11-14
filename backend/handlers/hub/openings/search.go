@@ -5,25 +5,56 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
+
+	hubspec "github.com/vetchium/src/typespec/hub"
 	openingsspec "github.com/vetchium/src/typespec/hub/openings"
 	"github.com/vetchium/src/typespec/problem"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/apiserver"
 	hubruntime "backend/internal/hub"
+	hubauthn "backend/internal/hub/auth"
+	"backend/internal/middleware"
 	"backend/internal/openingsearch"
 )
 
 // Search answers the caller's home region locally and any other region
-// through the mesh relay (OPN-SRCH-002). It never logs the query
-// (OPN-SRCH-008).
+// through the mesh relay (OPN-SRCH-002). The match sort reads the caller's
+// own ideal job, the only viewer data a peer may receive (OPN-SRCH-014). It
+// never logs the query or the text (OPN-SRCH-008).
 func Search(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request openingsspec.SearchOpeningsRequest
 		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
-		query := openingsspec.OpeningSearchQuery{OpeningSearchFilters: request.OpeningSearchFilters}
+		query := openingsspec.OpeningSearchQuery{
+			OpeningSearchFilters: request.OpeningSearchFilters, Sort: request.Sort,
+		}
+		if request.EffectiveSort() == openingsspec.SortIdealJobMatch {
+			identity, _ := middleware.HubIdentityFromContext(r.Context())
+			idealJob, err := s.Queries.GetHubIdealJob(r.Context(), identity.UserDID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				s.AuthenticationProblem(
+					r.Context(), w, hubproblem.AuthenticationRequiredError,
+					hubauthn.BearerChallenge,
+				)
+				return
+			}
+			if err != nil {
+				s.InternalError(r.Context(), w, "read Hub ideal job", err)
+				return
+			}
+			// Checked before any routing, so every region answers alike
+			// (OPN-SRCH-013).
+			if !idealJob.Valid {
+				s.Problem(r.Context(), w, hubproblem.IdealJobMissingError)
+				return
+			}
+			text := hubspec.IdealJob(idealJob.String)
+			query.IdealJobText = &text
+		}
 		var result openingsspec.SearchOpeningsResponse
 		if request.Region == nil || string(*request.Region) == s.TenantID {
 			local, err := s.OpeningSearch.Search(r.Context(), query)

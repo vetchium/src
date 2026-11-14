@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/hub"
 	openingsspec "github.com/vetchium/src/typespec/hub/openings"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/problem"
@@ -162,5 +163,41 @@ func TestRelaySearchPassesProblemsThrough(t *testing.T) {
 		openingsspec.SuggestOpeningOrgsQuery{Query: "ex"})
 	if err != nil || suggest.Problem == nil {
 		t.Fatalf("suggest problem = %+v, %v", suggest, err)
+	}
+}
+
+func TestRelaySearchSendsIdealJobTextOnlyWithTheMatchSort(t *testing.T) {
+	var sent atomic.Value
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Query map[string]json.RawMessage `json:"query"`
+		}
+		if json.NewDecoder(r.Body).Decode(&body) != nil {
+			t.Error("undecodable relay body")
+		}
+		sent.Store(body.Query)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"openings":[]}`))
+	}))
+	defer server.Close()
+	client := NewRelay(server.URL, "secret", time.Second)
+	text := hub.IdealJob("Go backend")
+	for _, tc := range []struct {
+		name  string
+		query openingsspec.OpeningSearchQuery
+		want  string
+	}{
+		{"match", openingsspec.OpeningSearchQuery{
+			Sort: new(openingsspec.SortIdealJobMatch), IdealJobText: &text,
+		}, `"Go backend"`},
+		{"newest", openingsspec.OpeningSearchQuery{Sort: new(openingsspec.SortNewest)}, ""},
+		{"default", openingsspec.OpeningSearchQuery{}, ""},
+	} {
+		if _, err := client.RelaySearch(context.Background(), "usa1", tc.query); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if got := string(sent.Load().(map[string]json.RawMessage)["ideal_job_text"]); got != tc.want {
+			t.Fatalf("%s: sent ideal_job_text %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }

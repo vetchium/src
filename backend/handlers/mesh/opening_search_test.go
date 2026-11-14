@@ -1,12 +1,14 @@
 package mesh
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -196,5 +198,53 @@ func TestSearchPeerProblemForwardsOnlyQueryFaults(t *testing.T) {
 		if got := searchPeerProblem(tc.upstream).Type; got != tc.want {
 			t.Errorf("peer problem %q = %q, want %q", tc.upstream.Type, got, tc.want)
 		}
+	}
+}
+
+func TestOpeningSearchValidatesAndNeverLogsIdealJobText(t *testing.T) {
+	t.Parallel()
+	var logs bytes.Buffer
+	server := openingSearchServer()
+	server.Runtime = apiserver.New(nil, slog.New(slog.NewJSONHandler(&logs,
+		&slog.HandlerOptions{Level: slog.LevelDebug})))
+	identified := meshidentity.WithTenant(context.Background(), "usa1")
+	const text = "zebrafinch"
+	match := `{"sort":"ideal_job_match","ideal_job_text":" ` + text + ` "}`
+	for _, call := range []struct {
+		handler http.HandlerFunc
+		body    string
+		ctx     context.Context
+		headers map[string]string
+		status  int
+		fields  []string
+	}{
+		{RelaySearchOpenings(server), `{"tenant_id":"sgp","query":` + match + `}`,
+			context.Background(), relayAuth, http.StatusOK, nil},
+		{PeerSearchOpenings(server), match, identified, nil, http.StatusOK, nil},
+		{RelaySearchOpenings(server), `{"tenant_id":"sgp","query":{"sort":"ideal_job_match"}}`,
+			context.Background(), relayAuth, http.StatusBadRequest, []string{"query.ideal_job_text"}},
+		{RelaySearchOpenings(server), `{"tenant_id":"sgp","query":{"ideal_job_text":"` + text + `"}}`,
+			context.Background(), relayAuth, http.StatusBadRequest, []string{"query.ideal_job_text"}},
+		{PeerSearchOpenings(server), `{"sort":"ideal_job_match","ideal_job_text":"  "}`,
+			identified, nil, http.StatusBadRequest, []string{"ideal_job_text"}},
+		{PeerSearchOpenings(server), `{"sort":"newest","ideal_job_text":"` + text + `"}`,
+			identified, nil, http.StatusBadRequest, []string{"ideal_job_text"}},
+		{PeerSearchOpenings(server), `{"sort":"relevance"}`,
+			identified, nil, http.StatusBadRequest, []string{"sort"}},
+	} {
+		recorder := postListing(call.handler, call.body, call.headers, call.ctx)
+		if recorder.Code != call.status {
+			t.Fatalf("%s: status = %d body = %s", call.body, recorder.Code, recorder.Body.String())
+		}
+		if call.fields != nil {
+			var details problem.Details
+			if err := json.Unmarshal(recorder.Body.Bytes(), &details); err != nil ||
+				!slices.Equal(details.Fields, call.fields) {
+				t.Fatalf("%s: body = %s", call.body, recorder.Body.String())
+			}
+		}
+	}
+	if logs.Len() == 0 || strings.Contains(logs.String(), text) {
+		t.Fatalf("logs hold the ideal-job text or nothing at all: %s", logs.String())
 	}
 }

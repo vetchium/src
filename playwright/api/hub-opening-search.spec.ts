@@ -1059,3 +1059,294 @@ test("mesh Opening search routes enforce credentials, validation, and the answer
     "invalid-pagination-key",
   );
 });
+
+async function setIdealJob(hub: HubAPI, sessionToken: string, text: string) {
+  const response = await hub.setIdealJob(sessionToken, { ideal_job: text });
+  expect(response.status(), await response.text()).toBe(204);
+}
+
+/**
+ * Publishes one Opening matching the ideal job by title, one by tag, one by
+ * description, and one sharing no word, all at org.
+ */
+async function publishMatches(org: TestOrg, word: string) {
+  const [byTitle, byTag, byDescription, unrelated] = [
+    await publishOpening(org, content(`${word} lead`)),
+    await publishOpening(org, content("Platform role", { tags: ["golang"] })),
+    await publishOpening(
+      org,
+      content("Support role", {
+        employing_country: "IN",
+        description: `Work with ${word} daily`,
+      }),
+    ),
+    await publishOpening(
+      org,
+      content("Unrelated role", { description: "Nothing in common" }),
+    ),
+  ].map(({ opening_number }) => opening_number);
+  return { byTitle, byTag, byDescription, unrelated };
+}
+
+const idealJobMissing = {
+  type: `${problemBase}hub-ideal-job-missing`,
+  title: "Ideal job missing",
+  status: 422,
+  detail: "Save your ideal job in Preferences to sort by match",
+};
+
+test("ideal_job_match ranks title, tag, and description matches, excludes the rest, and keeps every filter", async ({
+  request,
+}) => {
+  const email = viewerEmail();
+  const created: TestOrg[] = [];
+  const hub = new HubAPI(request, "sgp");
+  try {
+    const { sessionToken } = seedActiveHubUser("sgp", email, "Matcher");
+    const word = token();
+    const org = await createOrg(request, "sgp", created);
+    const { byTitle, byTag, byDescription } = await publishMatches(org, word);
+    await setIdealJob(hub, sessionToken, `${word} golang`);
+    const match = async (filters: SearchOpeningsRequest = {}) =>
+      numbers(
+        await search(hub, sessionToken, {
+          org_domain: org.org.domain,
+          sort: "ideal_job_match",
+          ...filters,
+        }),
+      );
+
+    expect(await match()).toEqual([byTitle, byTag, byDescription]);
+    expect(await match({ keyword: word })).toEqual([byTitle]);
+    expect(await match({ tag_oids: ["golang"] })).toEqual([byTag]);
+    expect(await match({ work_countries: ["IN"] })).toEqual([byDescription]);
+    // The newest sort still lists every Opening, newest first.
+    expect(
+      (
+        await search(hub, sessionToken, {
+          org_domain: org.org.domain,
+          sort: "newest",
+        })
+      ).openings,
+    ).toHaveLength(4);
+
+    // Quotes and backslashes in the text match as words, not query syntax.
+    await setIdealJob(hub, sessionToken, `O'Brien's ${word} C:\\dev\\`);
+    expect(await match()).toEqual([byTitle, byDescription]);
+    await setIdealJob(hub, sessionToken, "!!! ... ???");
+    expect(await match()).toEqual([]);
+  } finally {
+    await cleanupOrgs(created);
+    cleanupHubUser(email, "sgp");
+  }
+});
+
+test("ideal_job_match pages in rank order and binds the sort and the ideal job to its key", async ({
+  request,
+}) => {
+  const email = viewerEmail();
+  const created: TestOrg[] = [];
+  const hub = new HubAPI(request, "sgp");
+  try {
+    const { sessionToken } = seedActiveHubUser("sgp", email, "Ranker");
+    const word = token();
+    const org = await createOrg(request, "sgp", created);
+    const { byTitle, byTag, byDescription } = await publishMatches(org, word);
+    await setIdealJob(hub, sessionToken, `${word} golang`);
+    const body: SearchOpeningsRequest = {
+      org_domain: org.org.domain,
+      sort: "ideal_job_match",
+      limit: 2,
+    };
+    const first = await search(hub, sessionToken, body);
+    expect(numbers(first)).toEqual([byTitle, byTag]);
+    const key = first.next_pagination_key;
+    if (key === undefined) throw new Error("missing pagination key");
+    const second = await search(hub, sessionToken, {
+      ...body,
+      pagination_key: key,
+    });
+    expect(numbers(second)).toEqual([byDescription]);
+    expect(second.next_pagination_key).toBeUndefined();
+    expect(Buffer.from(key, "base64url").toString()).not.toContain(word);
+
+    for (const changed of [
+      { ...body, sort: "newest" as const },
+      { org_domain: org.org.domain, limit: 2 },
+    ]) {
+      const response = await hub.searchOpenings(
+        { ...changed, pagination_key: key },
+        sessionToken,
+      );
+      expect(response.status(), await response.text()).toBe(400);
+      expect(await response.json()).toMatchObject({
+        type: `${problemBase}invalid-pagination-key`,
+      });
+    }
+    await setIdealJob(hub, sessionToken, `${word} rust`);
+    const changedText = await hub.searchOpenings(
+      { ...body, pagination_key: key },
+      sessionToken,
+    );
+    expect(changedText.status(), await changedText.text()).toBe(400);
+    expect(await changedText.json()).toMatchObject({
+      type: `${problemBase}invalid-pagination-key`,
+    });
+  } finally {
+    await cleanupOrgs(created);
+    cleanupHubUser(email, "sgp");
+  }
+});
+
+test("ideal_job_match needs a saved ideal job in every region and never takes the text from the browser", async ({
+  request,
+}) => {
+  const email = viewerEmail();
+  const hub = new HubAPI(request, "sgp");
+  try {
+    const { sessionToken } = seedActiveHubUser("sgp", email, "No ideal job");
+    for (const region of [undefined, "sgp", "usa1", unknownRegion]) {
+      const response = await hub.searchOpenings(
+        { sort: "ideal_job_match", ...(region !== undefined && { region }) },
+        sessionToken,
+      );
+      expect(response.status(), await response.text()).toBe(422);
+      expect(await response.json()).toEqual(idealJobMissing);
+    }
+    // An emptied ideal job is no ideal job.
+    await setIdealJob(hub, sessionToken, "Data engineer");
+    await setIdealJob(hub, sessionToken, "");
+    const emptied = await hub.searchOpenings(
+      { sort: "ideal_job_match" },
+      sessionToken,
+    );
+    expect(emptied.status(), await emptied.text()).toBe(422);
+    expect(await emptied.json()).toEqual(idealJobMissing);
+
+    const withText = await hub.postRaw(
+      "/search-openings",
+      JSON.stringify({ sort: "ideal_job_match", ideal_job_text: "Go" }),
+      { token: sessionToken },
+    );
+    expect(withText.status(), await withText.text()).toBe(400);
+    expect(await withText.json()).toMatchObject({
+      type: `${problemBase}invalid-json`,
+    });
+    const unknownSort = await hub.post(
+      "/search-openings",
+      { sort: "relevance" },
+      { token: sessionToken },
+    );
+    expect(unknownSort.status(), await unknownSort.text()).toBe(400);
+    expect(await unknownSort.json()).toMatchObject({
+      type: `${problemBase}validation-failed`,
+      fields: ["sort"],
+    });
+  } finally {
+    cleanupHubUser(email, "sgp");
+  }
+});
+
+test("ideal_job_match ranks another region's Openings through the mesh and fails closed", async ({
+  request,
+  apiCoverage,
+}) => {
+  const email = viewerEmail();
+  const created: TestOrg[] = [];
+  const hub = new HubAPI(request, "sgp");
+  try {
+    const { sessionToken } = seedActiveHubUser("sgp", email, "Remote matcher");
+    const word = token();
+    const remote = await createOrg(request, "usa1", created);
+    const { byTitle, byTag, byDescription } = await publishMatches(
+      remote,
+      word,
+    );
+    await setIdealJob(hub, sessionToken, `${word} golang`);
+    const body: SearchOpeningsRequest = {
+      org_domain: remote.org.domain,
+      sort: "ideal_job_match",
+    };
+    expect(numbers(await search(hub, sessionToken, body))).toEqual([]);
+    const ranked = await search(hub, sessionToken, { ...body, region: "usa1" });
+    expect(numbers(ranked)).toEqual([byTitle, byTag, byDescription]);
+    const page = await search(hub, sessionToken, {
+      ...body,
+      region: "usa1",
+      limit: 1,
+    });
+    const key = page.next_pagination_key;
+    if (key === undefined) throw new Error("missing pagination key");
+    expect(
+      numbers(
+        await search(hub, sessionToken, {
+          ...body,
+          region: "usa1",
+          limit: 1,
+          pagination_key: key,
+        }),
+      ),
+    ).toEqual([byTag]);
+
+    const unavailable = await hub.searchOpenings(
+      { ...body, region: unknownRegion },
+      sessionToken,
+    );
+    expect(unavailable.status(), await unavailable.text()).toBe(503);
+    expect(await unavailable.json()).toMatchObject({
+      type: `${problemBase}hub-region-unavailable`,
+    });
+
+    const query = {
+      org_domain: remote.org.domain,
+      sort: "ideal_job_match",
+      ideal_job_text: `${word} golang`,
+    };
+    const relay = meshRelayRequest(
+      "sgp",
+      "/mesh/opening-search/search",
+      { tenant_id: "usa1", query },
+      apiCoverage,
+    );
+    expect(relay.status, JSON.stringify(relay.body)).toBe(200);
+    expect(numbers(relay.body as SearchOpeningsResponse)).toEqual([
+      byTitle,
+      byTag,
+      byDescription,
+    ]);
+    const peer = meshPeerRequest("sgp", "usa1", query, apiCoverage, {
+      path: "/api/mesh/opening-search/search",
+    });
+    expect(peer.status, JSON.stringify(peer.body)).toBe(200);
+    expect(numbers(peer.body as SearchOpeningsResponse)).toEqual([
+      byTitle,
+      byTag,
+      byDescription,
+    ]);
+
+    for (const [invalid, field] of [
+      [{ sort: "ideal_job_match" }, "ideal_job_text"],
+      [{ sort: "ideal_job_match", ideal_job_text: "   " }, "ideal_job_text"],
+      [{ ideal_job_text: "Go" }, "ideal_job_text"],
+      [{ sort: "newest", ideal_job_text: "Go" }, "ideal_job_text"],
+      [{ sort: "relevance" }, "sort"],
+    ] as const) {
+      const peerInvalid = meshPeerRequest("sgp", "usa1", invalid, apiCoverage, {
+        path: "/api/mesh/opening-search/search",
+      });
+      expectMeshProblem(peerInvalid, 400, "validation-failed");
+      expect(peerInvalid.body).toMatchObject({ fields: [field] });
+      const relayInvalid = meshRelayRequest(
+        "sgp",
+        "/mesh/opening-search/search",
+        { tenant_id: "usa1", query: invalid },
+        apiCoverage,
+      );
+      expectMeshProblem(relayInvalid, 400, "validation-failed");
+      expect(relayInvalid.body).toMatchObject({ fields: [`query.${field}`] });
+    }
+  } finally {
+    await cleanupOrgs(created);
+    cleanupHubUser(email, "sgp");
+  }
+});
