@@ -11,8 +11,12 @@ test("every filter round-trips through the URL in the listed order", () => {
   const query =
     "q=engineer&region=usa1&org=example.com&tag=golang&tag=python" +
     "&country=SG&country=IN&arrangement=remote&employment=full_time" +
-    "&posted=7&experience=4&education=master&salary=1";
-  const state = searchStateFromParams(new URLSearchParams(query), isRegion);
+    "&posted=7&experience=4&education=master&salary=1&sort=match";
+  const state = searchStateFromParams(
+    new URLSearchParams(query),
+    isRegion,
+    true,
+  );
   assert.deepEqual(state, {
     region: "usa1",
     filters: {
@@ -26,9 +30,29 @@ test("every filter round-trips through the URL in the listed order", () => {
       experience_years: 4,
       education_level: "master",
       salary_disclosed: true,
+      sort: "ideal_job_match",
     },
   });
   assert.equal(paramsFromSearchState(state).toString(), query);
+});
+
+test("sort=match needs a saved ideal job, and any other sort is dropped", () => {
+  const read = (query: string, idealJobSaved: boolean) =>
+    searchStateFromParams(new URLSearchParams(query), isRegion, idealJobSaved);
+  assert.deepEqual(read("q=go&sort=match", false), {
+    filters: { keyword: "go" },
+  });
+  for (const query of [
+    "sort=newest",
+    "sort=ideal_job_match",
+    "sort=Match",
+    "sort=match&sort=match",
+  ])
+    assert.deepEqual(read(query, true), { filters: {} }, query);
+  assert.equal(
+    paramsFromSearchState({ filters: { sort: "newest" } }).toString(),
+    "",
+  );
 });
 
 test("hand-edited values the API would refuse are dropped", () => {
@@ -39,6 +63,7 @@ test("hand-edited values the API would refuse are dropped", () => {
         "&posted=3&experience=4.5&education=phd&salary=yes",
     ),
     isRegion,
+    true,
   );
   assert.deepEqual(state, {
     filters: {
@@ -53,7 +78,11 @@ test("a list over its limit is dropped whole", () => {
   const tags = ["a1", "a2", "a3", "a4", "a5", "a6"]
     .map((tag) => `tag=${tag}`)
     .join("&");
-  const state = searchStateFromParams(new URLSearchParams(tags), isRegion);
+  const state = searchStateFromParams(
+    new URLSearchParams(tags),
+    isRegion,
+    true,
+  );
   assert.deepEqual(state, { filters: {} });
 });
 
@@ -61,6 +90,7 @@ test("a repeated region is ignored", () => {
   const state = searchStateFromParams(
     new URLSearchParams("region=usa1&region=sgp"),
     isRegion,
+    true,
   );
   assert.deepEqual(state, { filters: {} });
 });

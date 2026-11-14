@@ -762,6 +762,13 @@ export const en = {
     clearFilters: "Clear filters",
     regionUnavailable:
       "The {{region}} region is not answering. Try again later or choose another region.",
+    sortBy: "Sort by",
+    sortNewest: "Newest",
+    sortMatch: "Best match for my ideal job",
+    matchNeedsIdealJob: "To sort by match, save your ideal job.",
+    addIdealJob: "Add your ideal job",
+    idealJobMissing:
+      "Your ideal job is not saved, so openings cannot be sorted by match.",
     previous: "Previous",
     next: "Next",
   },

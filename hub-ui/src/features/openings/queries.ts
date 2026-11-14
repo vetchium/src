@@ -46,11 +46,15 @@ export function useOpeningTags(): OpeningTagCatalogState {
   return useOpeningTagCatalog(openingTagsQueryKey, hubAPI.listOpeningTags);
 }
 
-export function useOpeningSearchQuery(request: SearchOpeningsRequest) {
+export function useOpeningSearchQuery(
+  request: SearchOpeningsRequest,
+  enabled = true,
+) {
   return useQuery({
     queryKey: ["hub", "opening-search", request],
     queryFn: () => hubAPI.searchOpenings(request),
     retry: false,
+    enabled,
   });
 }
 

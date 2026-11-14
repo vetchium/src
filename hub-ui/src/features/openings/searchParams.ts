@@ -7,6 +7,7 @@ import {
   normalizeSearchOpeningsRequest,
   type OpeningSearchPostedWithinDays,
   type SearchOpeningsRequest,
+  SortIdealJobMatch,
   validateSearchOpeningsRequest,
 } from "typespec/hub/openings/search";
 
@@ -83,10 +84,12 @@ function number(params: URLSearchParams, name: string): number | undefined {
 }
 
 /** Reads a search from the URL; a hand-edited value the API would refuse is
- * dropped instead of sent. */
+ * dropped instead of sent. `sort=match` needs a saved ideal job, so it is
+ * dropped without one (OPN-SRCH-016); newest is the absent sort. */
 export function searchStateFromParams(
   params: URLSearchParams,
   isRegion: (tenantId: string) => boolean,
+  idealJobSaved: boolean,
 ): OpeningSearchState {
   const regions = params.getAll("region");
   const region =
@@ -109,6 +112,10 @@ export function searchStateFromParams(
         | OpeningEducation
         | undefined,
       salary_disclosed: params.get("salary") === "1" ? true : undefined,
+      sort:
+        idealJobSaved && params.getAll("sort").join() === "match"
+          ? SortIdealJobMatch
+          : undefined,
     }),
   );
   return {
@@ -138,5 +145,6 @@ export function paramsFromSearchState({
   add("experience", filters.experience_years);
   add("education", filters.education_level);
   if (filters.salary_disclosed) add("salary", 1);
+  if (filters.sort === SortIdealJobMatch) add("sort", "match");
   return params;
 }

@@ -3,7 +3,10 @@ import type { Page } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
 import type { SearchOpeningsRequest } from "typespec/hub/openings/search";
 import type { OrgOpening } from "typespec/orgs/openings/types";
-import { RegionUnavailableError } from "typespec/problem/hub/openings";
+import {
+  IdealJobMissingError,
+  RegionUnavailableError,
+} from "typespec/problem/hub/openings";
 import { loginOrg, OrgsAPI } from "../lib/orgs-api.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
 import {
@@ -447,4 +450,150 @@ test("the Home search box opens Opening search with its keyword, or unfiltered w
   await expect(page.getByRole("searchbox", { name: "Keyword" })).toHaveValue(
     "",
   );
+});
+
+const matchOption = "Best match for my ideal job";
+
+/** Saves the ideal job through the Home job search card. */
+async function saveIdealJob(page: Page, text: string) {
+  await page.goto(`${HUB_PORTAL}/`);
+  await page.getByLabel("My ideal job").fill(text);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByLabel("My ideal job")).toHaveCount(0);
+}
+
+async function expectSort(page: Page, label: string) {
+  await expect(
+    page.getByRole("combobox", { name: "Sort by" }).locator(".."),
+  ).toHaveAttribute("title", label);
+}
+
+function titles(page: Page, word: string) {
+  return page.getByRole("link", { name: new RegExp(`^${word} `) });
+}
+
+test("without an ideal job the match sort is disabled, links to Preferences, and a sort=match URL is dropped", async ({
+  hubUser,
+  org,
+  page,
+  request,
+}) => {
+  const local = await org("sgp");
+  const word = token();
+  await publish(new OrgsAPI(request, "sgp"), local, [
+    content(`${word} Plain role`),
+  ]);
+  await signIn(page, await hubUser("sgp"));
+  const searches = recordSearches(page);
+  await page.goto(`${HUB_PORTAL}/openings?q=${word}&sort=match`);
+  await expect(opening(page, `${word} Plain role`)).toBeVisible();
+  expect(searches).toEqual([{ keyword: word }]);
+
+  const sort = page.getByRole("combobox", { name: "Sort by" });
+  await expectSort(page, "Newest");
+  await sort.click();
+  const option = page
+    .locator(".ant-select-dropdown:visible")
+    .getByTitle(matchOption, { exact: true });
+  await expect(option).toHaveAttribute("aria-disabled", "true");
+  await option.click({ force: true });
+  await page.keyboard.press("Escape");
+  await expectSort(page, "Newest");
+  expect(searches).toEqual([{ keyword: word }]);
+  await expect(
+    page.getByText("To sort by match, save your ideal job."),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Add your ideal job" }).click();
+  await expect(page).toHaveURL(`${HUB_PORTAL}/settings/preferences`);
+});
+
+test("the match sort ranks by the ideal job, survives reload and back, and works in another region", async ({
+  hubUser,
+  org,
+  page,
+  request,
+}) => {
+  const word = token();
+  const skill = token();
+  const titled = `${word} ${skill} lead`;
+  const described = `${word} Support role`;
+  const local = await org("sgp");
+  const remote = await org("usa1");
+  // The description match is published last, so newest lists it first.
+  await publish(new OrgsAPI(request, "sgp"), local, [
+    content(titled),
+    content(described, { description: `Work with ${skill} daily.` }),
+  ]);
+  await publish(new OrgsAPI(request, "usa1"), remote, [
+    content(`${word} Remote ${skill}`, { employing_country: "US" }),
+    content(`${word} Remote other`, { employing_country: "US" }),
+  ]);
+  await signIn(page, await hubUser("sgp"));
+  await saveIdealJob(page, `${skill} engineering`);
+
+  await page.goto(`${HUB_PORTAL}/openings?q=${word}`);
+  await expect(titles(page, word)).toHaveText([described, titled]);
+  await chooseOption(
+    page,
+    page.getByRole("combobox", { name: "Sort by" }),
+    matchOption,
+  );
+  await expect(page).toHaveURL(`${HUB_PORTAL}/openings?q=${word}&sort=match`);
+  await expect(titles(page, word)).toHaveText([titled, described]);
+  await expect(
+    page.getByText("To sort by match, save your ideal job."),
+  ).toHaveCount(0);
+
+  await page.reload();
+  await expect(titles(page, word)).toHaveText([titled, described]);
+  await expectSort(page, matchOption);
+  await opening(page, titled).click();
+  await expect(page).toHaveURL(new RegExp(`/org/${local.domain}/openings/`));
+  await page.goBack();
+  await expect(page).toHaveURL(`${HUB_PORTAL}/openings?q=${word}&sort=match`);
+  await expect(titles(page, word)).toHaveText([titled, described]);
+
+  await chooseRegion(page, "usa1");
+  await expect(page).toHaveURL(
+    `${HUB_PORTAL}/openings?q=${word}&region=usa1&sort=match`,
+  );
+  await expect(titles(page, word)).toHaveText([`${word} Remote ${skill}`]);
+
+  await chooseOption(
+    page,
+    page.getByRole("combobox", { name: "Sort by" }),
+    "Newest",
+  );
+  await expect(page).toHaveURL(`${HUB_PORTAL}/openings?q=${word}&region=usa1`);
+  await expect(titles(page, word)).toHaveText([
+    `${word} Remote other`,
+    `${word} Remote ${skill}`,
+  ]);
+});
+
+test("a hub-ideal-job-missing answer links to Preferences", async ({
+  hubUser,
+  page,
+}) => {
+  await signIn(page, await hubUser("sgp"));
+  await saveIdealJob(page, "Platform engineer");
+  // The ideal job is removed elsewhere after this page read my-info.
+  await page.route("**/api/hub/search-openings", (route) =>
+    route.fulfill({
+      status: 422,
+      contentType: "application/problem+json",
+      body: JSON.stringify(IdealJobMissingError),
+    }),
+  );
+  await page.goto(`${HUB_PORTAL}/openings?sort=match`);
+  await expect(
+    page.getByText(
+      "Your ideal job is not saved, so openings cannot be sorted by match.",
+    ),
+  ).toBeVisible();
+  await page
+    .getByRole("alert")
+    .getByRole("link", { name: "Add your ideal job" })
+    .click();
+  await expect(page).toHaveURL(`${HUB_PORTAL}/settings/preferences`);
 });

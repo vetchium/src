@@ -795,6 +795,14 @@ export const de = {
     clearFilters: "Filter zurücksetzen",
     regionUnavailable:
       "Die Region {{region}} antwortet nicht. Versuchen Sie es später erneut oder wählen Sie eine andere Region.",
+    sortBy: "Sortieren nach",
+    sortNewest: "Neueste",
+    sortMatch: "Beste Übereinstimmung mit meinem idealen Job",
+    matchNeedsIdealJob:
+      "Speichern Sie Ihren idealen Job, um nach Übereinstimmung zu sortieren.",
+    addIdealJob: "Idealen Job hinzufügen",
+    idealJobMissing:
+      "Ihr idealer Job ist nicht gespeichert, daher können Stellen nicht nach Übereinstimmung sortiert werden.",
     previous: "Zurück",
     next: "Weiter",
   },

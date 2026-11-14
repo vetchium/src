@@ -21,7 +21,7 @@ import {
 } from "antd";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import type {
   OpeningEducation,
   OpeningEmploymentType,
@@ -31,10 +31,16 @@ import type { PublicOrg } from "typespec/hub/openings/public";
 import {
   type OpeningSearchPostedWithinDays,
   OpeningSearchPostedWithinDaysValues,
+  type OpeningSearchSort,
   type SearchOpeningsRequest,
+  SortIdealJobMatch,
+  SortNewest,
 } from "typespec/hub/openings/search";
 import type { FrontendLocale } from "typespec/hub/types";
-import { RegionUnavailableError } from "typespec/problem/hub/openings";
+import {
+  IdealJobMissingError,
+  RegionUnavailableError,
+} from "typespec/problem/hub/openings";
 import { isProblem } from "../api/client";
 import { regionTable } from "../app/regions";
 import { useAuth } from "../auth/AuthContext";
@@ -51,6 +57,7 @@ import {
   paramsFromSearchState,
   searchStateFromParams,
 } from "../features/openings/searchParams";
+import { useMyInfoQuery } from "../features/profile/queries";
 import { countryName, countryOptions } from "../i18n/countries";
 
 const workArrangements: readonly OpeningWorkArrangement[] = [
@@ -99,7 +106,14 @@ function OpeningSearch({ sessionRegion }: { sessionRegion: string }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as FrontendLocale;
   const [search, setSearch] = useSearchParams();
-  const state = searchStateFromParams(search, isRegion);
+  const myInfo = useMyInfoQuery();
+  const idealJobSaved = myInfo.data?.ideal_job !== undefined;
+  // Until my-info answers, a match sort in the URL is kept but not sent.
+  const state = searchStateFromParams(
+    search,
+    isRegion,
+    idealJobSaved || myInfo.isPending,
+  );
   const region = state.region ?? sessionRegion;
   const filters = state.filters;
   // Paging restarts whenever the search changes, however the URL changed.
@@ -139,7 +153,10 @@ function OpeningSearch({ sessionRegion }: { sessionRegion: string }) {
     ...(region !== sessionRegion && { region }),
     ...(pageKey !== undefined && { pagination_key: pageKey }),
   };
-  const result = useOpeningSearchQuery(request);
+  const result = useOpeningSearchQuery(
+    request,
+    !(myInfo.isPending && filters.sort !== undefined),
+  );
   const tags = useOpeningTags();
   const countries = countryOptions(locale);
   const regionLabel = (tenantId: string) => {
@@ -152,7 +169,7 @@ function OpeningSearch({ sessionRegion }: { sessionRegion: string }) {
       tenantId,
     });
   };
-  const filtered = Object.keys(filters).length > 0;
+  const filtered = Object.keys(filters).some((field) => field !== "sort");
   const hiddenCount = moreFiltersCount(filters);
 
   return (
@@ -413,6 +430,40 @@ function OpeningSearch({ sessionRegion }: { sessionRegion: string }) {
           )}
         </Flex>
       </Card>
+      <Flex gap="small" align="center" justify="end" wrap>
+        {!idealJobSaved && !myInfo.isPending && (
+          <Typography.Text type="secondary">
+            {t("openingSearch.matchNeedsIdealJob")}{" "}
+            <Link to="/settings/preferences">
+              {t("openingSearch.addIdealJob")}
+            </Link>
+          </Typography.Text>
+        )}
+        <Flex gap="small" align="center" wrap style={{ maxWidth: "100%" }}>
+          <label htmlFor="opening-search-sort">
+            {t("openingSearch.sortBy")}
+          </label>
+          <Select<OpeningSearchSort>
+            id="opening-search-sort"
+            value={filters.sort ?? SortNewest}
+            onChange={(value) =>
+              change({
+                sort: value === SortIdealJobMatch ? value : undefined,
+              })
+            }
+            options={[
+              { value: SortNewest, label: t("openingSearch.sortNewest") },
+              {
+                value: SortIdealJobMatch,
+                label: t("openingSearch.sortMatch"),
+                disabled: !idealJobSaved,
+              },
+            ]}
+            popupMatchSelectWidth={false}
+            style={{ maxWidth: "100%" }}
+          />
+        </Flex>
+      </Flex>
       {result.isPending ? (
         <Flex gap="small" align="center" justify="center">
           <Spin />
@@ -429,6 +480,17 @@ function OpeningSearch({ sessionRegion }: { sessionRegion: string }) {
               region: regionLabel(region),
             })}
           />
+        ) : isProblem(result.error, IdealJobMissingError.type) ? (
+          <Alert
+            type="info"
+            showIcon
+            title={t("openingSearch.idealJobMissing")}
+            description={
+              <Link to="/settings/preferences">
+                {t("openingSearch.addIdealJob")}
+              </Link>
+            }
+          />
         ) : (
           <APIErrorAlert error={result.error} />
         )
@@ -440,7 +502,8 @@ function OpeningSearch({ sessionRegion }: { sessionRegion: string }) {
                 setSearch(
                   paramsFromSearchState({
                     ...(region !== sessionRegion && { region }),
-                    filters: {},
+                    filters:
+                      filters.sort === undefined ? {} : { sort: filters.sort },
                   }),
                   { replace: true },
                 )
