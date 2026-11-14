@@ -47,6 +47,13 @@ import {
   isHubHandle,
   isHubUserDID,
 } from "./types.ts";
+import {
+  normalizeSetIdealJobRequest,
+  type SetIdealJobRequest,
+  type SetLookingForJobRequest,
+  validateSetIdealJobRequest,
+  validateSetLookingForJobRequest,
+} from "./users/profile.ts";
 
 test("Hub locales are canonical and portal-owned", () => {
   assert.deepEqual(frontendLocaleValues, ["en-US", "ta", "de-DE"]);
@@ -403,5 +410,50 @@ test("Opening Org suggestions validate the query and region", () => {
   assert.equal(
     normalizeSuggestOpeningOrgsRequest({ query: "  ab " }).query,
     "ab",
+  );
+});
+
+test("the ideal job trims, keeps line breaks, and counts code points", () => {
+  const original = { ideal_job: "  first\nsecond  " };
+  assert.deepEqual(normalizeSetIdealJobRequest(original), {
+    ideal_job: "first\nsecond",
+  });
+  assert.equal(original.ideal_job, "  first\nsecond  ");
+  assert.deepEqual(normalizeSetIdealJobRequest({ ideal_job: " \n\t " }), {
+    ideal_job: "",
+  });
+  assert.deepEqual(validateSetIdealJobRequest({ ideal_job: "" }), []);
+  assert.deepEqual(validateSetIdealJobRequest({} as SetIdealJobRequest), [
+    "ideal_job",
+  ]);
+  // "😀" is two UTF-16 units but one code point.
+  assert.deepEqual(
+    validateSetIdealJobRequest({ ideal_job: "😀".repeat(2000) }),
+    [],
+  );
+  assert.deepEqual(
+    validateSetIdealJobRequest({ ideal_job: "😀".repeat(2001) }),
+    ["ideal_job"],
+  );
+});
+
+test("looking for a job requires an explicit boolean", () => {
+  assert.deepEqual(
+    validateSetLookingForJobRequest({ looking_for_job: true }),
+    [],
+  );
+  assert.deepEqual(
+    validateSetLookingForJobRequest({ looking_for_job: false }),
+    [],
+  );
+  assert.deepEqual(
+    validateSetLookingForJobRequest({} as SetLookingForJobRequest),
+    ["looking_for_job"],
+  );
+  assert.deepEqual(
+    validateSetLookingForJobRequest({
+      looking_for_job: "true",
+    } as unknown as SetLookingForJobRequest),
+    ["looking_for_job"],
   );
 });

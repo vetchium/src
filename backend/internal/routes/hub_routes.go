@@ -90,6 +90,15 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		"POST /api/hub/set-agencies-may-message",
 		hubAuth(hubusers.SetAgenciesMayMessage(s)),
 	)
+	mux.Handle("POST /api/hub/set-ideal-job", hubAuth(hubusers.SetIdealJob(s)))
+	mux.Handle(
+		"POST /api/hub/set-looking-for-job",
+		hubAuth(hubusers.SetLookingForJob(s)),
+	)
+	mux.Handle(
+		"POST /api/hub/dismiss-job-search-prompt",
+		hubAuth(hubusers.DismissJobSearchPrompt(s)),
+	)
 	mux.Handle(
 		"GET /api/hub/my-subscription",
 		hubAuth(hubsubscriptions.MySubscription(s)),

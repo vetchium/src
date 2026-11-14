@@ -11,6 +11,11 @@ export function isFrontendLocale(value: unknown): value is FrontendLocale {
 export type HubUserDID = string;
 export type HubHandle = string;
 
+/** Plain text of 1 to 2,000 code points after trimming (PROF-JOB-001). */
+export type IdealJob = string;
+
+export const maxIdealJobCodePoints = 2000;
+
 export function isHubUserDID(value: HubUserDID): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,

@@ -30,6 +30,12 @@ func FrontendLocales() []FrontendLocale {
 type HubUserDID string
 type HubHandle string
 
+// IdealJob is plain text of 1 to 2,000 code points after trimming
+// (PROF-JOB-001).
+type IdealJob string
+
+const MaxIdealJobCodePoints = 2000
+
 var hubHandlePattern = regexp.MustCompile(
 	`^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$`,
 )

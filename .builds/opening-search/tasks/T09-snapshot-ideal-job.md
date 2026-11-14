@@ -77,3 +77,5 @@ HP-APP-002, PROF-JOB-004, PROF-JOB-005, MKT-ACC-001.
   provider, and the applicant read it; `looking_for_job` appears nowhere.
 
 ## Carried over
+
+From T07: `hub.IdealJob` and `hub.MaxIdealJobCodePoints` (Go, `typespec/hub/types.go`) and `IdealJob` / `maxIdealJobCodePoints` (TS, `typespec/hub/types.ts`) exist for the snapshot field and its validation.

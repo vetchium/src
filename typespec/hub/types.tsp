@@ -18,3 +18,8 @@ scalar HubUserDID extends string;
 @maxLength(17)
 @pattern("^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$")
 scalar HubHandle extends string;
+
+/** A Hub user's ideal job (PROF-JOB-001): plain text of 1 to 2,000 code
+ * points after trimming, internal line breaks kept. */
+@maxLength(2000)
+scalar IdealJob extends string;

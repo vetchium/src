@@ -23,6 +23,15 @@ model MyInfoResponse {
   recovery_codes_remaining: Vetchium.Authentication.TOTPRecoveryCodeCount;
   session_authenticated_at: utcDateTime;
   agencies_may_message: boolean;
+
+  /** Absent when the user has saved no ideal job (PROF-JOB-002). */
+  ideal_job?: IdealJob;
+
+  /** Private to the user (PROF-JOB-004). */
+  looking_for_job: boolean;
+
+  /** Whether the user dismissed the Home "Your job search" card. */
+  job_search_prompt_dismissed: boolean;
 }
 
 model SetPreferredLanguageRequest {
@@ -46,6 +55,19 @@ model SetAgenciesMayMessageRequest {
    */
   agencies_may_message: boolean;
 }
+
+model SetIdealJobRequest {
+  /** Required. At most 2,000 code points after trimming; empty after trimming
+   * removes the ideal job (PROF-JOB-001). */
+  ideal_job: string;
+}
+
+model SetLookingForJobRequest {
+  /** Private to the user (PROF-JOB-004). */
+  looking_for_job: boolean;
+}
+
+model DismissJobSearchPromptRequest {}
 
 @route("/api/hub")
 @tag("Hub profile")
@@ -111,6 +133,47 @@ interface ProfileOperations {
       }
     | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  /** Sets or, with an empty value, removes the ideal job (PROF-JOB-002). */
+  @route("/set-ideal-job")
+  @post
+  @useAuth(BearerAuth)
+  setIdealJob(@body request: SetIdealJobRequest):
+    | {
+        @statusCode status_code: 204;
+        @header("Cache-Control") cache_control: "no-store";
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  @route("/set-looking-for-job")
+  @post
+  @useAuth(BearerAuth)
+  setLookingForJob(@body request: SetLookingForJobRequest):
+    | {
+        @statusCode status_code: 204;
+        @header("Cache-Control") cache_control: "no-store";
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  /** Hides the Home "Your job search" card; dismissing again keeps the first
+   * time (PROF-JOB-002). */
+  @route("/dismiss-job-search-prompt")
+  @post
+  @useAuth(BearerAuth)
+  dismissJobSearchPrompt(@body request: DismissJobSearchPromptRequest):
+    | {
+        @statusCode status_code: 204;
+        @header("Cache-Control") cache_control: "no-store";
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
     | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 }

@@ -40,17 +40,25 @@ func MyInfo(s *hubruntime.Server) http.HandlerFunc {
 			s.InternalError(r.Context(), w, "get Hub profile", err)
 			return
 		}
+		var idealJob *hubspec.IdealJob
+		if row.IdealJob.Valid {
+			value := hubspec.IdealJob(row.IdealJob.String)
+			idealJob = &value
+		}
 		s.JSON(r.Context(), w, http.StatusOK, hubusers.MyInfoResponse{
-			Handle:                 hubspec.HubHandle(row.Handle),
-			EmailAddress:           common.EmailAddress(row.EmailAddress),
-			DisplayName:            common.DisplayName(row.DisplayName),
-			PreferredLanguage:      hubspec.FrontendLocale(row.PreferredLanguage),
-			ResidentCountry:        common.CountryCode(row.ResidentCountry),
-			PreferredJobCountries:  jobCountries(row.PreferredJobCountries),
-			TOTPEnabled:            row.TotpEnabled,
-			RecoveryCodesRemaining: common.TOTPRecoveryCodeCount(row.RecoveryCodesRemaining),
-			SessionAuthenticatedAt: row.AuthenticatedAt.Time.UTC(),
-			AgenciesMayMessage:     row.AgenciesMayMessage,
+			Handle:                   hubspec.HubHandle(row.Handle),
+			EmailAddress:             common.EmailAddress(row.EmailAddress),
+			DisplayName:              common.DisplayName(row.DisplayName),
+			PreferredLanguage:        hubspec.FrontendLocale(row.PreferredLanguage),
+			ResidentCountry:          common.CountryCode(row.ResidentCountry),
+			PreferredJobCountries:    jobCountries(row.PreferredJobCountries),
+			TOTPEnabled:              row.TotpEnabled,
+			RecoveryCodesRemaining:   common.TOTPRecoveryCodeCount(row.RecoveryCodesRemaining),
+			SessionAuthenticatedAt:   row.AuthenticatedAt.Time.UTC(),
+			AgenciesMayMessage:       row.AgenciesMayMessage,
+			IdealJob:                 idealJob,
+			LookingForJob:            row.LookingForJob,
+			JobSearchPromptDismissed: row.JobSearchPromptDismissed,
 		})
 	}
 }
@@ -129,6 +137,92 @@ func SetPreferredJobCountries(s *hubruntime.Server) http.HandlerFunc {
 		)
 		if err != nil {
 			s.InternalError(r.Context(), w, "set Hub preferred job countries", err)
+			return
+		}
+		if !changed {
+			s.AuthenticationProblem(
+				r.Context(), w, hubproblem.AuthenticationRequiredError,
+				hubauthn.BearerChallenge,
+			)
+			return
+		}
+		s.Empty(r.Context(), w, http.StatusNoContent)
+	}
+}
+
+func SetIdealJob(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request hubusers.SetIdealJobRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		changed, err := s.Queries.SetHubIdealJob(
+			r.Context(), sqlc.SetHubIdealJobParams{
+				IdealJob:   *request.IdealJob,
+				HubUserDid: identity.UserDID,
+				TenantID:   s.TenantID,
+			},
+		)
+		if err != nil {
+			s.InternalError(r.Context(), w, "set Hub ideal job", err)
+			return
+		}
+		if !changed {
+			s.AuthenticationProblem(
+				r.Context(), w, hubproblem.AuthenticationRequiredError,
+				hubauthn.BearerChallenge,
+			)
+			return
+		}
+		s.Empty(r.Context(), w, http.StatusNoContent)
+	}
+}
+
+func SetLookingForJob(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request hubusers.SetLookingForJobRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		changed, err := s.Queries.SetHubLookingForJob(
+			r.Context(), sqlc.SetHubLookingForJobParams{
+				LookingForJob: *request.LookingForJob,
+				HubUserDid:    identity.UserDID,
+				TenantID:      s.TenantID,
+			},
+		)
+		if err != nil {
+			s.InternalError(r.Context(), w, "set Hub looking for job", err)
+			return
+		}
+		if !changed {
+			s.AuthenticationProblem(
+				r.Context(), w, hubproblem.AuthenticationRequiredError,
+				hubauthn.BearerChallenge,
+			)
+			return
+		}
+		s.Empty(r.Context(), w, http.StatusNoContent)
+	}
+}
+
+func DismissJobSearchPrompt(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request hubusers.DismissJobSearchPromptRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		identity, _ := middleware.HubIdentityFromContext(r.Context())
+		changed, err := s.Queries.DismissHubJobSearchPrompt(
+			r.Context(), sqlc.DismissHubJobSearchPromptParams{
+				HubUserDid: identity.UserDID,
+				TenantID:   s.TenantID,
+			},
+		)
+		if err != nil {
+			s.InternalError(r.Context(), w, "dismiss Hub job search prompt", err)
 			return
 		}
 		if !changed {

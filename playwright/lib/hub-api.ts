@@ -50,6 +50,10 @@ import type {
   SetPublicFieldsRequest,
 } from "typespec/hub/profile/public";
 import type { SetSubscriptionPlanRequest } from "typespec/hub/subscriptions/subscriptions";
+import type {
+  SetIdealJobRequest,
+  SetLookingForJobRequest,
+} from "typespec/hub/users/profile";
 import type { TestTenant } from "./admin-db.ts";
 import { apiOrigin } from "./portals.ts";
 
@@ -520,5 +524,23 @@ export class HubAPI {
 
   myInfo(token: string): Promise<APIResponse> {
     return this.get("/my-info", token);
+  }
+
+  setIdealJob(
+    token: string,
+    request: SetIdealJobRequest,
+  ): Promise<APIResponse> {
+    return this.post("/set-ideal-job", request, { token });
+  }
+
+  setLookingForJob(
+    token: string,
+    request: SetLookingForJobRequest,
+  ): Promise<APIResponse> {
+    return this.post("/set-looking-for-job", request, { token });
+  }
+
+  dismissJobSearchPrompt(token: string): Promise<APIResponse> {
+    return this.post("/dismiss-job-search-prompt", {}, { token });
   }
 }

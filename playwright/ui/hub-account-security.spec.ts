@@ -35,6 +35,8 @@ async function openAccountSecurity(page: Page): Promise<Account> {
       totp_enabled: false,
       recovery_codes_remaining: 0,
       agencies_may_message: true,
+      looking_for_job: false,
+      job_search_prompt_dismissed: false,
       session_authenticated_at: new Date().toISOString(),
     },
   };

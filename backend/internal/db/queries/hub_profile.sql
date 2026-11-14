@@ -10,7 +10,11 @@ SELECT
     u.totp_enabled,
     recovery.remaining_codes AS recovery_codes_remaining,
     s.authenticated_at,
-    u.agencies_may_message
+    u.agencies_may_message,
+    u.ideal_job,
+    u.looking_for_job,
+    (u.job_search_prompt_dismissed_at IS NOT NULL)::boolean
+        AS job_search_prompt_dismissed
 FROM vetchium.hub_sessions AS s
 JOIN vetchium.hub_users AS u USING (hub_user_did)
 CROSS JOIN LATERAL (
@@ -100,6 +104,89 @@ WITH updated AS (
         hub_user_did::text,
         'hub-api',
         jsonb_build_object('preferred_job_countries', preferred_job_countries)
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT EXISTS (SELECT 1 FROM audit) AS changed;
+
+-- name: SetHubIdealJob :one
+WITH updated AS (
+    UPDATE vetchium.hub_users
+    SET ideal_job = NULLIF(sqlc.arg(ideal_job)::text, ''),
+        updated_at = now()
+    WHERE hub_user_did = sqlc.arg(hub_user_did)
+      AND hub_user_state = 'active'
+    RETURNING hub_user_did, ideal_job
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.profile.ideal-job-set',
+        'hub_user',
+        hub_user_did::text,
+        'hub_user',
+        hub_user_did::text,
+        'hub-api',
+        -- PROF-JOB-003: whether one is set, never the text.
+        jsonb_build_object('ideal_job_set', ideal_job IS NOT NULL)
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT EXISTS (SELECT 1 FROM audit) AS changed;
+
+-- name: SetHubLookingForJob :one
+WITH updated AS (
+    UPDATE vetchium.hub_users
+    SET looking_for_job = sqlc.arg(looking_for_job),
+        updated_at = now()
+    WHERE hub_user_did = sqlc.arg(hub_user_did)
+      AND hub_user_state = 'active'
+    RETURNING hub_user_did, looking_for_job
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.profile.looking-for-job-set',
+        'hub_user',
+        hub_user_did::text,
+        'hub_user',
+        hub_user_did::text,
+        'hub-api',
+        jsonb_build_object('looking_for_job', looking_for_job)
+    FROM updated
+    RETURNING audit_event_id
+)
+SELECT EXISTS (SELECT 1 FROM audit) AS changed;
+
+-- name: DismissHubJobSearchPrompt :one
+WITH updated AS (
+    UPDATE vetchium.hub_users
+    SET job_search_prompt_dismissed_at =
+            coalesce(job_search_prompt_dismissed_at, now()),
+        updated_at = now()
+    WHERE hub_user_did = sqlc.arg(hub_user_did)
+      AND hub_user_state = 'active'
+    RETURNING hub_user_did
+), audit AS (
+    INSERT INTO vetchium.audit_events (
+        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+        source, payload
+    )
+    SELECT
+        sqlc.arg(tenant_id),
+        'hub.profile.job-search-prompt-dismissed',
+        'hub_user',
+        hub_user_did::text,
+        'hub_user',
+        hub_user_did::text,
+        'hub-api',
+        '{}'::jsonb
     FROM updated
     RETURNING audit_event_id
 )

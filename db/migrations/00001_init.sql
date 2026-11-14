@@ -116,6 +116,16 @@ CREATE TABLE vetchium.hub_users (
         array_position(preferred_job_countries, NULL) IS NULL AND
         vetchium.array_is_distinct(preferred_job_countries)
     ),
+    -- Job-search preferences (PROF-JOB-001); never part of a profile view.
+    ideal_job text,
+    looking_for_job boolean NOT NULL DEFAULT false,
+    job_search_prompt_dismissed_at timestamptz,
+    CONSTRAINT hub_users_ideal_job_check CHECK (
+        ideal_job IS NULL OR (
+            ideal_job = btrim(ideal_job) AND
+            char_length(ideal_job) BETWEEN 1 AND 2000
+        )
+    ),
     totp_secret_ciphertext bytea,
     totp_enabled boolean NOT NULL DEFAULT false,
     totp_last_timestep bigint,
