@@ -14,20 +14,25 @@ SELECT org.display_name, org.country, org.logo_object_id,
     COALESCE(list.openings, '[]'::jsonb) AS openings
 FROM owning_org AS org
 LEFT JOIN LATERAL (
-    SELECT jsonb_agg(jsonb_build_object(
+    SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
         'opening_number', page.opening_number,
         'title', page.title,
         'employing_country', page.employing_country,
         'work_arrangement', page.work_arrangement,
         'employment_type', page.employment_type,
         'first_published_at', page.first_published_at,
-        'tags', COALESCE(to_jsonb(page.tag_oids), '[]'::jsonb)
-    ) ORDER BY page.first_published_at DESC,
+        'tags', COALESCE(to_jsonb(page.tag_oids), '[]'::jsonb),
+        'salary', CASE WHEN page.salary_currency IS NULL THEN NULL
+            ELSE jsonb_build_object('currency', page.salary_currency,
+                'min', page.salary_min, 'max', page.salary_max,
+                'period', page.salary_period) END
+    )) ORDER BY page.first_published_at DESC,
         page.opening_number DESC) AS openings
     FROM (
         SELECT o.opening_number, o.first_published_at,
             c.title, c.employing_country, c.work_arrangement,
-            c.employment_type, c.tag_oids
+            c.employment_type, c.tag_oids, c.salary_currency, c.salary_min,
+            c.salary_max, c.salary_period
         FROM vetchium.org_openings AS o
         JOIN vetchium.org_opening_contents AS c
           ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'

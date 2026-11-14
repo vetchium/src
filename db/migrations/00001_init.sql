@@ -2129,6 +2129,9 @@ CREATE INDEX org_openings_expiry_idx
     WHERE opening_state IN ('published', 'paused');
 CREATE INDEX org_openings_list_idx
     ON vetchium.org_openings (org_did, updated_at DESC, opening_number DESC);
+CREATE INDEX org_openings_search_idx
+    ON vetchium.org_openings (first_published_at DESC, opening_number DESC)
+    WHERE opening_state = 'published';
 CREATE INDEX org_openings_hiring_manager_idx
     ON vetchium.org_openings (hiring_manager_id);
 CREATE INDEX org_openings_recruiter_idx

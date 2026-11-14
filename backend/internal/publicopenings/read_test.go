@@ -147,3 +147,32 @@ func TestListPublicOrgOpeningsFiltersByTagAndDecodesTags(t *testing.T) {
 		t.Fatal("invalid key reached database")
 	}
 }
+
+func TestListPublicOrgOpeningsDecodesSalary(t *testing.T) {
+	stub := &queryStub{listRow: sqlc.ListPublicOrgOpeningsRow{
+		DisplayName: "Example",
+		Openings: []byte(`[{"opening_number":2,"title":"Paid",` +
+			`"employing_country":"SG","work_arrangement":"hybrid",` +
+			`"employment_type":"full_time",` +
+			`"first_published_at":"2026-10-11T01:00:00Z","tags":[],` +
+			`"salary":{"currency":"SGD","min":5000,"max":8000,"period":"month"}},` +
+			`{"opening_number":1,"title":"Undisclosed",` +
+			`"employing_country":"SG","work_arrangement":"hybrid",` +
+			`"employment_type":"full_time",` +
+			`"first_published_at":"2026-10-10T01:00:00Z","tags":[]}]`),
+	}}
+	response, err := Reader{Queries: stub}.List(context.Background(),
+		openingsspec.ListOrgOpeningsRequest{Domain: "example.com"})
+	if err != nil || len(response.Openings) != 2 {
+		t.Fatalf("list = %+v, %v", response, err)
+	}
+	want := common.OpeningSalary{
+		Currency: "SGD", Min: 5000, Max: 8000, Period: common.OpeningMonth,
+	}
+	if got := response.Openings[0].Salary; got == nil || *got != want {
+		t.Fatalf("disclosed salary = %+v", got)
+	}
+	if got := response.Openings[1].Salary; got != nil {
+		t.Fatalf("undisclosed salary = %+v", got)
+	}
+}
