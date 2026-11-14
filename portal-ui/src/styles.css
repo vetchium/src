@@ -53,8 +53,10 @@
   gap: 16px;
 }
 
-/* Matches SidePanel's 24px offset, leaving the same gap below the panel. */
+/* A 24px gap above and below the panel while it sticks. */
 .side-panel {
+  position: sticky;
+  top: 24px;
   max-height: calc(100vh - 48px);
   overflow-y: auto;
 }

@@ -9,7 +9,6 @@ import {
   UserOutlined,
 } from "@ant-design/icons";
 import {
-  Affix,
   Alert,
   App,
   Avatar,
@@ -675,12 +674,11 @@ export function ReauthenticationAlert(): ReactNode {
  */
 export function SidePanel({ children }: { children: ReactNode }): ReactNode {
   const screens = Grid.useBreakpoint();
-  if (!screens.lg) return children;
+  // CSS sticky, not Affix: Affix repositions the panel from a scroll handler
+  // one frame after each scroll, so a press landing just after the page
+  // scrolls a button into view can be released beside it. One element at
+  // every width keeps the panel's state when the breakpoint changes.
   return (
-    <Affix offsetTop={sidePanelOffset}>
-      <div className="side-panel">{children}</div>
-    </Affix>
+    <div className={screens.lg ? "side-panel" : undefined}>{children}</div>
   );
 }
-
-const sidePanelOffset = 24;

@@ -1,7 +1,7 @@
 import { CheckCircleFilled, CloseCircleFilled } from "@ant-design/icons";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { SidePanel } from "@vetchium/portal-ui/shell";
 import {
-  Affix,
   Alert,
   App,
   Breadcrumb,
@@ -487,7 +487,7 @@ export function ListingEditorPage() {
         </Col>
 
         <Col xs={24} lg={8}>
-          <Affix offsetTop={24}>
+          <SidePanel>
             <Card title={t("marketplace.listingEditor.actionsTitle")}>
               <Typography.Paragraph type="secondary">
                 {t("marketplace.listingEditor.actionsIntro")}
@@ -550,7 +550,7 @@ export function ListingEditorPage() {
                 ))}
               </Flex>
             </Card>
-          </Affix>
+          </SidePanel>
         </Col>
       </Row>
     </Space>
