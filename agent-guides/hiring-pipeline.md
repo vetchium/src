@@ -67,8 +67,11 @@ Work performed by another Org is in [`marketplace.md`](marketplace.md).
   `PendingOperation`. A local Org takes the same command path in process.
 - **HP-APP-002** An application holds an immutable snapshot of the Hub
   profile view fields at apply time, excluding the picture, and an optional
-  cover note of at most 5,000 code points. Professional-email evidence never
-  enters it. Résumé files are in `docs/todo.md`.
+  cover note of at most 5,000 code points. The snapshot also holds the
+  applicant's saved `ideal_job` (PROF-JOB-005), absent when none; the apply
+  page lists it among what the Org will see, and the applicant's own
+  application detail shows it as shared. Professional-email evidence and
+  `looking_for_job` never enter it. Résumé files are in `docs/todo.md`.
 - **HP-APP-003** One application per (Opening, applicant) ever, withdrawn ones
   included: `hub-application-exists`. A non-`published` Opening is
   `hub-opening-not-accepting`.

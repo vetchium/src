@@ -201,6 +201,47 @@ claim saga, mesh trust, and durable commands in
   biography. The owner editor groups introduction, websites, location, and
   profile address before the history sections.
 
+## Job-search preferences
+
+Settings, not profile view fields (PROF-GEN-006). Preferred job countries are
+in [`hub-signup.md`](hub-signup.md).
+
+- **PROF-JOB-001** `ideal_job`: plain text, 1–2,000 code points after
+  trimming, internal line breaks kept; empty after trimming removes it.
+  `looking_for_job`: boolean, default `false`. Store them in `hub_users`
+  (`ideal_job text NULL`, `looking_for_job boolean NOT NULL DEFAULT false`)
+  with `job_search_prompt_dismissed_at timestamptz NULL`.
+- **PROF-JOB-002** `my-info` returns `ideal_job` (absent when none),
+  `looking_for_job`, and `job_search_prompt_dismissed` (whether
+  `job_search_prompt_dismissed_at` is set). `set-ideal-job`,
+  `set-looking-for-job`, and `dismiss-job-search-prompt` change only the
+  signed-in user's own row and answer `204`. Dismissing again keeps the first
+  time.
+- **PROF-JOB-003** Audit each write in the same statement:
+  `hub.profile.ideal-job-set` with payload `{ideal_job_set: boolean}`,
+  `hub.profile.looking-for-job-set` with `{looking_for_job: boolean}`, and
+  `hub.profile.job-search-prompt-dismissed` with `{}`. Never put the ideal-job
+  text in an audit record or a log.
+- **PROF-JOB-004** `looking_for_job` is private to its owner: never in a
+  profile view, application, Org, agency, or mesh response, or search. Nothing
+  else reads it yet.
+- **PROF-JOB-005** `ideal_job` is never in a profile view or `PublicProfile`.
+  It leaves the owner's account only in an application snapshot (HP-APP-002)
+  and, for an `ideal_job_match` search of another region, to that region's
+  peer (OPN-SRCH-014).
+- **PROF-JOB-006** hub-ui Home shows a "Your job search" card while
+  `ideal_job` is absent and `job_search_prompt_dismissed` is false: a "My
+  ideal job" textarea with a code-point counter, an "Are you currently looking
+  for a job?" switch, Save (enabled once the textarea holds text; saves both
+  fields), and "Not now" (`dismiss-job-search-prompt`). Saving an ideal job
+  or dismissing hides the card on every device. Signup completion is
+  unchanged.
+- **PROF-JOB-007** `/settings/preferences` edits both fields in its Job search
+  card, beside preferred job countries. Helper text: ideal job "Shared with
+  Orgs when you apply; used to find matching Openings."; looking for a job
+  "Only you can see this. Orgs, agencies and other Hub users never do."
+- **PROF-JOB-008** Ship every string in every `hub-ui` locale.
+
 ## Federated reads and commands
 
 - Resolve a handle or alias locally, then through the global directory, and

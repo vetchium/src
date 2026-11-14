@@ -361,7 +361,8 @@ transition takes or returns one.
   `{tenant_id, query}`), and the relay calls that tenant's peer
   (`/api/mesh/opening-search/search` with the query), which answers from its
   own database and never forwards. No viewer identity crosses the mesh
-  (OPN-HUB-006). A local and a peer search build results with one function in
+  (OPN-HUB-006); the only viewer data that may is `ideal_job_text`
+  (OPN-SRCH-014). A local and a peer search build results with one function in
   `backend/internal/openingsearch`. A transport failure, deadline, unknown
   region, or undeclared peer problem is `hub-region-unavailable`; never return
   a partial or cached answer.
@@ -385,10 +386,12 @@ transition takes or returns one.
 
 - **OPN-SRCH-005** Order results by first publication, newest first, then Org
   domain ascending, then opening number descending. With `tag_oids`, order
-  first by how many requested tags the Opening holds, descending. Keyset
+  first by how many requested tags the Opening holds, descending. With `sort`
+  `ideal_job_match`, order first by match rank (OPN-SRCH-015). Keyset
   pagination, `limit` 1–50, default 20. The key is opaque and binds every
-  filter and the answering tenant; a mismatch is `invalid-pagination-key`.
-  Index the order without tags.
+  filter, the `sort`, a SHA-256 digest of `ideal_job_text` when present, and
+  the answering tenant; a mismatch is `invalid-pagination-key`. Index the
+  order without tags.
 - **OPN-SRCH-006** A result is `{org: PublicOrg, opening:
   PublicOpeningSummary}` and nothing else (OPN-HUB-003). Sign each Org's logo
   once per page.
@@ -399,7 +402,8 @@ transition takes or returns one.
   with it, ordered by lower-cased display name, then domain. Region routing
   and failures follow OPN-SRCH-002, through `/mesh/opening-search/suggest-orgs`
   and `/api/mesh/opening-search/suggest-orgs`.
-- **OPN-SRCH-008** Neither operation stores or logs the query or the viewer.
+- **OPN-SRCH-008** Neither operation stores, logs, or audits the query, the
+  ideal-job text, or the viewer, at hub-api, the relay, or the peer.
 - **OPN-SRCH-009** hub-ui `/openings`, with a navigation entry "Openings"
   after Home, offers every OPN-SRCH-004 filter: a keyword box; a region picker
   over every compiled region, starting at the session's region; a one-Org
@@ -409,9 +413,9 @@ transition takes or returns one.
   empty); arrangement and employment-type multi-selects; date posted;
   experience years; education; and a salary-disclosed switch. Keep every filter
   in the URL (`q`, `region`, `org`, repeated `tag`, `country`, `arrangement`,
-  `employment`, then `posted`, `experience`, `education`, `salary`), drop a
-  hand-edited value the API would refuse instead of sending it, and restart
-  paging on any change. Keep `NoIndex`.
+  `employment`, then `posted`, `experience`, `education`, `salary`,
+  `sort`), drop a hand-edited value the API would refuse instead of sending
+  it, and restart paging on any change. Keep `NoIndex`.
 - **OPN-SRCH-010** A result card shows the Org logo and display name (linking
   `/org/<domain>`), the title (linking `/org/<domain>/openings/<number>`),
   employing country, work arrangement, employment type, salary when disclosed,
@@ -420,6 +424,30 @@ transition takes or returns one.
 - **OPN-SRCH-011** The Hub Home page shows a keyword box that opens
   `/openings?q=<keyword>`, or `/openings` when empty.
 - **OPN-SRCH-012** Ship every string in every `hub-ui` locale.
+- **OPN-SRCH-013** `search-openings` takes `sort?`: `newest` (default,
+  OPN-SRCH-005) or `ideal_job_match`. For `ideal_job_match`, hub-api reads the
+  caller's saved `ideal_job` (PROF-JOB-001) from its own database; the browser
+  never sends the text. With none saved the answer is `hub-ideal-job-missing`,
+  for every region. Every OPN-SRCH-004 filter still applies.
+- **OPN-SRCH-014** For another region, hub-api sends the text as the query's
+  `ideal_job_text`, and only when the user chose `ideal_job_match` for that
+  search; never with a viewer identity. The peer uses it only to match and
+  rank, and never logs, stores, or audits it. Any other Hub-user attribute
+  sent with a search needs its own privacy review first: combined non-PII
+  fields can re-identify a person.
+- **OPN-SRCH-015** `ideal_job_match` lists only Openings whose search document
+  shares at least one lexeme with the text, ordered by PostgreSQL `ts_rank`
+  descending, then the OPN-SRCH-005 order. Use the language-neutral `simple`
+  configuration for both sides. The document weights the live title `A`, the
+  tag OIDs with hyphens as spaces `B`, and the description `C`. The query is
+  the OR of the text's lexemes, each quoted and escaped. Text with no lexeme
+  matches nothing. Keep the document as a stored generated column with a GIN
+  index.
+- **OPN-SRCH-016** `/openings` offers a sort control, "Newest" or "Best match
+  for my ideal job" (URL `sort=match`; absent means newest). Without a saved
+  ideal job the match option is disabled with a link to
+  `/settings/preferences`, and a `sort=match` URL is dropped. A
+  `hub-ideal-job-missing` answer shows that link in an alert.
 
 ## Problem types
 
@@ -437,6 +465,7 @@ transition takes or returns one.
 | `hub-opening-not-found` | 404 | no published or formerly published Opening has the number |
 | `hub-org-unavailable` | 503 | the Org's home tenant or the directory did not answer |
 | `hub-region-unavailable` | 503 | the searched region did not answer or is unknown |
+| `hub-ideal-job-missing` | 422 | `ideal_job_match` sort without a saved ideal job |
 
 ## Tests and fixtures
 
@@ -464,8 +493,13 @@ transition takes or returns one.
   remote region (`usa1`) through the mesh, `ind1` as
   `hub-region-unavailable`, exclusion of drafts, paused, closed, and expired
   Openings, suspended Orgs, and released domains, `suggest-opening-orgs`, and
-  no internal field in any Hub or mesh response. Other tests publish in the
-  same tenants at once, so assert within unique titles or `org_domain`.
+  no internal field in any Hub or mesh response. Cover `ideal_job_match`:
+  title, tag, and description matches ranked in that order, no shared word
+  excluded, other filters still applied, an apostrophe and a backslash in the
+  text, punctuation-only text matching nothing, `hub-ideal-job-missing`, a
+  key reused after the ideal job changed, and a `usa1` search through the
+  mesh. Other tests publish in the same tenants at once, so assert within
+  unique titles or `org_domain`.
 - **OPN-TST-003** `make dev-seed` gives each seeded Org Openings in every state
   except `expired` (only time reaches it, and fixtures go through the portal
   APIs), a pending request of each kind, Recruiter and Hiring approver

@@ -76,8 +76,63 @@ anonymous search and indexing, and AI matching.
 - Searching several regions at once, merged results, and per-tenant
   projections of other tenants' Openings.
 - Saved searches, alerts, and notifications.
-- Relevance ranking beyond the tag count; description full-text search.
+- Relevance ranking beyond the tag count and the ideal-job match; keyword
+  search over descriptions.
 - Anonymous search and search-engine indexing.
 - Prefilling from preferred job countries.
+- Any use of `looking_for_job` (agency outreach, matching); an onboarding
+  wizard or a signup step.
 - AI matching or ranking.
 - Demo video changes.
+
+## Ideal job and looking for a job (added milestones M3–M5)
+
+Summary: a Hub user may save an "ideal job" (plain text) and a private
+"looking for a job" switch, from a dismissible Home card or Settings >
+Preferences. The ideal job is copied into each application snapshot, so the
+Org and stage providers see it, and it powers an "ideal job match" sort in
+Opening search, also across regions. `looking_for_job` is never shown to
+anyone else and nothing reads it yet.
+
+Questions and answers (all confirmed):
+
+14. Fields? `ideal_job` 0–2,000 code points after trimming, empty removes it;
+    `looking_for_job` boolean, default false.
+15. Onboarding? No wizard, no signup change: a Home "Your job search" card
+    while no ideal job is saved and it was not dismissed; "Not now" is stored
+    server-side (`job_search_prompt_dismissed_at`); Preferences edits both
+    fields any time.
+16. Who sees `looking_for_job`? Only the user; future uses go to
+    `docs/todo.md`.
+17. Who sees `ideal_job`? Not the public profile; copied into the
+    application snapshot at apply time and immutable there, so the Org, stage
+    providers, and the applicant's own application detail show it.
+18. Search use? `sort: "newest" | "ideal_job_match"`; match lists Openings
+    sharing a word with the ideal job, ranked by full-text rank (`simple`
+    configuration; title, then tags, then description); hub-api reads the
+    text; none saved is `hub-ideal-job-missing` (422); the pagination key
+    binds the sort and a text digest; URL `sort=match`.
+19. Cross-region? The text may go to another region's peer with a search,
+    without viewer identity, only for the match sort; the peer never logs,
+    stores, or audits it. Any other attribute needs its own review.
+20. Storage and audit? Three `hub_users` columns in the init migration;
+    audited like other preference writes, with no free text.
+
+| Operation | Portal API | Permission | Request | Success | Problems |
+| --- | --- | --- | --- | --- | --- |
+| `GET /api/hub/my-info` | hub-api | signed-in Hub user | — | gains `ideal_job?`, `looking_for_job`, `job_search_prompt_dismissed` | unchanged |
+| `POST /api/hub/set-ideal-job` | hub-api | signed-in Hub user | `ideal_job` | `204` | `invalid-json`, `validation-failed`, `hub-authentication-required`, `internal-server-error` |
+| `POST /api/hub/set-looking-for-job` | hub-api | signed-in Hub user | `looking_for_job` | `204` | the same |
+| `POST /api/hub/dismiss-job-search-prompt` | hub-api | signed-in Hub user | `{}` | `204` (idempotent) | `invalid-json`, `hub-authentication-required`, `internal-server-error` |
+| `POST /api/hub/search-openings` | hub-api | any signed-in Hub user | gains `sort?` | unchanged | gains `hub-ideal-job-missing` |
+| mesh opening-search relay and peer | mesh-api | as before | query gains `sort?`, `ideal_job_text?` (match sort only) | unchanged | unchanged |
+| `ApplicantSnapshot`, `MyApplicationDetail` | hub-api, orgs-api, mesh | — | — | gain `ideal_job?` | — |
+
+| Portal | Route | Shows and does |
+| --- | --- | --- |
+| hub-ui | `/` | "Your job search" card |
+| hub-ui | `/settings/preferences` | ideal job and looking-for-a-job in the Job search card |
+| hub-ui | `/org/<domain>/openings/<number>/apply` | ideal job listed among what the Org will see |
+| hub-ui | `/applications/<domain>/<openingNumber>/<applicationNumber>` | ideal job as shared |
+| hub-ui | `/openings` | sort control |
+| orgs-ui | application detail, provider work item | "Ideal job" from the snapshot |
