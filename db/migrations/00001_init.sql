@@ -2147,6 +2147,39 @@ CREATE INDEX org_openings_hiring_manager_idx
 CREATE INDEX org_openings_recruiter_idx
     ON vetchium.org_openings (recruiter_id);
 
+-- The ideal-job match search document (OPN-SRCH-015). Declared immutable so
+-- a generated column may use it; array_to_string over text[] does not vary.
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.opening_search_document(
+    title text, tag_oids text[], description text)
+RETURNS tsvector
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+    SELECT setweight(to_tsvector('simple', coalesce(title, '')), 'A')
+        || setweight(to_tsvector('simple', replace(
+            coalesce(array_to_string(tag_oids, ' '), ''), '-', ' ')), 'B')
+        || setweight(to_tsvector('simple', coalesce(description, '')), 'C');
+$$;
+-- +goose StatementEnd
+
+-- The OR of the ideal job's lexemes, each quoted and escaped (OPN-SRCH-015);
+-- NULL when the text has no lexeme, which matches nothing.
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.ideal_job_tsquery(ideal_job text)
+RETURNS tsquery
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+    SELECT to_tsquery('simple', string_agg(
+        '''' || replace(replace(lexeme, '\', '\\'), '''', '''''') || '''',
+        ' | '))
+    FROM unnest(to_tsvector('simple', ideal_job));
+$$;
+-- +goose StatementEnd
+
 -- Keep these constraints in step with common.OpeningContent.Validate. A draft
 -- may be incomplete; only the live slot must be complete.
 CREATE TABLE vetchium.org_opening_contents (
@@ -2184,6 +2217,9 @@ CREATE TABLE vetchium.org_opening_contents (
         AND work_arrangement IS NOT NULL AND employment_type IS NOT NULL
         AND positions IS NOT NULL
         AND (work_arrangement <> 'remote' OR remote_eligibility IS NOT NULL)
+    ) STORED,
+    search_document tsvector GENERATED ALWAYS AS (
+        vetchium.opening_search_document(title, tag_oids, description)
     ) STORED,
     PRIMARY KEY (org_opening_id, slot),
     CONSTRAINT org_opening_contents_title_check CHECK (
@@ -2262,6 +2298,8 @@ CREATE TABLE vetchium.org_opening_contents (
 CREATE TRIGGER org_opening_contents_tag_oids_known
 BEFORE INSERT OR UPDATE OF tag_oids ON vetchium.org_opening_contents
 FOR EACH ROW EXECUTE FUNCTION vetchium.check_opening_tag_oids();
+CREATE INDEX org_opening_contents_search_document_idx
+    ON vetchium.org_opening_contents USING gin (search_document);
 
 CREATE TABLE vetchium.org_opening_team_members (
     org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
@@ -4221,6 +4259,8 @@ DROP TABLE IF EXISTS vetchium.org_opening_requests;
 DROP TABLE IF EXISTS vetchium.org_opening_team_members;
 DROP TABLE IF EXISTS vetchium.org_opening_contents;
 DROP TABLE IF EXISTS vetchium.org_openings;
+DROP FUNCTION IF EXISTS vetchium.ideal_job_tsquery(text);
+DROP FUNCTION IF EXISTS vetchium.opening_search_document(text, text[], text);
 DROP TABLE IF EXISTS vetchium.opening_tag_names;
 DROP TABLE IF EXISTS vetchium.opening_tags;
 DROP FUNCTION IF EXISTS vetchium.check_opening_tag_oids();

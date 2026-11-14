@@ -12,6 +12,7 @@ import "../../problem/details.tsp";
 import "../../problem/global-coordinator/authentication.tsp";
 import "../../problem/hub/authentication.tsp";
 import "../../problem/hub/openings.tsp";
+import "../types.tsp";
 import "./public.tsp";
 
 using TypeSpec.Http;
@@ -38,10 +39,9 @@ scalar OpeningSearchExperienceYears extends int32;
 
 /**
  * The filters of one Opening search (OPN-SRCH-004), each optional and
- * combined with AND. List items are unique. It names no viewer: a peer
- * receives exactly this (OPN-SRCH-002).
+ * combined with AND. List items are unique.
  */
-model OpeningSearchQuery {
+model OpeningSearchFilters {
   /** A case-insensitive substring of the live title or the Org display name. */
   keyword?: OpeningSearchKeyword;
 
@@ -76,18 +76,45 @@ model OpeningSearchQuery {
   /** `true` limits to Openings with a salary; `false` does not filter. */
   salary_disclosed?: boolean;
 
-  /** Binds every filter and the answering tenant (OPN-SRCH-005). */
+  /**
+   * Binds every filter, the sort, a digest of any ideal-job text, and the
+   * answering tenant (OPN-SRCH-005).
+   */
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 20. */
   limit?: OpeningSearchPageSize = 20;
 }
 
+/** `ideal_job_match` ranks by the caller's saved ideal job (OPN-SRCH-013). */
+union OpeningSearchSort {
+  "newest",
+  "ideal_job_match",
+}
+
+/** The browser never sends ideal-job text; hub-api reads it (OPN-SRCH-013). */
 model SearchOpeningsRequest {
-  ...OpeningSearchQuery;
+  ...OpeningSearchFilters;
+  sort?: OpeningSearchSort = "newest";
 
   /** Defaults to the caller's home region (OPN-SRCH-001). */
   region?: Vetchium.Directory.TenantID;
+}
+
+/**
+ * One search as the answering tenant runs it: the relay and peer body and the
+ * reader input. It names no viewer (OPN-SRCH-002).
+ */
+model OpeningSearchQuery {
+  ...OpeningSearchFilters;
+  sort?: OpeningSearchSort = "newest";
+
+  /**
+   * The caller's saved ideal job, present exactly when `sort` is
+   * `ideal_job_match`. Used only to match and rank; never logged, stored, or
+   * audited (OPN-SRCH-014).
+   */
+  ideal_job_text?: Vetchium.Hub.IdealJob;
 }
 
 model OpeningSearchResult {
@@ -148,6 +175,7 @@ interface OpeningSearchOperations {
   @useAuth(BearerAuth)
   search(@body request: SearchOpeningsRequest):
     | SearchOpeningsResult
+    | Vetchium.Problem.HubIdealJobMissingErrorResponse
     | Vetchium.Problem.HubAuthenticationRequiredErrorResponse;
 
   /** Suggests Orgs for the search's Org filter (OPN-SRCH-007). */

@@ -8,6 +8,7 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 )
 
@@ -54,6 +55,9 @@ func TestSearchOpeningsRequestValidate(t *testing.T) {
 		{"limit 51", SearchOpeningsRequest{Limit: new(OpeningSearchPageSize(51))}, []string{"limit"}},
 		{"region", SearchOpeningsRequest{Region: new(directory.TenantID("usa1"))}, []string{}},
 		{"malformed region", SearchOpeningsRequest{Region: new(directory.TenantID("USA 1"))}, []string{"region"}},
+		{"sort newest", SearchOpeningsRequest{Sort: new(SortNewest)}, []string{}},
+		{"sort ideal job match", SearchOpeningsRequest{Sort: new(SortIdealJobMatch)}, []string{}},
+		{"unknown sort", SearchOpeningsRequest{Sort: new(OpeningSearchSort("relevance"))}, []string{"sort"}},
 		{
 			"several fields at once",
 			SearchOpeningsRequest{
@@ -85,7 +89,7 @@ func TestSearchOpeningsRequestNormalizeKeepsTheOriginal(t *testing.T) {
 
 	if *normalized.Keyword != "golang" || *normalized.OrgDomain != "example.com" ||
 		!slices.Equal(normalized.WorkCountries, []common.CountryCode{"DE", "FR"}) {
-		t.Fatalf("Normalize() = %+v", normalized.OpeningSearchQuery)
+		t.Fatalf("Normalize() = %+v", normalized.OpeningSearchFilters)
 	}
 	if keyword != "  golang  " || domain != "Example.COM" || countries[0] != " de " {
 		t.Fatal("Normalize() changed the caller's storage")
@@ -173,5 +177,99 @@ func TestSearchOpeningsRequestDecodesFlatFields(t *testing.T) {
 		*request.Region != "usa1" || *request.PostedWithinDays != PostedWithinWeek ||
 		request.EffectiveLimit() != 5 {
 		t.Fatalf("decoded %+v", request)
+	}
+}
+
+func TestOpeningSearchQueryValidate(t *testing.T) {
+	t.Parallel()
+	text := func(value string) *hub.IdealJob { return new(hub.IdealJob(value)) }
+	tests := []struct {
+		name  string
+		query OpeningSearchQuery
+		want  []string
+	}{
+		{"newest without text", OpeningSearchQuery{}, []string{}},
+		{"explicit newest without text", OpeningSearchQuery{Sort: new(SortNewest)}, []string{}},
+		{"default sort with text", OpeningSearchQuery{IdealJobText: text("go")}, []string{"ideal_job_text"}},
+		{"newest with text", OpeningSearchQuery{Sort: new(SortNewest), IdealJobText: text("go")}, []string{"ideal_job_text"}},
+		{"match with text", OpeningSearchQuery{Sort: new(SortIdealJobMatch), IdealJobText: text("go")}, []string{}},
+		{"match without text", OpeningSearchQuery{Sort: new(SortIdealJobMatch)}, []string{"ideal_job_text"}},
+		{"match with empty text", OpeningSearchQuery{Sort: new(SortIdealJobMatch), IdealJobText: text("")}, []string{"ideal_job_text"}},
+		{"match with 2000 code points", OpeningSearchQuery{Sort: new(SortIdealJobMatch), IdealJobText: text(strings.Repeat("😀", 2000))}, []string{}},
+		{"match with 2001 code points", OpeningSearchQuery{Sort: new(SortIdealJobMatch), IdealJobText: text(strings.Repeat("😀", 2001))}, []string{"ideal_job_text"}},
+		{"unknown sort", OpeningSearchQuery{Sort: new(OpeningSearchSort("relevance"))}, []string{"sort"}},
+		{
+			"filters and text at once",
+			OpeningSearchQuery{
+				OpeningSearchFilters: OpeningSearchFilters{Limit: new(OpeningSearchPageSize(0))},
+				Sort:                 new(SortIdealJobMatch),
+			},
+			[]string{"limit", "ideal_job_text"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := test.query.Validate(); !slices.Equal(got, test.want) {
+				t.Fatalf("Validate() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestOpeningSearchQueryNormalizeTrimsTextOnACopy(t *testing.T) {
+	t.Parallel()
+	text := hub.IdealJob("  Go backend  ")
+	keyword := OpeningSearchKeyword(" go ")
+	original := OpeningSearchQuery{
+		OpeningSearchFilters: OpeningSearchFilters{Keyword: &keyword},
+		Sort:                 new(SortIdealJobMatch), IdealJobText: &text,
+	}
+	normalized := original
+	normalized.Normalize()
+	if *normalized.IdealJobText != "Go backend" || *normalized.Keyword != "go" {
+		t.Fatalf("Normalize() = %+v", normalized)
+	}
+	if text != "  Go backend  " || keyword != " go " {
+		t.Fatal("Normalize() changed the caller's storage")
+	}
+
+	blank := OpeningSearchQuery{Sort: new(SortIdealJobMatch), IdealJobText: new(hub.IdealJob(" \n "))}
+	blank.Normalize()
+	if got := blank.Validate(); !slices.Equal(got, []string{"ideal_job_text"}) {
+		t.Fatalf("blank text Validate() = %v", got)
+	}
+}
+
+func TestOpeningSearchEffectiveSort(t *testing.T) {
+	t.Parallel()
+	if got := (OpeningSearchQuery{}).EffectiveSort(); got != SortNewest {
+		t.Fatalf("default query sort = %q", got)
+	}
+	if got := (SearchOpeningsRequest{}).EffectiveSort(); got != SortNewest {
+		t.Fatalf("default request sort = %q", got)
+	}
+	if got := (SearchOpeningsRequest{Sort: new(SortIdealJobMatch)}).EffectiveSort(); got != SortIdealJobMatch {
+		t.Fatalf("request sort = %q", got)
+	}
+}
+
+func TestSearchOpeningsRequestRefusesIdealJobText(t *testing.T) {
+	t.Parallel()
+	decoder := json.NewDecoder(strings.NewReader(`{"sort":"ideal_job_match","ideal_job_text":"go"}`))
+	decoder.DisallowUnknownFields()
+	var request SearchOpeningsRequest
+	if err := decoder.Decode(&request); err == nil {
+		t.Fatal("decoded a Hub request holding ideal_job_text")
+	}
+}
+
+func TestRelaySearchPrefixesIdealJobText(t *testing.T) {
+	t.Parallel()
+	search := RelaySearchOpeningsRequest{
+		TenantID: "usa1", Query: OpeningSearchQuery{Sort: new(SortIdealJobMatch)},
+	}
+	if got, want := search.Validate(), []string{"query.ideal_job_text"}; !slices.Equal(got, want) {
+		t.Fatalf("Validate() = %v, want %v", got, want)
 	}
 }

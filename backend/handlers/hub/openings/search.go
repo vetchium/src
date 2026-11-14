@@ -23,9 +23,10 @@ func Search(s *hubruntime.Server) http.HandlerFunc {
 		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
+		query := openingsspec.OpeningSearchQuery{OpeningSearchFilters: request.OpeningSearchFilters}
 		var result openingsspec.SearchOpeningsResponse
 		if request.Region == nil || string(*request.Region) == s.TenantID {
-			local, err := s.OpeningSearch.Search(r.Context(), request.OpeningSearchQuery)
+			local, err := s.OpeningSearch.Search(r.Context(), query)
 			if errors.Is(err, openingsearch.ErrInvalidPaginationKey) {
 				s.Problem(r.Context(), w, problem.InvalidPaginationKeyError)
 				return
@@ -41,7 +42,7 @@ func Search(s *hubruntime.Server) http.HandlerFunc {
 				return
 			}
 			outcome, err := s.Openings.RelaySearch(
-				r.Context(), *request.Region, request.OpeningSearchQuery,
+				r.Context(), *request.Region, query,
 			)
 			if err != nil {
 				s.Problem(r.Context(), w, hubproblem.RegionUnavailableError)

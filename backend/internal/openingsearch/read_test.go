@@ -2,15 +2,18 @@ package openingsearch
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub"
 	openingsspec "github.com/vetchium/src/typespec/hub/openings"
 	"github.com/vetchium/src/typespec/orgs"
 
@@ -280,5 +283,103 @@ func TestEmptyResultsEncodeAsEmptyLists(t *testing.T) {
 		if err != nil || string(data) != check.want {
 			t.Fatalf("encoded = %s, %v; want %s", data, err, check.want)
 		}
+	}
+}
+
+func matchQuery(text string) openingsspec.OpeningSearchQuery {
+	limit := openingsspec.OpeningSearchPageSize(2)
+	ideal := hub.IdealJob(text)
+	return openingsspec.OpeningSearchQuery{
+		OpeningSearchFilters: openingsspec.OpeningSearchFilters{Limit: &limit},
+		Sort:                 new(openingsspec.SortIdealJobMatch), IdealJobText: &ideal,
+	}
+}
+
+func rankedRows() []sqlc.SearchOpeningsRow {
+	rows := []sqlc.SearchOpeningsRow{
+		searchRow("a.example", 0, 3, 0), searchRow("a.example", 0, 2, 0),
+		searchRow("a.example", 0, 1, 0),
+	}
+	rows[0].Rank, rows[1].Rank, rows[2].Rank = 0.6079271, 0.2431708, 0.1
+	return rows
+}
+
+func TestSearchMatchPassesTextAndKeepsRankInKey(t *testing.T) {
+	stub := &queryStub{searchRows: rankedRows()}
+	reader := Reader{Queries: stub, TenantID: "sgp"}
+	const text = "Go backend engineer"
+	first, err := reader.Search(context.Background(), matchQuery(text))
+	if err != nil || first.NextPaginationKey == nil {
+		t.Fatalf("first page = %+v, %v", first, err)
+	}
+	if stub.searchArg.IdealJobText != (pgtype.Text{String: text, Valid: true}) ||
+		stub.searchArg.CursorRank.Valid {
+		t.Fatalf("first page parameters = %+v", stub.searchArg)
+	}
+	data, err := base64.RawURLEncoding.DecodeString(string(*first.NextPaginationKey))
+	if err != nil || strings.Contains(strings.ToLower(string(data)), "backend") {
+		t.Fatalf("key %s holds the ideal-job text (%v)", data, err)
+	}
+
+	query := matchQuery(text)
+	query.PaginationKey = first.NextPaginationKey
+	if _, err := reader.Search(context.Background(), query); err != nil {
+		t.Fatalf("next page: %v", err)
+	}
+	arg := stub.searchArg
+	if arg.CursorRank != (pgtype.Float4{Float32: 0.2431708, Valid: true}) ||
+		arg.CursorNumber.Int32 != 2 || arg.IdealJobText.String != text {
+		t.Fatalf("cursor parameters = %+v", arg)
+	}
+}
+
+func TestSearchKeyBindsSortAndText(t *testing.T) {
+	reader := Reader{Queries: &queryStub{searchRows: rankedRows()}, TenantID: "sgp"}
+	match, err := reader.Search(context.Background(), matchQuery("Go backend"))
+	if err != nil || match.NextPaginationKey == nil {
+		t.Fatalf("match page = %+v, %v", match, err)
+	}
+	limit := openingsspec.OpeningSearchPageSize(2)
+	newestQuery := openingsspec.OpeningSearchQuery{
+		OpeningSearchFilters: openingsspec.OpeningSearchFilters{Limit: &limit},
+	}
+	newest, err := reader.Search(context.Background(), newestQuery)
+	if err != nil || newest.NextPaginationKey == nil {
+		t.Fatalf("newest page = %+v, %v", newest, err)
+	}
+
+	changed := map[string]openingsspec.OpeningSearchQuery{
+		"match key under newest": withKey(newestQuery, match.NextPaginationKey),
+		"match key, other text":  withKey(matchQuery("Go frontend"), match.NextPaginationKey),
+		"newest key under match": withKey(matchQuery("Go backend"), newest.NextPaginationKey),
+	}
+	for name, query := range changed {
+		t.Run(name, func(t *testing.T) {
+			stub := &queryStub{}
+			_, err := Reader{Queries: stub, TenantID: "sgp"}.Search(context.Background(), query)
+			if !errors.Is(err, ErrInvalidPaginationKey) || stub.calls != 0 {
+				t.Fatalf("error %v, %d queries", err, stub.calls)
+			}
+		})
+	}
+}
+
+func withKey(
+	query openingsspec.OpeningSearchQuery, key *common.PaginationKey,
+) openingsspec.OpeningSearchQuery {
+	query.PaginationKey = key
+	return query
+}
+
+func TestSearchNewestPassesNoText(t *testing.T) {
+	stub := &queryStub{searchRows: rankedRows()}
+	query := matchQuery("Go backend")
+	query.Sort = new(openingsspec.SortNewest)
+	first, err := Reader{Queries: stub, TenantID: "sgp"}.Search(context.Background(), query)
+	if err != nil || first.NextPaginationKey == nil {
+		t.Fatalf("newest page = %+v, %v", first, err)
+	}
+	if stub.searchArg.IdealJobText.Valid {
+		t.Fatalf("newest search sent the text: %+v", stub.searchArg)
 	}
 }

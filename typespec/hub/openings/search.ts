@@ -19,6 +19,7 @@ import {
   normalizeOrgDomain,
   type OrgDomain,
 } from "../../orgs/types.ts";
+import { type IdealJob, maxIdealJobCodePoints } from "../types.ts";
 import type { PublicOpeningSummary, PublicOrg } from "./public.ts";
 
 export type OpeningSearchKeyword = string;
@@ -33,11 +34,18 @@ export const MaxOpeningOrgSuggestions = 10;
 export const OpeningSearchPostedWithinDaysValues: readonly OpeningSearchPostedWithinDays[] =
   [1, 7, 30];
 
-/**
- * The filters of one search (OPN-SRCH-004). It names no viewer, so a peer
- * receives exactly this.
- */
-export interface OpeningSearchQuery {
+/** `ideal_job_match` ranks by the caller's saved ideal job (OPN-SRCH-013). */
+export type OpeningSearchSort = "newest" | "ideal_job_match";
+
+export const SortNewest: OpeningSearchSort = "newest";
+export const SortIdealJobMatch: OpeningSearchSort = "ideal_job_match";
+export const OpeningSearchSorts: readonly OpeningSearchSort[] = [
+  SortNewest,
+  SortIdealJobMatch,
+];
+
+/** The filters of one search (OPN-SRCH-004). */
+export interface OpeningSearchFilters {
   keyword?: OpeningSearchKeyword;
   org_domain?: OrgDomain;
   tag_oids?: OpeningTagOID[];
@@ -52,7 +60,22 @@ export interface OpeningSearchQuery {
   limit?: OpeningSearchPageSize;
 }
 
-export interface SearchOpeningsRequest extends OpeningSearchQuery {
+/**
+ * One search as the answering tenant runs it: the relay and peer body. It
+ * names no viewer (OPN-SRCH-002).
+ */
+export interface OpeningSearchQuery extends OpeningSearchFilters {
+  sort?: OpeningSearchSort;
+  /**
+   * Present exactly under `ideal_job_match`; used only to match and rank,
+   * never logged, stored, or audited (OPN-SRCH-014).
+   */
+  ideal_job_text?: IdealJob;
+}
+
+/** The browser never sends ideal-job text; hub-api reads it (OPN-SRCH-013). */
+export interface SearchOpeningsRequest extends OpeningSearchFilters {
+  sort?: OpeningSearchSort;
   region?: TenantID;
 }
 
@@ -132,7 +155,7 @@ function validateList<T>(
   return fields;
 }
 
-function normalizeOpeningSearchQuery<T extends OpeningSearchQuery>(
+function normalizeOpeningSearchFilters<T extends OpeningSearchFilters>(
   request: T,
 ): T {
   return {
@@ -149,7 +172,7 @@ function normalizeOpeningSearchQuery<T extends OpeningSearchQuery>(
   };
 }
 
-function validateOpeningSearchQuery(request: OpeningSearchQuery): string[] {
+function validateOpeningSearchFilters(request: OpeningSearchFilters): string[] {
   const fields: string[] = [];
   if (
     request.keyword !== undefined &&
@@ -201,16 +224,51 @@ function validateOpeningSearchQuery(request: OpeningSearchQuery): string[] {
   return fields;
 }
 
+function isOpeningSearchSort(value: string): value is OpeningSearchSort {
+  return (OpeningSearchSorts as readonly string[]).includes(value);
+}
+
+export function normalizeOpeningSearchQuery(
+  query: OpeningSearchQuery,
+): OpeningSearchQuery {
+  return {
+    ...normalizeOpeningSearchFilters(query),
+    ...(query.ideal_job_text !== undefined && {
+      ideal_job_text: query.ideal_job_text.trim(),
+    }),
+  };
+}
+
+export function validateOpeningSearchQuery(
+  query: OpeningSearchQuery,
+): string[] {
+  const fields = validateOpeningSearchFilters(query);
+  if (query.sort !== undefined && !isOpeningSearchSort(query.sort))
+    fields.push("sort");
+  const text = query.ideal_job_text;
+  if ((query.sort ?? SortNewest) === SortIdealJobMatch) {
+    if (
+      text === undefined ||
+      text === "" ||
+      codePoints(text) > maxIdealJobCodePoints
+    )
+      fields.push("ideal_job_text");
+  } else if (text !== undefined) fields.push("ideal_job_text");
+  return fields;
+}
+
 export function normalizeSearchOpeningsRequest(
   request: SearchOpeningsRequest,
 ): SearchOpeningsRequest {
-  return normalizeOpeningSearchQuery(request);
+  return normalizeOpeningSearchFilters(request);
 }
 
 export function validateSearchOpeningsRequest(
   request: SearchOpeningsRequest,
 ): string[] {
-  const fields = validateOpeningSearchQuery(request);
+  const fields = validateOpeningSearchFilters(request);
+  if (request.sort !== undefined && !isOpeningSearchSort(request.sort))
+    fields.push("sort");
   if (request.region !== undefined && !isTenantID(request.region))
     fields.push("region");
   return fields;

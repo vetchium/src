@@ -67,3 +67,4 @@ The Go tests in step 3, `playwright/api/hub-opening-search.spec.ts`.
 
 ## Carried over
 - From T04: CI `sgp` reaches the `ind1` peer directly and search never calls the coordinator, so `region: "ind1"` answers 200; reach `hub-region-unavailable` with an uncatalogued region such as `gone` (OPN-TST-005 now says so).
+- From T11: hub-api `Search` builds `OpeningSearchQuery{OpeningSearchFilters: request.OpeningSearchFilters}` and ignores `sort` until step 1 here; the reader and query already rank by `ideal_job_text` and bind sort, digest, and rank in the key.

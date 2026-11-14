@@ -1,11 +1,18 @@
 -- Opening search over the Orgs this tenant homes (OPN-SRCH-003 to 005). A
 -- NULL filter is off. matched_tags counts the requested tags an Opening holds;
 -- the keyset follows the full order, whose directions differ per column.
+-- ideal_job_text, sent only for the match sort, limits to Openings sharing a
+-- lexeme and ranks them first (OPN-SRCH-015); without it every rank is 0.
 -- name: SearchOpenings :many
-SELECT hit.matched_tags, hit.domain, hit.display_name, hit.country,
+WITH wanted AS (
+    SELECT vetchium.ideal_job_tsquery(sqlc.narg(ideal_job_text)::text) AS tsq
+)
+SELECT hit.rank, hit.matched_tags, hit.domain, hit.display_name, hit.country,
     hit.logo_object_id, hit.summary
 FROM (
-    SELECT d.domain, org.display_name, org.country,
+    SELECT (CASE WHEN sqlc.narg(ideal_job_text)::text IS NULL THEN 0
+            ELSE ts_rank(c.search_document, wanted.tsq) END)::real AS rank,
+        d.domain, org.display_name, org.country,
         logo.object_id AS logo_object_id, o.first_published_at,
         o.opening_number,
         (SELECT count(*)
@@ -35,8 +42,11 @@ FROM (
     LEFT JOIN vetchium.org_logo_objects AS logo
       ON logo.org_did = org.org_did AND logo.state = 'active'
         AND org.org_plan_oid <> 'org-free-tier'
+    CROSS JOIN wanted
     WHERE o.opening_state = 'published'
       AND o.expires_at > now()
+      AND (sqlc.narg(ideal_job_text)::text IS NULL
+          OR (wanted.tsq IS NOT NULL AND c.search_document @@ wanted.tsq))
       AND (sqlc.narg(keyword)::text IS NULL
           OR strpos(lower(c.title), lower(sqlc.narg(keyword)::text)) > 0
           OR strpos(lower(org.display_name),
@@ -72,16 +82,20 @@ FROM (
           OR c.salary_currency IS NOT NULL)
 ) AS hit
 WHERE sqlc.narg(cursor_at)::timestamptz IS NULL
-    OR hit.matched_tags < sqlc.narg(cursor_matched_tags)::integer
-    OR (hit.matched_tags = sqlc.narg(cursor_matched_tags)::integer
-        AND (hit.first_published_at < sqlc.narg(cursor_at)::timestamptz
-            OR (hit.first_published_at = sqlc.narg(cursor_at)::timestamptz
-                AND (hit.domain > sqlc.narg(cursor_domain)::text
-                    OR (hit.domain = sqlc.narg(cursor_domain)::text
-                        AND hit.opening_number
-                            < sqlc.narg(cursor_number)::integer)))))
-ORDER BY hit.matched_tags DESC, hit.first_published_at DESC, hit.domain,
-    hit.opening_number DESC
+    OR hit.rank < sqlc.narg(cursor_rank)::real
+    OR (hit.rank = sqlc.narg(cursor_rank)::real
+        AND (hit.matched_tags < sqlc.narg(cursor_matched_tags)::integer
+            OR (hit.matched_tags = sqlc.narg(cursor_matched_tags)::integer
+                AND (hit.first_published_at
+                        < sqlc.narg(cursor_at)::timestamptz
+                    OR (hit.first_published_at
+                            = sqlc.narg(cursor_at)::timestamptz
+                        AND (hit.domain > sqlc.narg(cursor_domain)::text
+                            OR (hit.domain = sqlc.narg(cursor_domain)::text
+                                AND hit.opening_number
+                                    < sqlc.narg(cursor_number)::integer)))))))
+ORDER BY hit.rank DESC, hit.matched_tags DESC, hit.first_published_at DESC,
+    hit.domain, hit.opening_number DESC
 LIMIT sqlc.arg(page_size)::integer;
 
 -- Qualifying Orgs holding an Opening search could return (OPN-SRCH-007).

@@ -18,10 +18,14 @@ import {
 } from "./messages/messages.ts";
 import { validateListOrgOpeningsRequest } from "./openings/public.ts";
 import {
+  normalizeOpeningSearchQuery,
   normalizeSearchOpeningsRequest,
   normalizeSuggestOpeningOrgsRequest,
   type OpeningSearchPostedWithinDays,
+  type OpeningSearchQuery,
+  type OpeningSearchSort,
   type SearchOpeningsRequest,
+  validateOpeningSearchQuery,
   validateSearchOpeningsRequest,
   validateSuggestOpeningOrgsRequest,
 } from "./openings/search.ts";
@@ -364,6 +368,9 @@ test("Opening search validation matches the Go companion", () => {
     ["limit 51", { limit: 51 }, ["limit"]],
     ["region", { region: "usa1" }, []],
     ["malformed region", { region: "USA 1" }, ["region"]],
+    ["sort newest", { sort: "newest" }, []],
+    ["sort ideal job match", { sort: "ideal_job_match" }, []],
+    ["unknown sort", { sort: "relevance" as OpeningSearchSort }, ["sort"]],
     [
       "several fields at once",
       { keyword: "g", limit: 0, region: "X" },
@@ -388,6 +395,64 @@ test("Opening search normalization keeps the original", () => {
   assert.equal(original.keyword, "  golang  ");
   assert.deepEqual(original.work_countries, [" de ", "fr"]);
   assert.deepEqual(validateSearchOpeningsRequest(normalized), []);
+});
+
+test("Opening search query binds ideal-job text to the match sort", () => {
+  const cases: [string, OpeningSearchQuery, string[]][] = [
+    ["newest without text", {}, []],
+    ["explicit newest without text", { sort: "newest" }, []],
+    ["default sort with text", { ideal_job_text: "go" }, ["ideal_job_text"]],
+    [
+      "newest with text",
+      { sort: "newest", ideal_job_text: "go" },
+      ["ideal_job_text"],
+    ],
+    ["match with text", { sort: "ideal_job_match", ideal_job_text: "go" }, []],
+    ["match without text", { sort: "ideal_job_match" }, ["ideal_job_text"]],
+    [
+      "match with empty text",
+      { sort: "ideal_job_match", ideal_job_text: "" },
+      ["ideal_job_text"],
+    ],
+    [
+      "match with 2000 code points",
+      { sort: "ideal_job_match", ideal_job_text: "😀".repeat(2000) },
+      [],
+    ],
+    [
+      "match with 2001 code points",
+      { sort: "ideal_job_match", ideal_job_text: "😀".repeat(2001) },
+      ["ideal_job_text"],
+    ],
+    ["unknown sort", { sort: "relevance" as OpeningSearchSort }, ["sort"]],
+    [
+      "filters and text at once",
+      { limit: 0, sort: "ideal_job_match" },
+      ["limit", "ideal_job_text"],
+    ],
+  ];
+  for (const [name, query, want] of cases) {
+    assert.deepEqual(validateOpeningSearchQuery(query), want, name);
+  }
+
+  const original: OpeningSearchQuery = {
+    keyword: " go ",
+    sort: "ideal_job_match",
+    ideal_job_text: "  Go backend  ",
+  };
+  const normalized = normalizeOpeningSearchQuery(original);
+  assert.equal(normalized.ideal_job_text, "Go backend");
+  assert.equal(normalized.keyword, "go");
+  assert.equal(original.ideal_job_text, "  Go backend  ");
+  assert.deepEqual(
+    validateOpeningSearchQuery(
+      normalizeOpeningSearchQuery({
+        sort: "ideal_job_match",
+        ideal_job_text: " \n ",
+      }),
+    ),
+    ["ideal_job_text"],
+  );
 });
 
 test("Opening Org suggestions validate the query and region", () => {

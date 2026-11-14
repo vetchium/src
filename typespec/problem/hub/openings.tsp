@@ -42,3 +42,14 @@ alias HubRegionUnavailableErrorResponse = Response<
   503,
   typeof HubRegionUnavailableError
 >;
+
+const HubIdealJobMissingError = #{
+  type: "vetchium-problem-details/hub-ideal-job-missing",
+  title: "Ideal job missing",
+  status: 422,
+  detail: "Save your ideal job in Preferences to sort by match",
+};
+alias HubIdealJobMissingErrorResponse = Response<
+  422,
+  typeof HubIdealJobMissingError
+>;

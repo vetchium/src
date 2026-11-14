@@ -4,7 +4,9 @@ package openingsearch
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,13 +57,18 @@ type filters struct {
 	SalaryDisclosed  bool     `json:"salary_disclosed,omitempty"`
 }
 
+// cursor binds the ideal-job text only by digest, so a key never carries the
+// text itself (OPN-SRCH-005).
 type cursor struct {
-	TenantID    directory.TenantID `json:"tenant_id"`
-	Filters     filters            `json:"filters"`
-	MatchedTags int32              `json:"matched_tags"`
-	At          time.Time          `json:"at"`
-	Domain      string             `json:"domain"`
-	Number      int32              `json:"number"`
+	TenantID       directory.TenantID             `json:"tenant_id"`
+	Filters        filters                        `json:"filters"`
+	Sort           openingsspec.OpeningSearchSort `json:"sort"`
+	IdealJobDigest string                         `json:"ideal_job_digest,omitempty"`
+	Rank           float32                        `json:"rank"`
+	MatchedTags    int32                          `json:"matched_tags"`
+	At             time.Time                      `json:"at"`
+	Domain         string                         `json:"domain"`
+	Number         int32                          `json:"number"`
 }
 
 func sortedStrings[T ~string](items []T) []string {
@@ -104,8 +111,23 @@ func filtersFor(query openingsspec.OpeningSearchQuery) filters {
 	return f
 }
 
+// idealJobText is the text to match under the match sort, and nil otherwise.
+func idealJobText(query openingsspec.OpeningSearchQuery) *string {
+	if query.EffectiveSort() != openingsspec.SortIdealJobMatch || query.IdealJobText == nil {
+		return nil
+	}
+	text := string(*query.IdealJobText)
+	return &text
+}
+
 func (r Reader) parseCursor(query openingsspec.OpeningSearchQuery) (cursor, error) {
-	expected := cursor{TenantID: r.TenantID, Filters: filtersFor(query)}
+	expected := cursor{
+		TenantID: r.TenantID, Filters: filtersFor(query), Sort: query.EffectiveSort(),
+	}
+	if text := idealJobText(query); text != nil {
+		digest := sha256.Sum256([]byte(*text))
+		expected.IdealJobDigest = hex.EncodeToString(digest[:])
+	}
 	if query.PaginationKey == nil {
 		return expected, nil
 	}
@@ -116,7 +138,8 @@ func (r Reader) parseCursor(query openingsspec.OpeningSearchQuery) (cursor, erro
 	var actual cursor
 	if err := json.Unmarshal(data, &actual); err != nil || actual.At.IsZero() ||
 		actual.Number < 1 || actual.Domain == "" || actual.MatchedTags < 0 ||
-		actual.TenantID != expected.TenantID ||
+		actual.Rank < 0 || actual.TenantID != expected.TenantID ||
+		actual.Sort != expected.Sort || actual.IdealJobDigest != expected.IdealJobDigest ||
 		!reflect.DeepEqual(actual.Filters, expected.Filters) {
 		return cursor{}, ErrInvalidPaginationKey
 	}
@@ -176,7 +199,7 @@ func (l *logoURLs) publicOrg(
 }
 
 // Search answers one Opening search from the local database. It never logs
-// the query (OPN-SRCH-008).
+// the query or the ideal-job text (OPN-SRCH-008).
 func (r Reader) Search(
 	ctx context.Context, query openingsspec.OpeningSearchQuery,
 ) (openingsspec.SearchOpeningsResponse, error) {
@@ -198,8 +221,12 @@ func (r Reader) Search(
 		SalaryDisclosed:  f.SalaryDisclosed,
 		PageSize:         query.EffectiveLimit() + 1,
 	}
+	if text := idealJobText(query); text != nil {
+		params.IdealJobText = pgtype.Text{String: *text, Valid: true}
+	}
 	if !c.At.IsZero() {
 		params.CursorAt = pgtype.Timestamptz{Time: c.At, Valid: true}
+		params.CursorRank = pgtype.Float4{Float32: c.Rank, Valid: true}
 		params.CursorMatchedTags = pgtype.Int4{Int32: c.MatchedTags, Valid: true}
 		params.CursorDomain = pgtype.Text{String: c.Domain, Valid: true}
 		params.CursorNumber = pgtype.Int4{Int32: c.Number, Valid: true}
@@ -230,7 +257,7 @@ func (r Reader) Search(
 	if more {
 		last := rows[len(rows)-1]
 		lastOpening := response.Openings[len(response.Openings)-1].Opening
-		c.MatchedTags, c.Domain = last.MatchedTags, last.Domain
+		c.Rank, c.MatchedTags, c.Domain = last.Rank, last.MatchedTags, last.Domain
 		c.At, c.Number = lastOpening.FirstPublishedAt, int32(lastOpening.OpeningNumber)
 		data, err := json.Marshal(c)
 		if err != nil {

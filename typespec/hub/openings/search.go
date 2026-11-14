@@ -8,6 +8,7 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/directory"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 )
 
@@ -29,9 +30,26 @@ const (
 	MaxOpeningOrgSuggestions  = 10
 )
 
-// OpeningSearchQuery holds the filters of one search (OPN-SRCH-004). It names
-// no viewer, so a peer receives exactly this (OPN-SRCH-002).
-type OpeningSearchQuery struct {
+type OpeningSearchSort string
+
+const (
+	SortNewest        OpeningSearchSort = "newest"
+	SortIdealJobMatch OpeningSearchSort = "ideal_job_match"
+)
+
+func isOpeningSearchSort(value OpeningSearchSort) bool {
+	return value == SortNewest || value == SortIdealJobMatch
+}
+
+func effectiveSort(sort *OpeningSearchSort) OpeningSearchSort {
+	if sort == nil {
+		return SortNewest
+	}
+	return *sort
+}
+
+// OpeningSearchFilters holds the filters of one search (OPN-SRCH-004).
+type OpeningSearchFilters struct {
 	Keyword          *OpeningSearchKeyword           `json:"keyword,omitempty"`
 	OrgDomain        *orgs.OrgDomain                 `json:"org_domain,omitempty"`
 	TagOIDs          []common.OpeningTagOID          `json:"tag_oids,omitempty"`
@@ -46,7 +64,7 @@ type OpeningSearchQuery struct {
 	Limit            *OpeningSearchPageSize          `json:"limit,omitempty"`
 }
 
-func (q *OpeningSearchQuery) Normalize() {
+func (q *OpeningSearchFilters) Normalize() {
 	if q.Keyword != nil {
 		value := OpeningSearchKeyword(strings.TrimSpace(string(*q.Keyword)))
 		q.Keyword = &value
@@ -64,14 +82,14 @@ func (q *OpeningSearchQuery) Normalize() {
 	}
 }
 
-func (q OpeningSearchQuery) EffectiveLimit() int32 {
+func (q OpeningSearchFilters) EffectiveLimit() int32 {
 	if q.Limit == nil {
 		return DefaultOpeningSearchLimit
 	}
 	return int32(*q.Limit)
 }
 
-func (q OpeningSearchQuery) Validate() []string {
+func (q OpeningSearchFilters) Validate() []string {
 	fields := []string{}
 	if q.Keyword != nil {
 		size := utf8.RuneCountInString(string(*q.Keyword))
@@ -142,15 +160,62 @@ func isEducation(value common.OpeningEducation) bool {
 		value == common.OpeningMaster || value == common.OpeningDoctorate
 }
 
+// OpeningSearchQuery is one search as the answering tenant runs it: the relay
+// and peer body and the reader input. It names no viewer (OPN-SRCH-002).
+type OpeningSearchQuery struct {
+	OpeningSearchFilters
+	Sort *OpeningSearchSort `json:"sort,omitempty"`
+	// IdealJobText is present exactly under SortIdealJobMatch. Use it only to
+	// match and rank; never log, store, or audit it (OPN-SRCH-014).
+	IdealJobText *hub.IdealJob `json:"ideal_job_text,omitempty"`
+}
+
+func (q *OpeningSearchQuery) Normalize() {
+	q.OpeningSearchFilters.Normalize()
+	if q.IdealJobText != nil {
+		value := hub.IdealJob(strings.TrimSpace(string(*q.IdealJobText)))
+		q.IdealJobText = &value
+	}
+}
+
+func (q OpeningSearchQuery) EffectiveSort() OpeningSearchSort { return effectiveSort(q.Sort) }
+
+func (q OpeningSearchQuery) Validate() []string {
+	fields := q.OpeningSearchFilters.Validate()
+	if q.Sort != nil && !isOpeningSearchSort(*q.Sort) {
+		fields = append(fields, "sort")
+	}
+	switch q.EffectiveSort() {
+	case SortIdealJobMatch:
+		if q.IdealJobText == nil || *q.IdealJobText == "" ||
+			utf8.RuneCountInString(string(*q.IdealJobText)) > hub.MaxIdealJobCodePoints {
+			fields = append(fields, "ideal_job_text")
+		}
+	default:
+		if q.IdealJobText != nil {
+			fields = append(fields, "ideal_job_text")
+		}
+	}
+	return fields
+}
+
+// SearchOpeningsRequest carries no ideal-job text: hub-api reads the caller's
+// own (OPN-SRCH-013), and the strict decoder refuses one.
 type SearchOpeningsRequest struct {
-	OpeningSearchQuery
+	OpeningSearchFilters
+	Sort   *OpeningSearchSort  `json:"sort,omitempty"`
 	Region *directory.TenantID `json:"region,omitempty"`
 }
 
-func (r *SearchOpeningsRequest) Normalize() { r.OpeningSearchQuery.Normalize() }
+func (r *SearchOpeningsRequest) Normalize() { r.OpeningSearchFilters.Normalize() }
+
+func (r SearchOpeningsRequest) EffectiveSort() OpeningSearchSort { return effectiveSort(r.Sort) }
 
 func (r SearchOpeningsRequest) Validate() []string {
-	fields := r.OpeningSearchQuery.Validate()
+	fields := r.OpeningSearchFilters.Validate()
+	if r.Sort != nil && !isOpeningSearchSort(*r.Sort) {
+		fields = append(fields, "sort")
+	}
 	if r.Region != nil && !directory.IsTenantID(*r.Region) {
 		fields = append(fields, "region")
 	}

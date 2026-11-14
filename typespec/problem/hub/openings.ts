@@ -27,3 +27,10 @@ export const RegionUnavailableError: Readonly<Details> = {
   status: 503,
   detail: "The requested region is temporarily unavailable",
 };
+
+export const IdealJobMissingError: Readonly<Details> = {
+  type: "vetchium-problem-details/hub-ideal-job-missing",
+  title: "Ideal job missing",
+  status: 422,
+  detail: "Save your ideal job in Preferences to sort by match",
+};
