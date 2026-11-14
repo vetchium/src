@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	directoryspec "github.com/vetchium/src/typespec/directory"
+
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
 	"backend/internal/conversationclient"
@@ -21,6 +23,7 @@ import (
 	"backend/internal/identitydigest"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
+	"backend/internal/openingsearch"
 	"backend/internal/profileclient"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
@@ -154,6 +157,10 @@ func run(log *slog.Logger, address string) error {
 		Conversations: conversations,
 		PublicOpenings: publicopenings.Reader{
 			Queries: dbsqlc.New(pool), Logos: pictures,
+		},
+		OpeningSearch: openingsearch.Reader{
+			Queries: dbsqlc.New(pool), Logos: pictures,
+			TenantID: directoryspec.TenantID(cfg.TenantID),
 		},
 		Pictures:         pictures,
 		OfferLetters:     pictures,

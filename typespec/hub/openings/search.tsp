@@ -186,6 +186,7 @@ alias PeerSuggestOpeningOrgsRequest = SuggestOpeningOrgsQuery;
 alias PeerOpeningSearchErrors =
   | Vetchium.Problem.InvalidJSONErrorResponse
   | Vetchium.Problem.ValidationFailedErrorResponse
+  | Vetchium.Problem.MeshPeerAuthenticationRequiredErrorResponse
   | Vetchium.Problem.InternalServerErrorResponse;
 
 @route("/mesh/opening-search")

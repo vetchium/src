@@ -1,7 +1,7 @@
 # Opening search build progress
 
 branch: opening-search
-current: T03
+current: T04
 phase: implement
 
 ## Tasks
@@ -10,7 +10,7 @@ phase: implement
 
 T01 done Openings: Opening search contracts
 T02 done Openings: Opening search queries and reader
-T03 todo Openings: Opening search in hub-api and across regions
+T03 done Openings: Opening search in hub-api and across regions
 T04 todo Openings: Opening search API tests
 
 ### M2 Hub portal

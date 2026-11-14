@@ -65,3 +65,5 @@ both operations.
 
 ## Carried over
 - From T01: list filters report a bad size as `<field>` and a malformed or repeated item as `<field>.<index>` (for example `tag_oids.1`); relay requests prefix query faults with `query.`.
+- From T03: hub-api answers `hub-region-unavailable` without a relay call for a well-formed `region` missing from its region catalog; CI `sgp` reaches the `ind1` peer directly (no coordinator on this path), so verify what `region: "ind1"` returns before asserting it, and use an uncatalogued region (hub) and an unknown `tenant_id` (relay) for the 503 variants.
+- From T03: both peer operations declare `mesh-peer-authentication-required` (401); reach it with the `health` certificate as `org-listings.spec.ts` does.
