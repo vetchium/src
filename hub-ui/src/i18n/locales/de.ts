@@ -621,6 +621,7 @@ export const de = {
     saved: "Ich habe die Codes gespeichert",
   },
   orgPage: {
+    tagsUnavailable: "Schlagwörter konnten nicht geladen werden",
     apply: "Bewerben",
     youApplied: "Sie haben sich auf diese Stelle beworben.",
     viewApplication: "Bewerbung ansehen",

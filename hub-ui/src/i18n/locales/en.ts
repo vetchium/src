@@ -592,6 +592,7 @@ export const en = {
     saved: "I saved these codes",
   },
   orgPage: {
+    tagsUnavailable: "Tags could not be loaded",
     apply: "Apply",
     youApplied: "You applied to this opening.",
     viewApplication: "View application",

@@ -1,12 +1,12 @@
-import { Flex, Select } from "antd";
+import { Select } from "antd";
 import type { CSSProperties } from "react";
-import { OpeningTagIcon } from "./icons.tsx";
+import { type OpeningTagCatalog, sortedOpeningTags } from "./names.ts";
 import {
-  compareOpeningTagNames,
-  type OpeningTagCatalog,
-  openingTagMatches,
-  openingTagName,
-} from "./names.ts";
+  type OpeningTagOption,
+  openingTagOption,
+  openingTagSearch,
+  openingTagsUnavailable,
+} from "./options.tsx";
 
 export interface OpeningTagFilterProps {
   value?: string;
@@ -17,6 +17,8 @@ export interface OpeningTagFilterProps {
   /** The control's accessible name, such as "Tag". */
   label: string;
   placeholder?: string;
+  /** Set when the catalog could not be read; shown above any options. */
+  unavailable?: string;
   style?: CSSProperties;
 }
 
@@ -31,48 +33,28 @@ export function OpeningTagFilter({
   catalog,
   label,
   placeholder,
+  unavailable,
   style,
 }: OpeningTagFilterProps) {
-  const option = (oid: string) => {
-    const name = openingTagName(catalog, oid, locale);
-    return {
-      value: oid,
-      title: name,
-      label: (
-        <Flex gap="small" align="center">
-          <OpeningTagIcon oid={oid} />
-          {name}
-        </Flex>
-      ),
-    };
-  };
-  const offered = [...catalog.values()]
-    .filter((tag) => !tag.deprecated)
-    .sort((a, b) => compareOpeningTagNames(catalog, a, b, locale));
-  const options = offered.map((tag) => option(tag.tag_oid));
+  const offered = sortedOpeningTags(catalog, locale, (tag) => !tag.deprecated);
+  const options = offered.map((tag) =>
+    openingTagOption(catalog, tag.tag_oid, locale),
+  );
   if (value !== undefined && !offered.some((tag) => tag.tag_oid === value))
-    options.push(option(value));
+    options.push(openingTagOption(catalog, value, locale));
   return (
-    <Select<string>
+    <Select<string, OpeningTagOption>
       aria-label={label}
       value={value}
       onChange={(next?: string) => onChange(next || undefined)}
       options={options}
-      placeholder={placeholder}
+      placeholder={unavailable ?? placeholder}
       style={style}
       // Names are longer than a filter-sized field; never cut them off.
       popupMatchSelectWidth={false}
       allowClear
-      showSearch={{
-        filterOption: (input, candidate) => {
-          const oid = candidate?.value;
-          if (typeof oid !== "string") return false;
-          const tag = catalog.get(oid);
-          return tag === undefined
-            ? oid.includes(input.trim().toLowerCase())
-            : openingTagMatches(tag, input, locale);
-        },
-      }}
+      showSearch={openingTagSearch(catalog, locale)}
+      {...openingTagsUnavailable(unavailable)}
     />
   );
 }

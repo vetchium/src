@@ -106,9 +106,15 @@ function filtersFromSearch(
 }
 
 export function OrgPage() {
+  const domain = normalizeOrgDomain(useParams().domain ?? "");
+  // The route keeps this page mounted across Orgs; a new Org starts with its
+  // own title input and first page, not the previous Org's pagination keys.
+  return <OrgPageContent key={domain} domain={domain} />;
+}
+
+function OrgPageContent({ domain }: { domain: string }) {
   const { t, i18n } = useTranslation();
   const { date } = useDateTimeFormat();
-  const domain = normalizeOrgDomain(useParams().domain ?? "");
   const validDomain = isOrgDomain(domain);
   const [search, setSearch] = useSearchParams();
   const filters = filtersFromSearch(domain, search);
@@ -137,7 +143,7 @@ export function OrgPage() {
     limit: 20,
   };
   const result = useOrgOpeningsQuery(request, validDomain);
-  const tagCatalog = useOpeningTags();
+  const tags = useOpeningTags();
   const countries = countryOptions(i18n.language as FrontendLocale);
   return (
     <>
@@ -210,7 +216,10 @@ export function OrgPage() {
               value={filters.tag_oid}
               onChange={(value) => changeFilter("tag_oid", value)}
               locale={i18n.language}
-              catalog={tagCatalog}
+              catalog={tags.catalog}
+              unavailable={
+                tags.failed ? t("orgPage.tagsUnavailable") : undefined
+              }
               style={{ minWidth: 180 }}
             />
             <Input.Search
@@ -282,7 +291,7 @@ export function OrgPage() {
                     <OpeningTagList
                       tags={opening.tags}
                       name={(oid) =>
-                        openingTagName(tagCatalog, oid, i18n.language)
+                        openingTagName(tags.catalog, oid, i18n.language)
                       }
                       label={t("orgPage.fields.tags")}
                     />

@@ -78,7 +78,7 @@ export function OpeningsPage() {
   const { dateTime } = useDateTimeFormat();
   const navigate = useNavigate();
   const { data: me } = useMyInfoQuery();
-  const tagCatalog = useOpeningTags();
+  const tags = useOpeningTags();
   const [searchParams, setSearchParams] = useSearchParams();
   // The tag is kept in the URL; a hand-edited one the API would refuse is
   // ignored.
@@ -329,7 +329,10 @@ export function OpeningsPage() {
                 value={tag}
                 onChange={setTag}
                 locale={i18n.language}
-                catalog={tagCatalog}
+                catalog={tags.catalog}
+                unavailable={
+                  tags.failed ? t("openings.tagsUnavailable") : undefined
+                }
               />
             </Form.Item>
           </Col>

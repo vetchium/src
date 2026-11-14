@@ -180,7 +180,7 @@ export function OpeningDetailPage() {
     canManage &&
     opening !== undefined &&
     ["draft", "published", "paused"].includes(opening.state);
-  const tags = useOpeningTags();
+  const tags = useOpeningTags().catalog;
   const presentation = openingPresentation(t, i18n.language, tags);
   const [contentView, setContentView] = useState<"live" | "working">("working");
   const publicURL =

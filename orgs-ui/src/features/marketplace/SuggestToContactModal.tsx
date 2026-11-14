@@ -14,6 +14,7 @@ import {
 } from "antd";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { OpeningContent } from "typespec/common/openings";
 import type { ContactSummary } from "typespec/orgs/marketplace/contacts/contacts";
 import type { Job } from "typespec/orgs/marketplace/work/work";
 import { isDefiniteRefusal } from "../../api/client";
@@ -29,7 +30,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   job: Job;
-  jobContent?: Record<string, unknown>;
+  jobContent?: OpeningContent;
   alreadySuggestedHandles?: Set<string>;
   onSuccess?: () => void;
 }
@@ -109,8 +110,8 @@ export function SuggestToContactModal({
         defaultValue: job.opening.employing_country,
       })
     : "";
-  const workArrangement = (jobContent?.work_arrangement as string) || "";
-  const employmentType = (jobContent?.employment_type as string) || "";
+  const workArrangement = jobContent?.work_arrangement ?? "";
+  const employmentType = jobContent?.employment_type ?? "";
 
   const previewSubtitle = [
     opening.client,

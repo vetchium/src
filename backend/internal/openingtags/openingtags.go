@@ -6,11 +6,32 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/vetchium/src/typespec/common"
 
+	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 )
+
+// Handler serves list-opening-tags; each API wraps it in its own
+// authentication (OPN-TAG-006).
+func Handler(s apiserver.RuntimeServer, queries sqlc.Querier) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request common.ListOpeningTagsRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		runtime := s.HandlerRuntime()
+		response, err := List(r.Context(), queries)
+		if err != nil {
+			runtime.InternalError(r.Context(), w, "list Opening tags", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		runtime.JSON(r.Context(), w, http.StatusOK, response)
+	}
+}
 
 func List(
 	ctx context.Context, queries sqlc.Querier,

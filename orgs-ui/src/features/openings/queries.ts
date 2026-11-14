@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  type OpeningTagCatalog,
-  openingTagCatalog,
+  type OpeningTagCatalogState,
+  useOpeningTagCatalog,
 } from "@vetchium/portal-ui/opening-tags";
 import type { IdempotencyKey } from "typespec/common/idempotency";
 import type {
@@ -47,20 +47,10 @@ export function useOpeningSummaryQuery() {
   });
 }
 
-const emptyOpeningTagCatalog: OpeningTagCatalog = new Map();
+const openingTagsQueryKey = ["orgs", "opening-tags"] as const;
 
-/**
- * The Opening tag catalog, read once per session (OPN-TAG-006). Empty until it
- * loads, so tags show as their OIDs meanwhile.
- */
-export function useOpeningTags(): OpeningTagCatalog {
-  const query = useQuery({
-    queryKey: ["orgs", "opening-tags"],
-    queryFn: orgsAPI.listOpeningTags,
-    staleTime: Number.POSITIVE_INFINITY,
-    select: openingTagCatalog,
-  });
-  return query.data ?? emptyOpeningTagCatalog;
+export function useOpeningTags(): OpeningTagCatalogState {
+  return useOpeningTagCatalog(openingTagsQueryKey, orgsAPI.listOpeningTags);
 }
 
 export function useOpeningHistoryQuery(request: ListOpeningHistoryRequest) {
