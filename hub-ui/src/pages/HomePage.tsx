@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { FreeTier } from "typespec/hub/subscriptions/plans";
 import { useMyApplicationCountsQuery } from "../features/applications/queries";
+import { JobSearchPromptCard } from "../features/profile/JobSearchPromptCard";
 import { ProfileProgressCard } from "../features/profile/ProfileProgressCard";
 import { useMyInfoQuery } from "../features/profile/queries";
 import { useMySubscriptionQuery } from "../features/subscriptions/queries";
@@ -72,6 +73,8 @@ export function HomePage() {
   const showSecurity = !me.totp_enabled;
   const showApplications = answerNeeded > 0;
   const hasAside = showSupport || showSecurity || showApplications;
+  const showJobSearchPrompt =
+    me.ideal_job === undefined && !me.job_search_prompt_dismissed;
 
   return (
     <Space orientation="vertical" size="large" className="full-width">
@@ -80,6 +83,9 @@ export function HomePage() {
         {t("home.title", { name: me.display_name })}
       </Typography.Title>
       <OpeningSearchCard />
+      {showJobSearchPrompt ? (
+        <JobSearchPromptCard lookingForJob={me.looking_for_job} />
+      ) : null}
       <Row gutter={[24, 24]} align="stretch">
         <Col xs={24} lg={hasAside ? 14 : 24}>
           <ProfileProgressCard handle={me.handle} />

@@ -18,6 +18,9 @@ function myInfo(sessionAuthenticatedAt = new Date().toISOString()) {
     totp_enabled: false,
     recovery_codes_remaining: 0,
     session_authenticated_at: sessionAuthenticatedAt,
+    looking_for_job: false,
+    // A returning user who already answered the Home job search card.
+    job_search_prompt_dismissed: true,
   };
 }
 

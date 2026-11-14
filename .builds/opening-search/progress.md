@@ -1,7 +1,7 @@
 # Opening search build progress
 
 branch: opening-search
-current: T08
+current: T09
 phase: implement
 
 ## Tasks
@@ -21,7 +21,7 @@ T06 done Hub portal: Home search box and salary on Org page cards
 ### M3 Job search preferences
 
 T07 done Hub profile: Ideal job and looking-for-a-job settings
-T08 todo Hub portal: Job search card on Home and in Preferences
+T08 done Hub portal: Job search card on Home and in Preferences
 
 ### M4 Ideal job on applications
 

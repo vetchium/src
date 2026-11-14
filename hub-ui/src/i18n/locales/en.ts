@@ -527,6 +527,16 @@ export const en = {
     jobCountriesHelp:
       "Choose up to 10 countries. Leave empty to explore all countries. Changing residence does not change these preferences.",
     saved: "Your preference was saved.",
+    idealJob: "My ideal job",
+    idealJobHelp:
+      "Shared with Orgs when you apply; used to find matching Openings.",
+    idealJobTooLong: "Use no more than 2,000 characters.",
+    lookingForJob: "Are you currently looking for a job?",
+    lookingForJobHelp:
+      "Only you can see this. Orgs, agencies and other Hub users never do.",
+    saveIdealJob: "Save ideal job",
+    discardChanges: "Discard changes",
+    unsavedChanges: "Unsaved changes",
     agencyRequestsTitle: "Agency chat requests",
     agenciesMayRequest: "Agencies may send me chat requests",
     agenciesMayRequestHelp1:
@@ -975,6 +985,15 @@ export const en = {
     title: "Page not found",
     description: "The page you requested does not exist.",
     action: "Go to home",
+  },
+  jobSearchPrompt: {
+    title: "Your job search",
+    description:
+      "Describe your ideal job. You can change this any time in Preferences.",
+    save: "Save",
+    notNow: "Not now",
+    saved: "Your job search preferences were saved.",
+    saveNeedsIdealJob: "Describe your ideal job to save.",
   },
   home: {
     applicationsTitle: "Applications that need you",

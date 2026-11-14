@@ -1,15 +1,105 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { frontendLocaleOptions } from "@vetchium/portal-ui/localization";
-import { App, Card, Form, Select, Space, Switch, Typography } from "antd";
+import {
+  App,
+  Button,
+  Card,
+  Form,
+  Select,
+  Space,
+  Switch,
+  Tag,
+  Typography,
+} from "antd";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { CountryCode } from "typespec/common/localization";
 import type { FrontendLocale } from "typespec/hub/types";
+import {
+  type MyInfoResponse,
+  normalizeSetIdealJobRequest,
+  type SetIdealJobRequest,
+} from "typespec/hub/users/profile";
 import { hubAPI } from "../api/hub";
 import { usePreferences } from "../app/PreferencesContext";
 import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import {
+  isIdealJobValid,
+  JobSearchFields,
+} from "../features/profile/JobSearchFields";
 import { myInfoQueryKey, useMyInfoQuery } from "../features/profile/queries";
 import { countryOptions } from "../i18n/countries";
+
+/** The ideal job saves through its own Save; the switch saves at once. */
+function JobSearchPreferenceFields({ me }: { me: MyInfoResponse }) {
+  const { t } = useTranslation();
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
+  const saved = me.ideal_job ?? "";
+  const [idealJob, setIdealJob] = useState(saved);
+  const dirty = idealJob !== saved;
+  const valid = isIdealJobValid(idealJob);
+  const saveIdealJob = useMutation({
+    mutationFn: (request: SetIdealJobRequest) => hubAPI.setIdealJob(request),
+    onSuccess: async (_, request) => {
+      await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
+      setIdealJob(request.ideal_job);
+      void message.success(t("preferences.saved"));
+    },
+  });
+  const looking = useMutation({
+    mutationFn: (looking_for_job: boolean) =>
+      hubAPI.setLookingForJob({ looking_for_job }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
+      void message.success(t("preferences.saved"));
+    },
+  });
+  return (
+    <>
+      <JobSearchFields
+        idealJob={idealJob}
+        onIdealJobChange={setIdealJob}
+        lookingForJob={me.looking_for_job}
+        onLookingForJobChange={(checked) => looking.mutate(checked)}
+        lookingForJobPending={looking.isPending}
+        idealJobActions={
+          dirty ? (
+            <Form.Item>
+              <Space wrap>
+                <Tag color="warning">{t("preferences.unsavedChanges")}</Tag>
+                <Button
+                  type="primary"
+                  disabled={!valid}
+                  loading={saveIdealJob.isPending}
+                  onClick={() =>
+                    saveIdealJob.mutate(
+                      normalizeSetIdealJobRequest({ ideal_job: idealJob }),
+                    )
+                  }
+                >
+                  {t("preferences.saveIdealJob")}
+                </Button>
+                <Button
+                  disabled={saveIdealJob.isPending}
+                  onClick={() => {
+                    setIdealJob(saved);
+                    saveIdealJob.reset();
+                  }}
+                >
+                  {t("preferences.discardChanges")}
+                </Button>
+              </Space>
+              <APIErrorAlert error={saveIdealJob.error} />
+            </Form.Item>
+          ) : null
+        }
+      />
+      <APIErrorAlert error={looking.error} />
+    </>
+  );
+}
 
 export function PreferencesPage() {
   const { t } = useTranslation();
@@ -78,7 +168,7 @@ export function PreferencesPage() {
         <Form layout="vertical" className="settings-form">
           <Form.Item
             label={t("preferences.jobCountries")}
-            help={t("preferences.jobCountriesHelp")}
+            extra={t("preferences.jobCountriesHelp")}
           >
             <Select
               mode="multiple"
@@ -93,8 +183,9 @@ export function PreferencesPage() {
               }}
             />
           </Form.Item>
+          <APIErrorAlert error={jobs.error} />
+          <JobSearchPreferenceFields me={me} />
         </Form>
-        <APIErrorAlert error={jobs.error} />
       </Card>
       <Card title={t("preferences.agencyRequestsTitle")}>
         <Space orientation="vertical" size="middle" className="full-width">

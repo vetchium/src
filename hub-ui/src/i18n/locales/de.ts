@@ -555,6 +555,16 @@ export const de = {
     jobCountriesHelp:
       "Wählen Sie bis zu 10 Länder. Ohne Auswahl suchen Sie weltweit. Eine Änderung des Wohnsitzlands ändert diese Auswahl nicht.",
     saved: "Ihre Einstellung wurde gespeichert.",
+    idealJob: "Mein idealer Job",
+    idealJobHelp:
+      "Wird bei einer Bewerbung mit Organisationen geteilt; dient zum Finden passender Stellen.",
+    idealJobTooLong: "Verwenden Sie höchstens 2.000 Zeichen.",
+    lookingForJob: "Suchen Sie derzeit einen Job?",
+    lookingForJobHelp:
+      "Nur Sie können dies sehen. Organisationen, Agenturen und andere Hub-Nutzer sehen es nie.",
+    saveIdealJob: "Idealen Job speichern",
+    discardChanges: "Änderungen verwerfen",
+    unsavedChanges: "Nicht gespeicherte Änderungen",
     agencyRequestsTitle: "Chat-Anfragen von Agenturen",
     agenciesMayRequest: "Agenturen dürfen mir Chat-Anfragen senden",
     agenciesMayRequestHelp1:
@@ -1012,6 +1022,15 @@ export const de = {
     title: "Seite nicht gefunden",
     description: "Die angeforderte Seite existiert nicht.",
     action: "Zur Startseite",
+  },
+  jobSearchPrompt: {
+    title: "Ihre Jobsuche",
+    description:
+      "Beschreiben Sie Ihren idealen Job. Sie können ihn jederzeit unter Präferenzen ändern.",
+    save: "Speichern",
+    notNow: "Nicht jetzt",
+    saved: "Ihre Angaben zur Jobsuche wurden gespeichert.",
+    saveNeedsIdealJob: "Beschreiben Sie Ihren idealen Job, um zu speichern.",
   },
   home: {
     applicationsTitle: "Bewerbungen, die Sie brauchen",

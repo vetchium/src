@@ -110,8 +110,11 @@ import type {
   SetSubscriptionPlanRequest,
 } from "typespec/hub/subscriptions/subscriptions";
 import type {
+  DismissJobSearchPromptRequest,
   MyInfoResponse,
   SetAgenciesMayMessageRequest,
+  SetIdealJobRequest,
+  SetLookingForJobRequest,
   SetPreferredJobCountriesRequest,
   SetPreferredLanguageRequest,
   SetResidentCountryRequest,
@@ -229,6 +232,12 @@ export const hubAPI = {
   setPreferredJobCountries: (body: SetPreferredJobCountriesRequest) =>
     apiRequest<void>(`${base}/set-preferred-job-countries`, { body }),
   myInfo: () => apiRequest<MyInfoResponse>(`${base}/my-info`),
+  setIdealJob: (body: SetIdealJobRequest) =>
+    apiRequest<void>(`${base}/set-ideal-job`, { body }),
+  setLookingForJob: (body: SetLookingForJobRequest) =>
+    apiRequest<void>(`${base}/set-looking-for-job`, { body }),
+  dismissJobSearchPrompt: (body: DismissJobSearchPromptRequest) =>
+    apiRequest<void>(`${base}/dismiss-job-search-prompt`, { body }),
   readProfile: (body: ReadProfileRequest) =>
     apiRequest<PublicProfile>(`${base}/profile/read`, { body }),
   listOrgOpenings: (body: ListOrgOpeningsRequest) =>

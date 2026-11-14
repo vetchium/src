@@ -45,3 +45,5 @@ The full suite.
   build directory is gone.
 
 ## Carried over
+
+From T08: hub-ui has no unsaved-changes leave guard (ux.md `useUnsavedChangesGuard` is orgs-ui only and needs a data router; hub-ui mounts `BrowserRouter`), so the Preferences ideal-job editor shows Save, Discard, and "Unsaved changes" but does not block leaving. List it in `docs/todo.md`.
