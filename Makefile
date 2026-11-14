@@ -80,8 +80,8 @@ serving_services = $$(docker compose -f $(1) config --services | \
 	orgs-ui-deps orgs-ui-check orgs-ui-check-ready portal-ui-deps \
 	portal-ui-check portal-ui-check-ready typespec-deps \
 	typespec-check \
-	typespec-check-ready typespec-test playwright-deps playwright-browser \
-	playwright-browser-ready playwright-check playwright-check-ready \
+	typespec-check-ready typespec-test playwright-deps \
+	playwright-check playwright-check-ready \
 	playwright-test playwright-test-run api-coverage-prepare \
 	api-coverage-report repository-json-fmt repository-json-check-ready \
 	repository-json-check video-demos-deps video-demos-check \
@@ -319,7 +319,7 @@ sql-check: sqlc-vet sqlc sql-lint migration-check
 
 test: clean
 	$(MAKE) --no-print-directory sql-check
-	$(MAKE) --no-print-directory -j$(JOBS) test-static-ready playwright-browser-ready
+	$(MAKE) --no-print-directory -j$(JOBS) test-static-ready
 	$(MAKE) --no-print-directory test-stack
 	$(MAKE) --no-print-directory playwright-test-run
 	$(MAKE) --no-print-directory coverage-summary
@@ -334,7 +334,7 @@ test-static-ready: test-go test-go-static test-go-lint test-go-vuln \
 	video-demos-check-ready repository-json-check-ready
 
 test-environment:
-	$(MAKE) --no-print-directory playwright-browser-ready
+	$(MAKE) --no-print-directory playwright-deps
 	$(MAKE) --no-print-directory test-stack
 
 test-stack: dev-secrets
@@ -501,11 +501,6 @@ typespec-test: typespec-check
 playwright-deps:
 	cd playwright && npm ci
 
-playwright-browser: playwright-browser-ready
-
-playwright-browser-ready: playwright-deps
-	cd playwright && npx playwright install chromium
-
 playwright-check-ready: playwright-deps typespec-deps
 	cd playwright && npm run format:check
 	cd playwright && npm run typecheck
@@ -532,7 +527,7 @@ api-coverage-report:
 
 playwright-test:
 	$(MAKE) --no-print-directory -j$(JOBS) playwright-check-ready \
-		playwright-browser-ready typespec-check-ready
+		typespec-check-ready
 	$(MAKE) --no-print-directory test-stack
 	$(MAKE) --no-print-directory playwright-test-run
 	$(MAKE) --no-print-directory api-coverage-report

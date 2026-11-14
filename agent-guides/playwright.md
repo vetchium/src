@@ -87,6 +87,13 @@ Commands are in [`verification.md`](verification.md).
   an overlay, include, or generated file. Sync services, networks, secrets, and
   health checks by hand.
 - CI configs live in `config/ci/` (`ci` environment, short timings).
+- UI tests drive Chromium in the CI-only `playwright-browser` container
+  (`playwright/browser-server/`); `connectOptions.exposeNetwork` carries its
+  loopback requests back to this host. On a macOS host, Chromium fails every
+  pending request, loopback included, with `net::ERR_NETWORK_CHANGED` whenever
+  the host renews an address. Keep the image tag and `playwright-core` on the
+  `@playwright/test` version.
+- Read a download with `createReadStream()`; a remote browser has no `path()`.
 - Run SQL through `sqlScalarForTenant` and `globalSQLScalar`, which reuse one
   psql session per worker; reach other containers with `docker exec` on
   `ciContainer(service)`. Never `docker compose exec` per call: loading the

@@ -28,6 +28,7 @@
   },
   "networks": {
     "orgs_fixture_access": {},
+    "playwright_browser_access": {},
     "deu_admin_api_access": {
       "internal": true,
       "ipam": {
@@ -2836,6 +2837,34 @@
       },
       "restart": "unless-stopped",
       "security_opt": ["no-new-privileges:true"]
+    },
+    "playwright-browser": {
+      "build": {
+        "context": "playwright/browser-server"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 10,
+        "start_period": "5s",
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "require('node:net').connect(3000, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))"
+        ],
+        "timeout": "2s"
+      },
+      "init": true,
+      "networks": {
+        "playwright_browser_access": null
+      },
+      "ports": [
+        "${PLAYWRIGHT_BROWSER_BIND:-127.0.0.1}:${PLAYWRIGHT_BROWSER_PORT:-18030}:3000"
+      ],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": ["no-new-privileges:true"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=2g"]
     },
     "seaweed-filer-deu": {
       "image": "ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882",

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { text } from "node:stream/consumers";
 import type { Page } from "@playwright/test";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
@@ -457,8 +457,9 @@ test("exports the member list as CSV", async ({ page, request }) => {
     await expect(memberRow(page, finance.emailAddress)).toBeVisible();
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export CSV" }).click();
-    const file = await (await download).path();
-    const lines = (await readFile(file, "utf8")).trim().split("\r\n");
+    const lines = (await text(await (await download).createReadStream()))
+      .trim()
+      .split("\r\n");
     expect(lines[0]).toBe(
       "Email address,Role,Permissions,State,Joined,Last sign-in",
     );
