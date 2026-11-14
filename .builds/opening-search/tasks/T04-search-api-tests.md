@@ -64,3 +64,4 @@ both operations.
   OPN-TST-005 case has a named test.
 
 ## Carried over
+- From T01: list filters report a bad size as `<field>` and a malformed or repeated item as `<field>.<index>` (for example `tag_oids.1`); relay requests prefix query faults with `query.`.

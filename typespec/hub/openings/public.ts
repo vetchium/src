@@ -7,6 +7,7 @@ import {
 import type {
   OpeningContent,
   OpeningEmploymentType,
+  OpeningSalary,
   OpeningWorkArrangement,
 } from "../../common/openings.ts";
 import {
@@ -39,6 +40,8 @@ export interface PublicOpeningSummary {
   first_published_at: string;
   /** OIDs only, `[]` when none. */
   tags: OpeningTagOID[];
+  /** Absent when the Opening does not disclose one. */
+  salary?: OpeningSalary;
 }
 
 export type PublicOpening =

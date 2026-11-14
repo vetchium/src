@@ -18,6 +18,14 @@ import {
 } from "./messages/messages.ts";
 import { validateListOrgOpeningsRequest } from "./openings/public.ts";
 import {
+  normalizeSearchOpeningsRequest,
+  normalizeSuggestOpeningOrgsRequest,
+  type OpeningSearchPostedWithinDays,
+  type SearchOpeningsRequest,
+  validateSearchOpeningsRequest,
+  validateSuggestOpeningOrgsRequest,
+} from "./openings/search.ts";
+import {
   type BillingInterval,
   DefaultPlan,
   FreeTier,
@@ -276,5 +284,124 @@ test("the Org Openings list takes a well-formed tag filter", () => {
       tag_oid: "Go Lang",
     }),
     ["tag_oid"],
+  );
+});
+
+test("Opening search validation matches the Go companion", () => {
+  const astral = "😀".repeat(200);
+  const countries = [
+    "DE",
+    "FR",
+    "GB",
+    "IN",
+    "SG",
+    "US",
+    "JP",
+    "CA",
+    "AU",
+    "NL",
+  ];
+  const cases: [string, SearchOpeningsRequest, string[]][] = [
+    ["empty", {}, []],
+    ["keyword 1", { keyword: "g" }, ["keyword"]],
+    ["keyword 2", { keyword: "go" }, []],
+    ["keyword 200 code points", { keyword: astral }, []],
+    ["keyword 201 code points", { keyword: `${astral}a` }, ["keyword"]],
+    ["malformed org domain", { org_domain: "not a domain" }, ["org_domain"]],
+    ["five tags", { tag_oids: ["a1", "b1", "c1", "d1", "e1"] }, []],
+    [
+      "six tags",
+      { tag_oids: ["a1", "b1", "c1", "d1", "e1", "f1"] },
+      ["tag_oids"],
+    ],
+    ["empty tags", { tag_oids: [] }, ["tag_oids"]],
+    ["repeated tag", { tag_oids: ["golang", "golang"] }, ["tag_oids.1"]],
+    ["malformed tag", { tag_oids: ["Go Lang"] }, ["tag_oids.0"]],
+    ["ten countries", { work_countries: countries }, []],
+    [
+      "eleven countries",
+      { work_countries: [...countries, "BE"] },
+      ["work_countries"],
+    ],
+    ["unknown country", { work_countries: ["XX"] }, ["work_countries.0"]],
+    [
+      "repeated arrangement",
+      { work_arrangements: ["remote", "remote"] },
+      ["work_arrangements.1"],
+    ],
+    [
+      "unknown arrangement",
+      { work_arrangements: ["office"] },
+      ["work_arrangements.0"],
+    ],
+    [
+      "unknown employment type",
+      { employment_types: ["gig"] },
+      ["employment_types.0"],
+    ],
+    ["posted within 7", { posted_within_days: 7 }, []],
+    [
+      "posted within 2",
+      { posted_within_days: 2 as OpeningSearchPostedWithinDays },
+      ["posted_within_days"],
+    ],
+    ["experience 0", { experience_years: 0 }, []],
+    ["experience 50", { experience_years: 50 }, []],
+    ["experience -1", { experience_years: -1 }, ["experience_years"]],
+    ["experience 51", { experience_years: 51 }, ["experience_years"]],
+    ["unknown education", { education_level: "diploma" }, ["education_level"]],
+    ["malformed pagination key", { pagination_key: "" }, ["pagination_key"]],
+    ["limit 1", { limit: 1 }, []],
+    ["limit 50", { limit: 50 }, []],
+    ["limit 0", { limit: 0 }, ["limit"]],
+    ["limit 51", { limit: 51 }, ["limit"]],
+    ["region", { region: "usa1" }, []],
+    ["malformed region", { region: "USA 1" }, ["region"]],
+    [
+      "several fields at once",
+      { keyword: "g", limit: 0, region: "X" },
+      ["keyword", "limit", "region"],
+    ],
+  ];
+  for (const [name, request, want] of cases) {
+    assert.deepEqual(validateSearchOpeningsRequest(request), want, name);
+  }
+});
+
+test("Opening search normalization keeps the original", () => {
+  const original: SearchOpeningsRequest = {
+    keyword: "  golang  ",
+    org_domain: "Example.COM",
+    work_countries: [" de ", "fr"],
+  };
+  const normalized = normalizeSearchOpeningsRequest(original);
+  assert.equal(normalized.keyword, "golang");
+  assert.equal(normalized.org_domain, "example.com");
+  assert.deepEqual(normalized.work_countries, ["DE", "FR"]);
+  assert.equal(original.keyword, "  golang  ");
+  assert.deepEqual(original.work_countries, [" de ", "fr"]);
+  assert.deepEqual(validateSearchOpeningsRequest(normalized), []);
+});
+
+test("Opening Org suggestions validate the query and region", () => {
+  assert.deepEqual(validateSuggestOpeningOrgsRequest({ query: "a" }), [
+    "query",
+  ]);
+  assert.deepEqual(validateSuggestOpeningOrgsRequest({ query: "ab" }), []);
+  assert.deepEqual(
+    validateSuggestOpeningOrgsRequest({ query: "é".repeat(100) }),
+    [],
+  );
+  assert.deepEqual(
+    validateSuggestOpeningOrgsRequest({ query: "é".repeat(101) }),
+    ["query"],
+  );
+  assert.deepEqual(
+    validateSuggestOpeningOrgsRequest({ query: "ab", region: "1x" }),
+    ["region"],
+  );
+  assert.equal(
+    normalizeSuggestOpeningOrgsRequest({ query: "  ab " }).query,
+    "ab",
   );
 });

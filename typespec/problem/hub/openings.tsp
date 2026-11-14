@@ -31,3 +31,14 @@ alias HubOrgUnavailableErrorResponse = Response<
   503,
   typeof HubOrgUnavailableError
 >;
+
+const HubRegionUnavailableError = #{
+  type: "vetchium-problem-details/hub-region-unavailable",
+  title: "Region unavailable",
+  status: 503,
+  detail: "The requested region is temporarily unavailable",
+};
+alias HubRegionUnavailableErrorResponse = Response<
+  503,
+  typeof HubRegionUnavailableError
+>;

@@ -20,3 +20,10 @@ export const OrgUnavailableError: Readonly<Details> = {
   status: 503,
   detail: "The requested Org is temporarily unavailable",
 };
+
+export const RegionUnavailableError: Readonly<Details> = {
+  type: "vetchium-problem-details/hub-region-unavailable",
+  title: "Region unavailable",
+  status: 503,
+  detail: "The requested region is temporarily unavailable",
+};

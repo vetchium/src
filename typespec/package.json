@@ -50,6 +50,7 @@
     "./hub/profile/public": "./hub/profile/public.ts",
     "./hub/openings/public": "./hub/openings/public.ts",
     "./hub/openings/federation": "./hub/openings/federation.ts",
+    "./hub/openings/search": "./hub/openings/search.ts",
     "./hub/profile/federation": "./hub/profile/federation.ts",
     "./hub/profile/snapshot": "./hub/profile/snapshot.ts",
     "./hub/profile/alias": "./hub/profile/alias.ts",

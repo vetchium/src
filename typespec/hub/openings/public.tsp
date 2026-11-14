@@ -45,6 +45,9 @@ model PublicOpeningSummary {
 
   /** OIDs only, `[]` when none (OPN-HUB-002, OPN-TAG-012). */
   tags: Vetchium.OpeningTagOID[];
+
+  /** Absent when the Opening does not disclose one (OPN-HUB-002). */
+  salary?: Vetchium.OpeningSalary;
 }
 
 model PublishedOpening {
