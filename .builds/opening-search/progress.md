@@ -1,7 +1,7 @@
 # Opening search build progress
 
 branch: opening-search
-current: T14
+current: T15
 phase: implement
 
 ## Tasks
@@ -36,7 +36,7 @@ T13 done Hub portal: Ideal job match sort on Opening search
 
 ### M6 Fixtures and finish
 
-T14 todo Dev seed: Openings for every search filter and ideal jobs
+T14 done Dev seed: Openings for every search filter and ideal jobs
 T15 todo Opening search: Finish the build
 
 ## Notes

@@ -50,39 +50,91 @@ var seedOpeningTags = map[string][]common.OpeningTagOID{
 	"Service designer":        {"ui-ux-design", "customer-support"},
 }
 
-func seedOpeningContent(index int, title string) common.OpeningContent {
+// seedOpeningSummaries open each Opening's description with words the seeded
+// Hub users' ideal jobs share, so the ideal-job match sort ranks title, tag,
+// and description matches.
+var seedOpeningSummaries = map[string]string{
+	"Platform engineer":       "Run the cloud platform our software engineers ship on.",
+	"Support specialist":      "Help customers solve problems by chat and email.",
+	"Product designer":        "Shape the product experience from user research to finished design.",
+	"Senior product designer": "Lead product design for our mobile app, from user research to a shared design system.",
+	"Data analyst":            "Turn product and finance data into dashboards and decisions.",
+	"Operations lead":         "Lead warehouse operations and logistics across the region.",
+	"Security engineer":       "Protect our payments infrastructure and cloud services.",
+	"Researcher":              "Research machine learning models for search and recommendation systems with our data and software engineers.",
+	"Senior researcher":       "Lead machine learning research for recommendation systems and language models.",
+	"Account manager":         "Grow enterprise customer accounts with our sales and finance teams.",
+	"Service designer":        "Design customer support journeys across every channel.",
+	"Technical writer":        "Write developer documentation and API guides for software engineers building our cloud platform and payments services.",
+}
+
+// seedOpeningContent varies the content by org and index so the published
+// Openings of a tenant's seeded Orgs, the same in every tenant, cover every
+// Opening search filter on both sides (OPN-TST-003). Each attribute takes its
+// own offset, so the four published slots of three Orgs reach every value.
+func seedOpeningContent(org, index int, title string) common.OpeningContent {
 	countries := []common.CountryCode{"SG", "US", "DE", "IN"}
 	currencies := []common.CurrencyCode{"SGD", "USD", "EUR", "INR"}
-	arrangements := []common.OpeningWorkArrangement{common.OpeningHybrid, common.OpeningRemote, common.OpeningOnSite}
-	country := countries[index%len(countries)]
-	arrangement := arrangements[index%len(arrangements)]
+	arrangements := []common.OpeningWorkArrangement{common.OpeningOnSite, common.OpeningHybrid, common.OpeningRemote, common.OpeningRemote}
+	employmentTypes := []common.OpeningEmploymentType{common.OpeningFullTime, common.OpeningPartTime, common.OpeningContract, common.OpeningInternship}
+	experiences := []*common.OpeningExperienceYears{
+		{Min: seedValue(int32(2)), Max: seedValue(int32(6))},
+		{Min: seedValue(int32(5))},
+		{Max: seedValue(int32(3))},
+		nil,
+	}
+	educations := []*common.OpeningEducation{
+		nil,
+		seedValue(common.OpeningSecondary),
+		seedValue(common.OpeningBachelor),
+		seedValue(common.OpeningMaster),
+		seedValue(common.OpeningDoctorate),
+	}
+	countryAt := (index + 2*org) % len(countries)
+	country := countries[countryAt]
+	arrangementAt := (index + org) % len(arrangements)
+	arrangement := arrangements[arrangementAt]
 	content := common.OpeningContent{
 		Title: seedValue(title),
 		Description: seedValue(fmt.Sprintf(
-			"## About the role\n\nBuild reliable services with a welcoming team.\n\n- Collaborate across regions\n- Share practical ideas\n\nRead our [working principles](https://careers.example.com/roles/%d).", index,
+			"## About the role\n\n%s\n\n- Collaborate across regions\n- Share practical ideas\n\nRead our [working principles](https://careers.example.com/roles/%d).",
+			seedOpeningSummaries[title], index,
 		)),
 		Language:         seedValue(common.LanguageTag("en")),
 		EmployingCountry: seedValue(country),
 		WorkArrangement:  seedValue(arrangement),
-		EmploymentType:   seedValue([]common.OpeningEmploymentType{common.OpeningFullTime, common.OpeningContract, common.OpeningPartTime}[index%3]),
+		EmploymentType:   seedValue(employmentTypes[(index+2*org)%len(employmentTypes)]),
 		Positions:        seedValue(int32(index%3 + 1)),
-		Salary: &common.OpeningSalary{
-			Currency: currencies[index%len(currencies)],
+		ExperienceYears:  experiences[(index+3*org)%len(experiences)],
+		MinimumEducation: educations[(index+org)%len(educations)],
+		Tags:             seedOpeningTags[title],
+	}
+	if (index+org)%3 != 0 {
+		content.Salary = &common.OpeningSalary{
+			Currency: currencies[countryAt],
 			Min:      int64(45_000 + index*5_000),
 			Max:      int64(85_000 + index*5_000),
 			Period:   common.OpeningYear,
-		},
-		Tags: seedOpeningTags[title],
+		}
 	}
-	if arrangement == common.OpeningRemote {
-		content.RemoteEligibility = &common.OpeningRemoteEligibility{Kind: common.OpeningWorldwide}
-	} else {
+	switch {
+	case arrangement != common.OpeningRemote:
 		content.LocationDetails = seedValue("Flexible workspace near the city centre")
+	case arrangementAt == 2:
+		content.RemoteEligibility = &common.OpeningRemoteEligibility{Kind: common.OpeningWorldwide}
+	default:
+		eligible := []common.CountryCode{country}
+		for _, other := range countries {
+			if other != country && len(eligible) < 2 {
+				eligible = append(eligible, other)
+			}
+		}
+		content.RemoteEligibility = &common.OpeningRemoteEligibility{Kind: common.OpeningCountries, Countries: eligible}
 	}
 	return content
 }
 
-func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, adminToken string) error {
+func (s *orgSeeder) seedOrgOpenings(ctx context.Context, org int, domain orgs.OrgDomain, adminToken string) error {
 	recruiterToken, err := s.openingLogin(ctx, domain, "recruiter")
 	if err != nil {
 		return fmt.Errorf("sign in recruiter: %w", err)
@@ -90,7 +142,7 @@ func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, 
 	manager := common.EmailAddress("admin@" + string(domain))
 	recruiter := common.EmailAddress("recruiter@" + string(domain))
 	create := func(index int, title string, complete bool) (openings.OrgOpening, error) {
-		content := seedOpeningContent(index, title)
+		content := seedOpeningContent(org, index, title)
 		request := openings.CreateOpeningRequest{Content: &content, TeamMemberEmails: []common.EmailAddress{}}
 		if !complete {
 			request.Content = &common.OpeningContent{Title: seedValue(title)}
@@ -131,7 +183,7 @@ func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, 
 	if err != nil {
 		return fmt.Errorf("published: %w", err)
 	}
-	revision := seedOpeningContent(2, "Senior product designer")
+	revision := seedOpeningContent(org, 2, "Senior product designer")
 	revised, err = s.openingPost(ctx, "save-opening-working-copy", openings.SaveOpeningWorkingCopyRequest{
 		OpeningNumber: revised.OpeningNumber, Version: revised.Version, Content: &revision,
 	}, adminToken, http.StatusOK)
@@ -168,7 +220,7 @@ func (s *orgSeeder) seedOrgOpenings(ctx context.Context, domain orgs.OrgDomain, 
 	if err != nil {
 		return fmt.Errorf("publish revision target: %w", err)
 	}
-	working := seedOpeningContent(6, "Senior researcher")
+	working := seedOpeningContent(org, 6, "Senior researcher")
 	pendingRevise, err = s.openingPost(ctx, "save-opening-working-copy", openings.SaveOpeningWorkingCopyRequest{
 		OpeningNumber: pendingRevise.OpeningNumber, Version: pendingRevise.Version, Content: &working,
 	}, recruiterToken, http.StatusOK)

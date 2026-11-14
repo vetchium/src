@@ -5,6 +5,8 @@
       "displayName": "Maithili",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
+      "idealJob": "Software engineer in machine learning, building search and recommendation systems.",
+      "lookingForJob": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -35,6 +37,7 @@
       "displayName": "Rohan Verma",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
+      "idealJob": "Engineering manager for large-scale e-commerce catalog and search systems.",
       "plan": "hub-silver-tier",
       "billingInterval": "month",
       "profilePicture": "avatar13.jpg",
@@ -84,6 +87,8 @@
       "displayName": "Vaidehi",
       "preferredLanguage": "ta",
       "residentCountry": "IN",
+      "idealJob": "Senior product designer working on design systems and user research for mobile apps.",
+      "lookingForJob": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -115,6 +120,7 @@
       "displayName": "Arjun Nair",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
+      "idealJob": "VP of Engineering for customer support software and CRM platforms.",
       "plan": "hub-silver-tier",
       "billingInterval": "year",
       "profilePicture": "avatar14.jpg",
@@ -165,6 +171,7 @@
       "displayName": "Anjali",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
+      "dismissJobSearchPrompt": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -195,6 +202,7 @@
       "displayName": "Vikram Malhotra",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
+      "idealJob": "Director of Product for mobility and logistics platforms.",
       "plan": "hub-silver-tier",
       "billingInterval": "month",
       "profilePicture": "avatar15.jpg",
@@ -277,6 +285,8 @@
       "displayName": "Rahul Gupta",
       "preferredLanguage": "en-US",
       "residentCountry": "IN",
+      "idealJob": "Senior finance manager partnering with sales on enterprise accounts.",
+      "lookingForJob": true,
       "plan": "hub-silver-tier",
       "billingInterval": "year",
       "profilePicture": "avatar16.jpg",

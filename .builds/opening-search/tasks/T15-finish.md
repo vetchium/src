@@ -47,3 +47,5 @@ The full suite.
 ## Carried over
 
 From T08: hub-ui has no unsaved-changes leave guard (ux.md `useUnsavedChangesGuard` is orgs-ui only and needs a data router; hub-ui mounts `BrowserRouter`), so the Preferences ideal-job editor shows Save, Discard, and "Unsaved changes" but does not block leaving. List it in `docs/todo.md`.
+
+From T14: README "Seeded accounts" should say that seeded Hub users have ideal jobs except user 5 of each region (dismissed the Home job-search card) and user 7 (no ideal job, so Home shows the card), and that published seeded Openings vary every search filter.
