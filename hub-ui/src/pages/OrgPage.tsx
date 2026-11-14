@@ -1,29 +1,17 @@
-import {
-  ClockCircleOutlined,
-  EnvironmentOutlined,
-  LaptopOutlined,
-} from "@ant-design/icons";
-import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
-import {
-  OpeningTagFilter,
-  OpeningTagList,
-  openingTagName,
-} from "@vetchium/portal-ui/opening-tags";
+import { OpeningTagFilter } from "@vetchium/portal-ui/opening-tags";
 import {
   Avatar,
   Button,
-  Card,
   Empty,
   Flex,
   Input,
   Select,
   Space,
-  Tag,
   Typography,
 } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import type {
   OpeningEmploymentType,
   OpeningWorkArrangement,
@@ -42,6 +30,7 @@ import {
 import { isProblem } from "../api/client";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
+import { OpeningCard } from "../features/openings/OpeningCard";
 import {
   useOpeningTags,
   useOrgOpeningsQuery,
@@ -114,7 +103,6 @@ export function OrgPage() {
 
 function OrgPageContent({ domain }: { domain: string }) {
   const { t, i18n } = useTranslation();
-  const { date } = useDateTimeFormat();
   const validDomain = isOrgDomain(domain);
   const [search, setSearch] = useSearchParams();
   const filters = filtersFromSearch(domain, search);
@@ -168,8 +156,7 @@ function OrgPageContent({ domain }: { domain: string }) {
             <Select
               aria-label={t("orgPage.fields.country")}
               allowClear
-              showSearch
-              optionFilterProp="label"
+              showSearch={{ optionFilterProp: "label" }}
               placeholder={t("orgPage.fields.country")}
               options={countries}
               value={filters.employing_country}
@@ -242,61 +229,11 @@ function OrgPageContent({ domain }: { domain: string }) {
           ) : (
             <Flex vertical gap="middle">
               {result.data.openings.map((opening) => (
-                <Card key={opening.opening_number} size="small">
-                  <Flex vertical gap="small">
-                    <Link
-                      to={`/org/${encodeURIComponent(domain)}/openings/${opening.opening_number}`}
-                    >
-                      <Typography.Title level={4}>
-                        {opening.title}
-                      </Typography.Title>
-                    </Link>
-                    <Flex gap="small" wrap>
-                      <Tag
-                        icon={<EnvironmentOutlined aria-hidden />}
-                        variant="filled"
-                      >
-                        {countries.find(
-                          (entry) => entry.value === opening.employing_country,
-                        )?.label ?? opening.employing_country}
-                      </Tag>
-                      <Tag
-                        icon={<LaptopOutlined aria-hidden />}
-                        variant="filled"
-                      >
-                        {t(
-                          `orgPage.workArrangements.${opening.work_arrangement}`,
-                          {
-                            defaultValue: opening.work_arrangement,
-                          },
-                        )}
-                      </Tag>
-                      <Tag
-                        icon={<ClockCircleOutlined aria-hidden />}
-                        variant="filled"
-                      >
-                        {t(
-                          `orgPage.employmentTypes.${opening.employment_type}`,
-                          {
-                            defaultValue: opening.employment_type,
-                          },
-                        )}
-                      </Tag>
-                      <Typography.Text type="secondary">
-                        {t("orgPage.posted", {
-                          date: date(opening.first_published_at, "medium"),
-                        })}
-                      </Typography.Text>
-                    </Flex>
-                    <OpeningTagList
-                      tags={opening.tags}
-                      name={(oid) =>
-                        openingTagName(tags.catalog, oid, i18n.language)
-                      }
-                      label={t("orgPage.fields.tags")}
-                    />
-                  </Flex>
-                </Card>
+                <OpeningCard
+                  key={opening.opening_number}
+                  opening={opening}
+                  domain={domain}
+                />
               ))}
             </Flex>
           )}

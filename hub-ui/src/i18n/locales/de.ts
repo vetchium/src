@@ -1043,6 +1043,8 @@ export const de = {
     securityBody:
       "Aktivieren Sie die Zwei-Faktor-Authentifizierung, damit ein gestohlenes Passwort allein Ihr Konto nicht öffnet.",
     securityAction: "Zwei-Faktor-Authentifizierung einrichten",
+    searchTitle: "Stellen finden",
+    searchLabel: "Stellen suchen",
   },
   plans: {
     endingSoon: "Ihr kostenpflichtiger Zugang endet am {{date}}.",

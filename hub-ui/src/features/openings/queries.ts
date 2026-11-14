@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   type OpeningTagCatalogState,
   useOpeningTagCatalog,
@@ -20,6 +20,9 @@ export function useOrgOpeningsQuery(
     queryFn: () => hubAPI.listOrgOpenings(request),
     retry: false,
     enabled,
+    // The page renders its filters from the answer, so a filter change keeps
+    // them, and any open dropdown, mounted while the next answer loads.
+    placeholderData: keepPreviousData,
   });
 }
 

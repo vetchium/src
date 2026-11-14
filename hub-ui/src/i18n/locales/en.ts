@@ -1007,6 +1007,8 @@ export const en = {
     securityBody:
       "Turn on two-factor authentication so that a stolen password alone cannot open your account.",
     securityAction: "Set up two-factor authentication",
+    searchTitle: "Find openings",
+    searchLabel: "Search openings",
   },
   plans: {
     endingSoon: "Your paid access ends on {{date}}.",

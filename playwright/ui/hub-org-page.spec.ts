@@ -404,3 +404,35 @@ test("moving to another Org's page starts with its own empty title search", asyn
   await expect(page.getByRole("link", { name: "Beta role" })).toBeVisible();
   await expect(titleSearch).toHaveValue("");
 });
+
+test("an Opening card shows its salary when disclosed and none otherwise", async ({
+  hubUser,
+  org,
+  page,
+  request,
+}) => {
+  const local = await org("sgp");
+  const api = new OrgsAPI(request, "sgp");
+  const token = await loginOrg(api, local);
+  await publish(api, token, local.emailAddress, {
+    ...plainContent,
+    title: "Paid role",
+    salary: { currency: "SGD", min: 5000, max: 8000, period: "month" },
+  });
+  await publish(api, token, local.emailAddress, {
+    ...plainContent,
+    title: "Unstated role",
+  });
+  await signIn(page, await hubUser("sgp"));
+  await page.goto(`${HUB_PORTAL}/org/${local.domain}`);
+  await expect(page.getByRole("link", { name: "Paid role" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Unstated role" })).toBeVisible();
+  // Two cards, one salary: the card without one shows none.
+  await expect(page.getByText(/^SGD /)).toHaveText([
+    "SGD 5,000–8,000 per month",
+  ]);
+  // The Org page names the Org once, in its header, not on every card.
+  await expect(page.getByRole("link", { name: "Playwright Org" })).toHaveCount(
+    0,
+  );
+});

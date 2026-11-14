@@ -414,3 +414,37 @@ test("result cards show tags in the portal language", async ({
     page.getByRole("list", { name: "Schlagwörter" }).getByRole("listitem"),
   ).toHaveText(["Personalwesen", "Go"]);
 });
+
+test("the Home search box opens Opening search with its keyword, or unfiltered when empty", async ({
+  hubUser,
+  org,
+  page,
+  request,
+}) => {
+  const local = await org("sgp");
+  const word = token();
+  await publish(new OrgsAPI(request, "sgp"), local, [
+    content(`${word} Home role`),
+  ]);
+  await signIn(page, await hubUser("sgp"));
+  const box = page.getByRole("searchbox", { name: "Search openings" });
+  await box.fill(` ${word} `);
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page).toHaveURL(`${HUB_PORTAL}/openings?q=${word}`);
+  await expect(opening(page, `${word} Home role`)).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "Keyword" })).toHaveValue(
+    word,
+  );
+
+  await page.getByRole("menuitem", { name: "Home" }).click();
+  await box.fill("x");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("Enter 2 to 200 characters.")).toBeVisible();
+  await expect(page).toHaveURL(`${HUB_PORTAL}/`);
+  await box.fill("");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page).toHaveURL(`${HUB_PORTAL}/openings`);
+  await expect(page.getByRole("searchbox", { name: "Keyword" })).toHaveValue(
+    "",
+  );
+});
