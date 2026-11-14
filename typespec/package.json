@@ -28,6 +28,7 @@
     "./common/idempotency": "./common/idempotency.ts",
     "./common/language_catalog": "./common/language_catalog.ts",
     "./common/localization": "./common/localization.ts",
+    "./common/opening_tags": "./common/opening_tags.ts",
     "./common/openings": "./common/openings.ts",
     "./common/pagination": "./common/pagination.ts",
     "./common/security-effects": "./common/security-effects.ts",

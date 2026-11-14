@@ -16,6 +16,7 @@ import {
   isConversationFilter,
   validateListConversationsRequest,
 } from "./messages/messages.ts";
+import { validateListOrgOpeningsRequest } from "./openings/public.ts";
 import {
   type BillingInterval,
   DefaultPlan,
@@ -258,5 +259,22 @@ test("the conversation list takes a known filter", () => {
   assert.deepEqual(
     validateListConversationsRequest({ filter: "requests" as never, limit: 0 }),
     ["limit", "filter"],
+  );
+});
+
+test("the Org Openings list takes a well-formed tag filter", () => {
+  assert.deepEqual(
+    validateListOrgOpeningsRequest({
+      domain: "example.com",
+      tag_oid: "golang",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateListOrgOpeningsRequest({
+      domain: "example.com",
+      tag_oid: "Go Lang",
+    }),
+    ["tag_oid"],
   );
 });

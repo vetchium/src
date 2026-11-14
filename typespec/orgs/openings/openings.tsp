@@ -3,6 +3,7 @@ import "@typespec/openapi";
 
 import "../../common/authentication.tsp";
 import "../../common/idempotency.tsp";
+import "../../common/opening_tags.tsp";
 import "../../common/pagination.tsp";
 import "../../problem/common.tsp";
 import "../../problem/details.tsp";
@@ -67,6 +68,10 @@ model ListOpeningsRequest {
   employing_country?: Vetchium.CountryCode;
   work_arrangement?: Vetchium.OpeningWorkArrangement;
   employment_type?: Vetchium.OpeningEmploymentType;
+
+  /** A well-formed OID missing from the catalog matches nothing. */
+  tag_oid?: Vetchium.OpeningTagOID;
+
   title_query?: OpeningTitleQuery;
   pagination_key?: Vetchium.PaginationKey;
 
@@ -220,6 +225,7 @@ interface OpeningOperations {
       }
     | OpeningWriteErrors
     | Vetchium.Problem.OrgOpeningHiringTeamInvalidErrorResponse
+    | Vetchium.Problem.OrgOpeningTagUnknownErrorResponse
     | Vetchium.Problem.OrgPipelineTemplateNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningsQuotaExceededErrorResponse;
 
@@ -299,6 +305,18 @@ interface OpeningOperations {
     | OpeningSummaryErrors
     | Vetchium.Problem.OrgOpeningNotFoundErrorResponse;
 
+  /** Reads the Opening tag catalog; any user of an active Org may read it. */
+  @route("/list-opening-tags")
+  @post
+  @useAuth(BearerAuth)
+  listOpeningTags(@body request: {}):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: Vetchium.ListOpeningTagsResponse;
+      }
+    | OpeningSummaryErrors;
+
   @route("/lookup-opening-team-member")
   @post
   @useAuth(BearerAuth)
@@ -345,7 +363,8 @@ interface OpeningOperations {
     | Vetchium.Problem.OrgOpeningNotFoundErrorResponse
     | Vetchium.Problem.OrgOpeningVersionConflictErrorResponse
     | Vetchium.Problem.OrgOpeningRequestPendingErrorResponse
-    | Vetchium.Problem.OrgOpeningStateConflictErrorResponse;
+    | Vetchium.Problem.OrgOpeningStateConflictErrorResponse
+    | Vetchium.Problem.OrgOpeningTagUnknownErrorResponse;
 
   @route("/discard-opening-working-copy")
   @post

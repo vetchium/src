@@ -2,6 +2,8 @@ import type { EmailAddress } from "../../common/common.ts";
 import { isEmailAddress, normalizeEmailAddress } from "../../common/common.ts";
 import { isCountryCode } from "../../common/countries.ts";
 import type { CountryCode } from "../../common/localization.ts";
+import type { OpeningTagOID } from "../../common/opening_tags.ts";
+import { isOpeningTagOID } from "../../common/opening_tags.ts";
 import type {
   OpeningContent,
   OpeningEmploymentType,
@@ -57,6 +59,7 @@ export interface ListOpeningsRequest {
   employing_country?: CountryCode;
   work_arrangement?: OpeningWorkArrangement;
   employment_type?: OpeningEmploymentType;
+  tag_oid?: OpeningTagOID;
   title_query?: string;
   pagination_key?: PaginationKey;
   limit?: PageSize;
@@ -335,6 +338,8 @@ export function validateListOpeningsRequest(
     )
   )
     fields.push("employment_type");
+  if (r.tag_oid !== undefined && !isOpeningTagOID(r.tag_oid))
+    fields.push("tag_oid");
   if (
     r.title_query !== undefined &&
     ([...r.title_query].length < 2 || [...r.title_query].length > 200)

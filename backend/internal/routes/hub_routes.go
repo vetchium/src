@@ -127,6 +127,8 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(hubopenings.List(s)))
 	mux.Handle("POST /api/hub/get-org-opening",
 		hubAuth(hubopenings.Get(s)))
+	mux.Handle("POST /api/hub/list-opening-tags",
+		hubAuth(hubopenings.ListTags(s)))
 	mux.Handle("POST /api/hub/profile/professional-email/list",
 		hubAuth(hubprofile.ListProfessionalEmails(s)))
 	mux.Handle("POST /api/hub/profile/professional-email/add",

@@ -33,6 +33,8 @@ func TestOpeningRequestValidation(t *testing.T) {
 	t.Parallel()
 	existingQuestion := common.ApplicationQuestionID("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b")
 	malformedQuestion := common.ApplicationQuestionID("not-a-uuid")
+	wellFormedTag := common.OpeningTagOID("golang")
+	malformedTag := common.OpeningTagOID("Go Lang")
 	tests := []struct {
 		name   string
 		fields []string
@@ -54,6 +56,8 @@ func TestOpeningRequestValidation(t *testing.T) {
 		{"empty state filter", ListOpeningsRequest{States: []OpeningState{}}.Validate(), []string{"states"}},
 		{"duplicate state filter", ListOpeningsRequest{States: []OpeningState{Draft, Draft}}.Validate(), []string{"states"}},
 		{"duplicate request kind filter", ListOpeningsRequest{PendingRequestKinds: []OpeningRequestKind{PauseRequest, PauseRequest}}.Validate(), []string{"pending_request_kinds"}},
+		{"well-formed tag filter", ListOpeningsRequest{TagOID: &wellFormedTag}.Validate(), []string{}},
+		{"malformed tag filter", ListOpeningsRequest{TagOID: &malformedTag}.Validate(), []string{"tag_oid"}},
 		{"unknown request kind", RequestOpeningChangeRequest{OpeningNumber: 1, Version: 1}.Validate(), []string{"kind"}},
 		{"missing rejection note", DecideOpeningRequestRequest{OpeningNumber: 1, Version: 1, Decision: RejectDecision}.Validate(), []string{"note"}},
 		{"approval needs no note", DecideOpeningRequestRequest{OpeningNumber: 1, Version: 1, Decision: ApproveDecision}.Validate(), []string{}},

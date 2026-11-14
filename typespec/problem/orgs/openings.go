@@ -57,6 +57,23 @@ func OpeningHiringTeamInvalidError(addresses []string) OpeningHiringTeamInvalidD
 	}
 }
 
+type OpeningTagUnknownDetails struct {
+	problem.Details
+	TagOIDs []string `json:"tag_oids"`
+}
+
+func OpeningTagUnknownError(tagOIDs []string) OpeningTagUnknownDetails {
+	return OpeningTagUnknownDetails{
+		Details: problem.Details{
+			Type:   "vetchium-problem-details/org-opening-tag-unknown",
+			Title:  "Org Opening tag unknown",
+			Status: 422,
+			Detail: "An Opening tag is not in the catalog",
+		},
+		TagOIDs: tagOIDs,
+	}
+}
+
 type OpeningsQuotaExceededDetails struct {
 	problem.Details
 	Quota int32 `json:"quota"`

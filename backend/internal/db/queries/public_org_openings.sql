@@ -20,13 +20,14 @@ LEFT JOIN LATERAL (
         'employing_country', page.employing_country,
         'work_arrangement', page.work_arrangement,
         'employment_type', page.employment_type,
-        'first_published_at', page.first_published_at
+        'first_published_at', page.first_published_at,
+        'tags', COALESCE(to_jsonb(page.tag_oids), '[]'::jsonb)
     ) ORDER BY page.first_published_at DESC,
         page.opening_number DESC) AS openings
     FROM (
         SELECT o.opening_number, o.first_published_at,
             c.title, c.employing_country, c.work_arrangement,
-            c.employment_type
+            c.employment_type, c.tag_oids
         FROM vetchium.org_openings AS o
         JOIN vetchium.org_opening_contents AS c
           ON c.org_opening_id = o.org_opening_id AND c.slot = 'live'
@@ -38,6 +39,8 @@ LEFT JOIN LATERAL (
               OR c.work_arrangement::text = sqlc.narg(work_arrangement)::text)
           AND (sqlc.narg(employment_type)::text IS NULL
               OR c.employment_type::text = sqlc.narg(employment_type)::text)
+          AND (sqlc.narg(tag_oid)::text IS NULL
+              OR sqlc.narg(tag_oid)::text = ANY(c.tag_oids))
           AND (sqlc.narg(title_query)::text IS NULL
               OR strpos(lower(c.title), lower(sqlc.narg(title_query)::text)) > 0)
           AND (sqlc.narg(cursor_at)::timestamptz IS NULL
@@ -94,7 +97,8 @@ LEFT JOIN LATERAL (
                     ELSE jsonb_build_object('currency', c.salary_currency,
                         'min', c.salary_min, 'max', c.salary_max,
                         'period', c.salary_period) END,
-                'questions', c.questions
+                'questions', c.questions,
+                'tags', c.tag_oids
             )),
             'first_published_at', o.first_published_at,
             'last_revised_at', o.last_revised_at,

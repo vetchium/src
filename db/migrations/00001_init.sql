@@ -1937,6 +1937,133 @@ CREATE TYPE vetchium.org_opening_history_action AS ENUM (
     'withdrawn', 'superseded', 'cancelled', 'expired'
 );
 
+-- Opening tag OIDs (OPN-TAG-001), identical in every tenant and read-only to
+-- the application. Never delete or rename a tag; retire it with deprecated.
+CREATE TABLE vetchium.opening_tags (
+    tag_oid text PRIMARY KEY
+        CHECK (char_length(tag_oid) BETWEEN 2 AND 64
+            AND tag_oid ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+    display_name text NOT NULL
+        CHECK (display_name = btrim(display_name)
+            AND char_length(display_name) BETWEEN 1 AND 100),
+    deprecated boolean NOT NULL DEFAULT false
+);
+
+-- display_name above is the English default, so no localized name is 'en'.
+CREATE TABLE vetchium.opening_tag_names (
+    tag_oid text NOT NULL REFERENCES vetchium.opening_tags (tag_oid),
+    language text NOT NULL
+        CHECK (language ~ '^[a-z]{2,3}$' AND language <> 'en'),
+    display_name text NOT NULL
+        CHECK (display_name = btrim(display_name)
+            AND char_length(display_name) BETWEEN 1 AND 100),
+    PRIMARY KEY (tag_oid, language)
+);
+
+INSERT INTO vetchium.opening_tags (tag_oid, display_name)
+VALUES
+    ('golang', 'Go'),
+    ('python', 'Python'),
+    ('java', 'Java'),
+    ('javascript', 'JavaScript'),
+    ('typescript', 'TypeScript'),
+    ('rust', 'Rust'),
+    ('c-sharp', 'C#'),
+    ('c-plus-plus', 'C++'),
+    ('kotlin', 'Kotlin'),
+    ('swift', 'Swift'),
+    ('php', 'PHP'),
+    ('sql', 'SQL'),
+    ('artificial-intelligence', 'Artificial Intelligence'),
+    ('machine-learning', 'Machine Learning'),
+    ('generative-ai', 'Generative AI'),
+    ('data-science', 'Data Science'),
+    ('data-engineering', 'Data Engineering'),
+    ('data-analytics', 'Data Analytics'),
+    ('cloud-computing', 'Cloud Computing'),
+    ('devops', 'DevOps'),
+    ('site-reliability-engineering', 'Site Reliability Engineering'),
+    ('cybersecurity', 'Cybersecurity'),
+    ('frontend-development', 'Frontend Development'),
+    ('backend-development', 'Backend Development'),
+    ('full-stack-development', 'Full-Stack Development'),
+    ('mobile-development', 'Mobile Development'),
+    ('embedded-systems', 'Embedded Systems'),
+    ('quality-assurance', 'Quality Assurance'),
+    ('ui-ux-design', 'UI/UX Design'),
+    ('product-management', 'Product Management'),
+    ('accounting', 'Accounting'),
+    ('financial-analysis', 'Financial Analysis'),
+    ('sales', 'Sales'),
+    ('marketing', 'Marketing'),
+    ('digital-marketing', 'Digital Marketing'),
+    ('customer-support', 'Customer Support'),
+    ('human-resources', 'Human Resources'),
+    ('recruiting', 'Recruiting'),
+    ('project-management', 'Project Management'),
+    ('supply-chain-management', 'Supply Chain Management'),
+    ('logistics', 'Logistics'),
+    ('nursing', 'Nursing'),
+    ('pharmacy', 'Pharmacy'),
+    ('teaching', 'Teaching'),
+    ('legal', 'Legal'),
+    ('mechanical-engineering', 'Mechanical Engineering'),
+    ('civil-engineering', 'Civil Engineering'),
+    ('electrical-engineering', 'Electrical Engineering'),
+    ('manufacturing', 'Manufacturing'),
+    ('hospitality', 'Hospitality');
+
+INSERT INTO vetchium.opening_tag_names (tag_oid, language, display_name)
+VALUES
+    ('artificial-intelligence', 'de', 'Künstliche Intelligenz'),
+    ('artificial-intelligence', 'ta', 'செயற்கை நுண்ணறிவு'),
+    ('machine-learning', 'de', 'Maschinelles Lernen'),
+    ('data-analytics', 'de', 'Datenanalyse'),
+    ('cybersecurity', 'de', 'IT-Sicherheit'),
+    ('quality-assurance', 'de', 'Qualitätssicherung'),
+    ('product-management', 'de', 'Produktmanagement'),
+    ('accounting', 'de', 'Buchhaltung'),
+    ('sales', 'de', 'Vertrieb'),
+    ('customer-support', 'de', 'Kundenservice'),
+    ('human-resources', 'de', 'Personalwesen'),
+    ('project-management', 'de', 'Projektmanagement'),
+    ('logistics', 'de', 'Logistik'),
+    ('nursing', 'de', 'Pflege'),
+    ('pharmacy', 'de', 'Pharmazie'),
+    ('legal', 'de', 'Recht'),
+    ('mechanical-engineering', 'de', 'Maschinenbau'),
+    ('civil-engineering', 'de', 'Bauingenieurwesen'),
+    ('electrical-engineering', 'de', 'Elektrotechnik'),
+    ('manufacturing', 'de', 'Fertigung'),
+    ('hospitality', 'de', 'Hotellerie');
+
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE
+    ON vetchium.opening_tags, vetchium.opening_tag_names FROM vetchium_app;
+
+-- A foreign key cannot cover array elements, so this trigger keeps
+-- org_opening_contents.tag_oids inside the catalog (OPN-TAG-009).
+-- +goose StatementBegin
+CREATE FUNCTION vetchium.check_opening_tag_oids()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.tag_oids IS NOT NULL AND EXISTS (
+        SELECT 1
+        FROM unnest(NEW.tag_oids) AS t (tag_oid)
+        WHERE NOT EXISTS (
+            SELECT 1 FROM vetchium.opening_tags AS o
+            WHERE o.tag_oid = t.tag_oid
+        )
+    ) THEN
+        RAISE EXCEPTION 'unknown opening tag in %', NEW.tag_oids
+            USING ERRCODE = 'foreign_key_violation';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+
 CREATE TABLE vetchium.org_openings (
     org_opening_id uuid PRIMARY KEY,
     org_did uuid NOT NULL REFERENCES vetchium.orgs (org_did)
@@ -2033,6 +2160,8 @@ CREATE TABLE vetchium.org_opening_contents (
     -- Application questions (HP-QST-001) as the contract's question list;
     -- NULL means none. orgs-api validates each question.
     questions jsonb,
+    -- Opening tag OIDs in the Org's chosen order (OPN-TAG-007); NULL means none.
+    tag_oids text[],
     updated_by uuid NOT NULL REFERENCES vetchium.org_users (org_user_id)
         ON DELETE CASCADE,
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -2105,10 +2234,21 @@ CREATE TABLE vetchium.org_opening_contents (
         questions IS NULL OR (jsonb_typeof(questions) = 'array'
             AND jsonb_array_length(questions) BETWEEN 1 AND 10)
     ),
+    CONSTRAINT org_opening_contents_tags_check CHECK (
+        tag_oids IS NULL OR (cardinality(tag_oids) BETWEEN 1 AND 5
+            AND array_position(tag_oids, NULL) IS NULL
+            AND vetchium.array_is_distinct(tag_oids)
+            AND array_to_string(tag_oids, ',')
+                ~ '^[a-z0-9]+(-[a-z0-9]+)*(,[a-z0-9]+(-[a-z0-9]+)*)*$')
+    ),
     CONSTRAINT org_opening_contents_live_complete_check CHECK (
         slot <> 'live' OR complete
     )
 );
+
+CREATE TRIGGER org_opening_contents_tag_oids_known
+BEFORE INSERT OR UPDATE OF tag_oids ON vetchium.org_opening_contents
+FOR EACH ROW EXECUTE FUNCTION vetchium.check_opening_tag_oids();
 
 CREATE TABLE vetchium.org_opening_team_members (
     org_opening_id uuid NOT NULL REFERENCES vetchium.org_openings
@@ -4068,6 +4208,9 @@ DROP TABLE IF EXISTS vetchium.org_opening_requests;
 DROP TABLE IF EXISTS vetchium.org_opening_team_members;
 DROP TABLE IF EXISTS vetchium.org_opening_contents;
 DROP TABLE IF EXISTS vetchium.org_openings;
+DROP TABLE IF EXISTS vetchium.opening_tag_names;
+DROP TABLE IF EXISTS vetchium.opening_tags;
+DROP FUNCTION IF EXISTS vetchium.check_opening_tag_oids();
 DROP TYPE IF EXISTS vetchium.org_opening_history_action;
 DROP TYPE IF EXISTS vetchium.org_opening_request_state;
 DROP TYPE IF EXISTS vetchium.org_opening_request_kind;

@@ -358,6 +358,68 @@ test("the Jobs list filters by title, Opening number, and employing country", as
   });
 });
 
+for (const consumerTenant of ["sgp", "usa1"] as const) {
+  test(`the Jobs list filters by tag at a client in ${consumerTenant}`, async ({
+    request,
+    apiCoverage,
+  }) => {
+    test.setTimeout(240_000);
+    await withWorld(
+      request,
+      async (world) => {
+        const { consumer, provider } = world.pair;
+        const job = await sourcingJob(world);
+        for (const [tag_oid, count] of [
+          ["golang", 1],
+          ["rust", 1],
+          ["python", 0],
+          ["no-such-tag", 0],
+        ] as const) {
+          const listed = await jobs(provider, { tag_oid });
+          expect(listed.unavailable_tenants, tag_oid).not.toContain(
+            consumer.tenant,
+          );
+          expect(
+            listed.jobs.map(({ engagement_id }) => engagement_id),
+            tag_oid,
+          ).toEqual(count === 1 ? [job.engagement_id] : []);
+        }
+        await expectProblem(
+          await provider.api.marketplaceWriteRaw("/list-jobs", provider.owner, {
+            tag_oid: "Go Lang",
+          }),
+          400,
+          problems.validation,
+        );
+
+        const peer = (body: unknown) =>
+          meshPeerRequest(provider.tenant, consumer.tenant, body, apiCoverage, {
+            path: "/api/mesh/provider-jobs/list",
+          });
+        const base = {
+          provider_org_did: orgDID(provider.org.domain, provider.tenant),
+          state: "published",
+          limit: 10,
+        };
+        const tagged = peer({ ...base, tag_oid: "golang" });
+        expect(tagged.status, JSON.stringify(tagged.body)).toBe(200);
+        expect(tagged.body).toMatchObject({
+          jobs: [{ job: { engagement_id: job.engagement_id } }],
+        });
+        expect(peer({ ...base, tag_oid: "python" }).body).toEqual({
+          jobs: [],
+          has_more: false,
+        });
+        expect(peer({ ...base, tag_oid: "Go Lang" }).status).toBe(400);
+      },
+      {
+        tags: ["golang", "rust"],
+        tenants: { consumer: consumerTenant, provider: "sgp" },
+      },
+    );
+  });
+}
+
 test("autocomplete suggests the agency's possible Job owners and the Org's clients", async ({
   request,
 }) => {

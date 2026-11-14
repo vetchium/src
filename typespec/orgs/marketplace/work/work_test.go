@@ -206,8 +206,9 @@ func TestListJobsRequestOwnerSearchAndCountryFilters(t *testing.T) {
 	empty := JobSearchText("")
 	long := JobSearchText(strings.Repeat("x", 101))
 	country := common.CountryCode("in")
-	request := ListJobsRequest{OwnerEmail: &badOwner, Search: &empty, EmployingCountry: &country}
-	if got := request.Validate(); !slices.Equal(got, []string{"owner_email", "search", "employing_country"}) {
+	tag := common.OpeningTagOID("Go Lang")
+	request := ListJobsRequest{OwnerEmail: &badOwner, Search: &empty, EmployingCountry: &country, TagOID: &tag}
+	if got := request.Validate(); !slices.Equal(got, []string{"owner_email", "search", "employing_country", "tag_oid"}) {
 		t.Fatalf("fields = %v", got)
 	}
 	request = ListJobsRequest{Search: &long}

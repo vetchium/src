@@ -38,6 +38,12 @@ export interface OpeningHiringTeamInvalidDetails extends Details {
   email_addresses: string[];
 }
 
+export interface OpeningTagUnknownDetails extends Details {
+  type: "vetchium-problem-details/org-opening-tag-unknown";
+  /** Each unknown OID once. */
+  tag_oids: string[];
+}
+
 export interface OpeningsQuotaExceededDetails extends Details {
   type: "vetchium-problem-details/org-openings-quota-exceeded";
   quota: number;

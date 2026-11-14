@@ -21,6 +21,7 @@ const contentLabelKeys: Readonly<Record<string, string>> = {
   minimum_education: "openings.fields.minimumEducation",
   salary: "openings.fields.salary",
   questions: "openings.fields.questions",
+  tags: "openings.fields.tags",
 };
 
 /**

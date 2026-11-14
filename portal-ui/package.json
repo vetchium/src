@@ -17,6 +17,7 @@
     "./localization": "./src/localization.ts",
     "./navigation": "./src/navigation.ts",
     "./openings": "./src/openings/index.ts",
+    "./opening-tags": "./src/opening-tags/index.ts",
     "./pending-operations": "./src/pending-operations.tsx",
     "./portal-build": "./src/portal-build.ts",
     "./portal-environment": "./src/portal-environment.ts",

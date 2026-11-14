@@ -1,5 +1,6 @@
 import "@typespec/openapi";
 import "./localization.tsp";
+import "./opening_tags.tsp";
 
 namespace Vetchium;
 
@@ -123,4 +124,9 @@ model OpeningContent {
   /** In display order. */
   @maxItems(10)
   questions?: ApplicationQuestion[];
+
+  /** In the Org's chosen order. */
+  @maxItems(5)
+  @TypeSpec.OpenAPI.extension("x-vetchium-unique-items", true)
+  tags?: OpeningTagOID[];
 }

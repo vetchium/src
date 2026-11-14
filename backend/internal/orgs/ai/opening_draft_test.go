@@ -50,6 +50,20 @@ func TestParseOpeningDraftAsksNoQuestions(t *testing.T) {
 	}
 }
 
+func TestParseOpeningDraftSetsNoTags(t *testing.T) {
+	t.Parallel()
+	content, _, ok := ParseOpeningDraft(`{
+		"title": "Platform Engineer",
+		"tags": ["golang", "kubernetes"]
+	}`)
+	if !ok || content.Tags != nil {
+		t.Fatalf("ok = %t, tags = %v", ok, content.Tags)
+	}
+	if _, _, ok := ParseOpeningDraft(`{"tags": ["golang"]}`); ok {
+		t.Fatal("a draft holding only tags is usable")
+	}
+}
+
 func TestParseOpeningDraftDropsInvalidFields(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

@@ -51,6 +51,7 @@ type cursor struct {
 	EmployingCountry string         `json:"employing_country"`
 	WorkArrangement  string         `json:"work_arrangement"`
 	EmploymentType   string         `json:"employment_type"`
+	TagOID           string         `json:"tag_oid"`
 	TitleQuery       string         `json:"title_query"`
 	At               time.Time      `json:"at"`
 	Number           int32          `json:"number"`
@@ -66,6 +67,9 @@ func cursorFor(request openingsspec.ListOrgOpeningsRequest) cursor {
 	}
 	if request.EmploymentType != nil {
 		c.EmploymentType = string(*request.EmploymentType)
+	}
+	if request.TagOID != nil {
+		c.TagOID = string(*request.TagOID)
 	}
 	if request.TitleQuery != nil {
 		c.TitleQuery = strings.ToLower(string(*request.TitleQuery))
@@ -88,6 +92,7 @@ func parseCursor(request openingsspec.ListOrgOpeningsRequest) (cursor, error) {
 		actual.EmployingCountry != expected.EmployingCountry ||
 		actual.WorkArrangement != expected.WorkArrangement ||
 		actual.EmploymentType != expected.EmploymentType ||
+		actual.TagOID != expected.TagOID ||
 		actual.TitleQuery != expected.TitleQuery {
 		return cursor{}, ErrInvalidPaginationKey
 	}
@@ -135,7 +140,7 @@ func (r Reader) List(
 		cursorAt = pgtype.Timestamptz{Time: c.At, Valid: true}
 		cursorNumber = pgtype.Int4{Int32: c.Number, Valid: true}
 	}
-	var country, arrangement, employment, title *string
+	var country, arrangement, employment, tag, title *string
 	if request.EmployingCountry != nil {
 		value := string(*request.EmployingCountry)
 		country = &value
@@ -148,6 +153,10 @@ func (r Reader) List(
 		value := string(*request.EmploymentType)
 		employment = &value
 	}
+	if request.TagOID != nil {
+		value := string(*request.TagOID)
+		tag = &value
+	}
 	if request.TitleQuery != nil {
 		value := string(*request.TitleQuery)
 		title = &value
@@ -158,6 +167,7 @@ func (r Reader) List(
 			EmployingCountry: textParam(country),
 			WorkArrangement:  textParam(arrangement),
 			EmploymentType:   textParam(employment),
+			TagOid:           textParam(tag),
 			TitleQuery:       textParam(title),
 			CursorAt:         cursorAt, CursorNumber: cursorNumber,
 			PageSize: request.EffectiveLimit() + 1,

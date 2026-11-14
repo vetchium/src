@@ -5,6 +5,11 @@ import {
 } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import {
+  OpeningTagFilter,
+  OpeningTagList,
+  openingTagName,
+} from "@vetchium/portal-ui/opening-tags";
+import {
   Avatar,
   Button,
   Card,
@@ -18,14 +23,15 @@ import {
 } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import type {
   OpeningEmploymentType,
   OpeningWorkArrangement,
 } from "typespec/common/openings";
-import type {
-  ListOrgOpeningsRequest,
-  PublicOrg,
+import {
+  type ListOrgOpeningsRequest,
+  type PublicOrg,
+  validateListOrgOpeningsRequest,
 } from "typespec/hub/openings/public";
 import type { FrontendLocale } from "typespec/hub/types";
 import { isOrgDomain, normalizeOrgDomain } from "typespec/orgs/types";
@@ -36,7 +42,10 @@ import {
 import { isProblem } from "../api/client";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
-import { useOrgOpeningsQuery } from "../features/openings/queries";
+import {
+  useOpeningTags,
+  useOrgOpeningsQuery,
+} from "../features/openings/queries";
 import { countryName, countryOptions } from "../i18n/countries";
 
 export function OrgHeader({ org }: { org: PublicOrg }) {
@@ -64,36 +73,71 @@ export function OrgHeader({ org }: { org: PublicOrg }) {
   );
 }
 
+// Filters are kept in the URL so reload, back, and shared links keep them.
+const filterParams = {
+  employing_country: "country",
+  work_arrangement: "arrangement",
+  employment_type: "employment",
+  tag_oid: "tag",
+  title_query: "title",
+} as const;
+
+type OrgOpeningsFilters = Pick<
+  ListOrgOpeningsRequest,
+  keyof typeof filterParams
+>;
+
+// A hand-edited value the API would refuse is dropped instead of sent.
+function filtersFromSearch(
+  domain: string,
+  search: URLSearchParams,
+): OrgOpeningsFilters {
+  const filters: Record<string, string> = {};
+  for (const [field, param] of Object.entries(filterParams)) {
+    const value = search.get(param);
+    if (value) filters[field] = value;
+  }
+  const invalid = validateListOrgOpeningsRequest({
+    domain,
+    ...(filters as OrgOpeningsFilters),
+  });
+  for (const field of invalid) delete filters[field];
+  return filters as OrgOpeningsFilters;
+}
+
 export function OrgPage() {
   const { t, i18n } = useTranslation();
   const { date } = useDateTimeFormat();
   const domain = normalizeOrgDomain(useParams().domain ?? "");
   const validDomain = isOrgDomain(domain);
-  const [country, setCountry] = useState<string | undefined>();
-  const [arrangement, setArrangement] = useState<
-    OpeningWorkArrangement | undefined
-  >();
-  const [employment, setEmployment] = useState<
-    OpeningEmploymentType | undefined
-  >();
-  const [title, setTitle] = useState("");
-  const [queryTitle, setQueryTitle] = useState<string | undefined>();
+  const [search, setSearch] = useSearchParams();
+  const filters = filtersFromSearch(domain, search);
+  const [title, setTitle] = useState(filters.title_query ?? "");
   const [pages, setPages] = useState<(string | undefined)[]>([undefined]);
   const pageKey = pages[pages.length - 1];
-  const changeFilter = (apply: () => void) => {
-    apply();
+  const changeFilter = (
+    field: keyof OrgOpeningsFilters,
+    value: string | undefined,
+  ) => {
+    setSearch(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (value === undefined) next.delete(filterParams[field]);
+        else next.set(filterParams[field], value);
+        return next;
+      },
+      { replace: true },
+    );
     setPages([undefined]);
   };
   const request: ListOrgOpeningsRequest = {
     domain,
-    ...(country && { employing_country: country }),
-    ...(arrangement && { work_arrangement: arrangement }),
-    ...(employment && { employment_type: employment }),
-    ...(queryTitle && { title_query: queryTitle }),
+    ...filters,
     ...(pageKey && { pagination_key: pageKey }),
     limit: 20,
   };
   const result = useOrgOpeningsQuery(request, validDomain);
+  const tagCatalog = useOpeningTags();
   const countries = countryOptions(i18n.language as FrontendLocale);
   return (
     <>
@@ -122,8 +166,10 @@ export function OrgPage() {
               optionFilterProp="label"
               placeholder={t("orgPage.fields.country")}
               options={countries}
-              value={country}
-              onChange={(value) => changeFilter(() => setCountry(value))}
+              value={filters.employing_country}
+              onChange={(value?: string) =>
+                changeFilter("employing_country", value)
+              }
               style={{ minWidth: 180 }}
             />
             <Select
@@ -136,8 +182,10 @@ export function OrgPage() {
                   label: t(`orgPage.workArrangements.${value}`),
                 }),
               )}
-              value={arrangement}
-              onChange={(value) => changeFilter(() => setArrangement(value))}
+              value={filters.work_arrangement}
+              onChange={(value?: OpeningWorkArrangement) =>
+                changeFilter("work_arrangement", value)
+              }
               style={{ minWidth: 150 }}
             />
             <Select
@@ -150,9 +198,20 @@ export function OrgPage() {
                 value,
                 label: t(`orgPage.employmentTypes.${value}`),
               }))}
-              value={employment}
-              onChange={(value) => changeFilter(() => setEmployment(value))}
+              value={filters.employment_type}
+              onChange={(value?: OpeningEmploymentType) =>
+                changeFilter("employment_type", value)
+              }
               style={{ minWidth: 150 }}
+            />
+            <OpeningTagFilter
+              label={t("orgPage.fields.tag")}
+              placeholder={t("orgPage.fields.tag")}
+              value={filters.tag_oid}
+              onChange={(value) => changeFilter("tag_oid", value)}
+              locale={i18n.language}
+              catalog={tagCatalog}
+              style={{ minWidth: 180 }}
             />
             <Input.Search
               aria-label={t("orgPage.titleSearch")}
@@ -161,10 +220,9 @@ export function OrgPage() {
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               onSearch={(value) =>
-                changeFilter(() =>
-                  setQueryTitle(
-                    [...value.trim()].length >= 2 ? value.trim() : undefined,
-                  ),
+                changeFilter(
+                  "title_query",
+                  [...value.trim()].length >= 2 ? value.trim() : undefined,
                 )
               }
               style={{ width: 240 }}
@@ -221,6 +279,13 @@ export function OrgPage() {
                         })}
                       </Typography.Text>
                     </Flex>
+                    <OpeningTagList
+                      tags={opening.tags}
+                      name={(oid) =>
+                        openingTagName(tagCatalog, oid, i18n.language)
+                      }
+                      label={t("orgPage.fields.tags")}
+                    />
                   </Flex>
                 </Card>
               ))}

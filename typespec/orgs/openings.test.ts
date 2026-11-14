@@ -124,6 +124,10 @@ test("Opening requests reject invalid team, number, version, and state filters",
     ["version"],
   );
   assert.deepEqual(validateListOpeningsRequest({ states: [] }), ["states"]);
+  assert.deepEqual(validateListOpeningsRequest({ tag_oid: "golang" }), []);
+  assert.deepEqual(validateListOpeningsRequest({ tag_oid: "Go Lang" }), [
+    "tag_oid",
+  ]);
   assert.deepEqual(
     validateListOpeningsRequest({ states: ["draft", "draft"] }),
     ["states"],

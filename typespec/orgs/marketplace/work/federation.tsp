@@ -68,6 +68,7 @@ model PeerListJobsRequest {
   state: Vetchium.Orgs.Openings.OpeningState;
   search?: JobSearchText;
   employing_country?: Vetchium.CountryCode;
+  tag_oid?: Vetchium.OpeningTagOID;
 
   /**
    * Only these Jobs, the ones an agency user owns. The agency's tenant keeps

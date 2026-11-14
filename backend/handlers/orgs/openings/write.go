@@ -24,7 +24,7 @@ import (
 // changeFailure picks the refusal after a guarded write changed nothing.
 // Version, a pending request, and state outrank an invalid request field, as
 // for pipeline stages: a stale caller names question ids another edit removed.
-func changeFailure(q *sqlc.Queries, r *http.Request, identity middleware.OrgIdentity, number openings.OpeningNumber, version openings.OpeningVersion, pendingContentOnly bool, invalid ...problem.Details) (handlerauth.Result[openings.OrgOpening], *handlerauth.Problem, error) {
+func changeFailure(q *sqlc.Queries, r *http.Request, identity middleware.OrgIdentity, number openings.OpeningNumber, version openings.OpeningVersion, pendingContentOnly bool, invalid ...problem.Body) (handlerauth.Result[openings.OrgOpening], *handlerauth.Problem, error) {
 	state, err := q.GetOrgOpeningChangeState(r.Context(), sqlc.GetOrgOpeningChangeStateParams{
 		OrgDid: identity.OrgDID, OpeningNumber: int32(number),
 	})
@@ -87,14 +87,22 @@ func SaveOpeningWorkingCopy(s *orgsruntime.Server) http.HandlerFunc {
 					return result{}, nil, err
 				}
 				if row.Version == 0 {
-					invalid, err := unknownQuestions(row.UnknownQuestionPositions)
+					var invalid []problem.Body
+					questions, err := unknownQuestions(row.UnknownQuestionPositions)
 					if err != nil {
 						return result{}, nil, err
 					}
-					if invalid != nil {
-						return changeFailure(q, r, identity, request.OpeningNumber, request.Version, true, *invalid)
+					if questions != nil {
+						invalid = append(invalid, *questions)
 					}
-					return changeFailure(q, r, identity, request.OpeningNumber, request.Version, true)
+					tags, err := unknownTags(row.UnknownTagOids)
+					if err != nil {
+						return result{}, nil, err
+					}
+					if tags != nil {
+						invalid = append(invalid, *tags)
+					}
+					return changeFailure(q, r, identity, request.OpeningNumber, request.Version, true, invalid...)
 				}
 				if row.SavedRows != 1 || row.HistoryRows != 1 || row.AuditRows != 1 {
 					return result{}, nil, fmt.Errorf("incomplete Opening working copy save")

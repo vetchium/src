@@ -1,3 +1,7 @@
+import {
+  type OpeningTagCatalog,
+  openingTagName,
+} from "@vetchium/portal-ui/opening-tags";
 import type {
   OpeningPresentation,
   QuestionFieldsLabels,
@@ -75,6 +79,7 @@ function describeQuestion(
 export function openingPresentation(
   t: TFunction,
   locale: string,
+  tags: OpeningTagCatalog,
 ): OpeningPresentation {
   const countries = new Intl.DisplayNames([locale], { type: "region" });
   const languages = new Intl.DisplayNames([locale], { type: "language" });
@@ -93,6 +98,7 @@ export function openingPresentation(
       experienceYears: t("orgPage.fields.experienceYears"),
       minimumEducation: t("orgPage.fields.minimumEducation"),
       salary: t("orgPage.fields.salary"),
+      tags: t("orgPage.fields.tags"),
     },
     formatters: {
       language: (value) => displayName(languages, value),
@@ -115,6 +121,7 @@ export function openingPresentation(
         t(`orgPage.education.${value}`, { defaultValue: value }),
       salary: (code, min, max, period) =>
         `${code} ${numbers.format(min)}–${numbers.format(max)} ${t(`orgPage.salaryPeriods.${period}`, { defaultValue: period })}`,
+      tag: (oid) => openingTagName(tags, oid, locale),
     },
     questions: {
       heading: t("orgPage.questions.heading"),

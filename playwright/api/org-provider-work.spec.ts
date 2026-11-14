@@ -14,6 +14,7 @@ import type {
   WriteResult,
 } from "typespec/orgs/marketplace/work/work";
 import type { OpeningPipeline } from "typespec/orgs/openings/pipeline";
+import type { OrgOpening } from "typespec/orgs/openings/types";
 import { expectProblem } from "../lib/admin-api.ts";
 import type { TestTenant } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -958,9 +959,36 @@ test("a provider lists the Openings assigned to its sourcing engagement", async 
       title: "Engineer",
       description: openingContent("Engineer").description,
     });
+    expect(job.content).not.toHaveProperty("tags");
     expect(JSON.stringify(job)).not.toMatch(
       /internal_notes|hiring_manager|recruiter|team_members/,
     );
+    const current = (await (
+      await consumer.api.getOpening(consumer.owner, {
+        opening_number: opening.opening_number,
+      })
+    ).json()) as OrgOpening;
+    const retagged = await consumer.api.saveOpeningWorkingCopy(consumer.owner, {
+      opening_number: opening.opening_number,
+      version: current.version,
+      content: { ...openingContent("Engineer"), tags: ["rust", "golang"] },
+    });
+    expect(retagged.status(), await retagged.text()).toBe(200);
+    const revised = await consumer.api.requestOpeningChange(consumer.owner, {
+      opening_number: opening.opening_number,
+      version: ((await retagged.json()) as OrgOpening).version,
+      kind: "revise",
+    });
+    expect(revised.status(), await revised.text()).toBe(200);
+    const taggedDetail = await provider.api.getJob(provider.owner, {
+      engagement_id: engagement.id,
+      opening_number: opening.opening_number,
+    });
+    expect(taggedDetail.status(), await taggedDetail.text()).toBe(200);
+    expect(((await taggedDetail.json()) as JobDetail).content.tags).toEqual([
+      "rust",
+      "golang",
+    ]);
     await expectProblem(
       await provider.api.listJobs(provider.owner, { pagination_key: "nope" }),
       400,

@@ -1,4 +1,5 @@
 import type { IdempotencyKey } from "typespec/common/idempotency";
+import type { ListOpeningTagsResponse } from "typespec/common/opening_tags";
 import type {
   CheckDomainResponse,
   MyInfoResponse,
@@ -453,6 +454,8 @@ export const orgsAPI = {
     apiRequest<ListOpeningsResponse>("/list-openings", { body }),
   openingSummary: () =>
     apiRequest<OpeningSummaryResponse>("/opening-summary", { body: {} }),
+  listOpeningTags: () =>
+    apiRequest<ListOpeningTagsResponse>("/list-opening-tags", { body: {} }),
   lookupOpeningTeamMember: (body: LookupOpeningTeamMemberRequest) =>
     apiRequest<LookupOpeningTeamMemberResponse>("/lookup-opening-team-member", {
       body,

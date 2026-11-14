@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs"
 	"github.com/vetchium/src/typespec/orgs/marketplace/work"
 
@@ -211,5 +212,27 @@ func TestListJobsOrdersByAssignmentAndAnchors(t *testing.T) {
 	}
 	if queries.jobsAsk.PageLimit != 2 || !queries.jobsAsk.AfterAssignedAt.Valid {
 		t.Fatalf("params = %+v", queries.jobsAsk)
+	}
+}
+
+func TestListJobsPassesTheTagFilter(t *testing.T) {
+	t.Parallel()
+	queries := &fakeQueries{}
+	tag := common.OpeningTagOID("golang")
+	if _, err := (Reader{Queries: queries}).ListJobs(context.Background(),
+		work.PeerListJobsRequest{
+			ProviderOrgDID: providerDID, State: "published", Limit: 1, TagOID: &tag,
+		}); err != nil {
+		t.Fatal(err)
+	}
+	if queries.jobsAsk.TagOid != dbvalue.Text("golang") {
+		t.Fatalf("tag parameter = %+v", queries.jobsAsk.TagOid)
+	}
+	if _, err := (Reader{Queries: queries}).ListJobs(context.Background(),
+		work.PeerListJobsRequest{ProviderOrgDID: providerDID, State: "published", Limit: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if queries.jobsAsk.TagOid.Valid {
+		t.Fatalf("absent tag parameter = %+v", queries.jobsAsk.TagOid)
 	}
 }

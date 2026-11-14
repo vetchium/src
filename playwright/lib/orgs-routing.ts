@@ -64,6 +64,7 @@ export async function withWorld(
   body: (world: World) => Promise<void>,
   options: {
     team?: string[];
+    tags?: string[];
     tenants?: { consumer?: TestTenant; provider?: TestTenant };
   } = {},
 ): Promise<void> {
@@ -92,6 +93,7 @@ export async function withWorld(
           consumer.org,
           {
             ...(options.team === undefined ? {} : { team: options.team }),
+            ...(options.tags === undefined ? {} : { tags: options.tags }),
             // Every candidate answers it, so provider reads can be shown to
             // hold no answer (HP-QST-006).
             questions: [

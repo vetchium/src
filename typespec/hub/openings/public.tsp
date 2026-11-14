@@ -1,6 +1,7 @@
 import "@typespec/http";
 
 import "../../common/authentication.tsp";
+import "../../common/opening_tags.tsp";
 import "../../common/openings.tsp";
 import "../../common/pagination.tsp";
 import "../../orgs/types.tsp";
@@ -41,6 +42,9 @@ model PublicOpeningSummary {
   work_arrangement: Vetchium.OpeningWorkArrangement;
   employment_type: Vetchium.OpeningEmploymentType;
   first_published_at: utcDateTime;
+
+  /** OIDs only, `[]` when none (OPN-HUB-002, OPN-TAG-012). */
+  tags: Vetchium.OpeningTagOID[];
 }
 
 model PublishedOpening {
@@ -70,6 +74,10 @@ model ListOrgOpeningsRequest {
   employing_country?: Vetchium.CountryCode;
   work_arrangement?: Vetchium.OpeningWorkArrangement;
   employment_type?: Vetchium.OpeningEmploymentType;
+
+  /** A well-formed OID missing from the catalog matches nothing. */
+  tag_oid?: Vetchium.OpeningTagOID;
+
   title_query?: OpeningTitleQuery;
   pagination_key?: Vetchium.PaginationKey;
 
@@ -127,6 +135,20 @@ interface OrgOpeningOperations {
   list(@body request: ListOrgOpeningsRequest):
     | ListOrgOpeningsResult
     | Vetchium.Problem.HubAuthenticationRequiredErrorResponse;
+
+  /** Reads the Opening tag catalog. */
+  @route("/list-opening-tags")
+  @post
+  @useAuth(BearerAuth)
+  listOpeningTags(@body request: {}):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: Vetchium.ListOpeningTagsResponse;
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
 
   @route("/get-org-opening")
   @post

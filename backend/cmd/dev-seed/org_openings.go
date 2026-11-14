@@ -35,6 +35,21 @@ func (s *orgSeeder) openingLogin(ctx context.Context, domain orgs.OrgDomain, loc
 	return string(session.SessionToken), nil
 }
 
+// seedOpeningTags leaves "Technical writer" untagged so the portals show a
+// published Opening without tags; the researcher revision adds a tag so its
+// working copy differs from live content in tags.
+var seedOpeningTags = map[string][]common.OpeningTagOID{
+	"Product designer":        {"ui-ux-design", "product-management"},
+	"Senior product designer": {"ui-ux-design", "product-management"},
+	"Data analyst":            {"data-analytics", "sql", "python"},
+	"Operations lead":         {"logistics", "supply-chain-management", "project-management"},
+	"Security engineer":       {"cybersecurity", "golang", "cloud-computing"},
+	"Researcher":              {"artificial-intelligence", "machine-learning", "python"},
+	"Senior researcher":       {"artificial-intelligence", "machine-learning", "generative-ai", "python"},
+	"Account manager":         {"sales", "customer-support"},
+	"Service designer":        {"ui-ux-design", "customer-support"},
+}
+
 func seedOpeningContent(index int, title string) common.OpeningContent {
 	countries := []common.CountryCode{"SG", "US", "DE", "IN"}
 	currencies := []common.CurrencyCode{"SGD", "USD", "EUR", "INR"}
@@ -57,6 +72,7 @@ func seedOpeningContent(index int, title string) common.OpeningContent {
 			Max:      int64(85_000 + index*5_000),
 			Period:   common.OpeningYear,
 		},
+		Tags: seedOpeningTags[title],
 	}
 	if arrangement == common.OpeningRemote {
 		content.RemoteEligibility = &common.OpeningRemoteEligibility{Kind: common.OpeningWorldwide}

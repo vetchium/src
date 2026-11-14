@@ -254,6 +254,9 @@ func (r Reader) ListJobs(
 	if request.EmployingCountry != nil {
 		params.EmployingCountry = dbvalue.Text(string(*request.EmployingCountry))
 	}
+	if request.TagOID != nil {
+		params.TagOid = dbvalue.Text(string(*request.TagOID))
+	}
 	if request.Openings != nil {
 		params.OwnedJobs = make([]string, 0, len(request.Openings))
 		for _, opening := range request.Openings {

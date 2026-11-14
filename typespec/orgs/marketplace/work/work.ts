@@ -5,6 +5,10 @@ import {
 } from "../../../common/common.ts";
 import { isCountryCode } from "../../../common/countries.ts";
 import type { DisplayName } from "../../../common/localization.ts";
+import {
+  isOpeningTagOID,
+  type OpeningTagOID,
+} from "../../../common/opening_tags.ts";
 import type { PaginationKey } from "../../../common/pagination.ts";
 import { isPaginationKey } from "../../../common/pagination.ts";
 import type { TenantID } from "../../../directory/directory.ts";
@@ -308,6 +312,7 @@ export interface ListJobsRequest {
   /** Matches the title case-insensitively, or the Opening number exactly. */
   search?: JobSearchText;
   employing_country?: string;
+  tag_oid?: OpeningTagOID;
   pagination_key?: PaginationKey;
   /** Defaults to 50. */
   limit?: number;
@@ -343,6 +348,8 @@ export function validateListJobsRequest(request: ListJobsRequest): string[] {
     !isCountryCode(request.employing_country)
   )
     fields.push("employing_country");
+  if (request.tag_oid !== undefined && !isOpeningTagOID(request.tag_oid))
+    fields.push("tag_oid");
   if (
     request.pagination_key !== undefined &&
     !isPaginationKey(request.pagination_key)

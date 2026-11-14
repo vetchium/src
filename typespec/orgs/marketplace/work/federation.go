@@ -118,6 +118,7 @@ type PeerListJobsRequest struct {
 	State            openings.OpeningState `json:"state"`
 	Search           *JobSearchText        `json:"search,omitempty"`
 	EmployingCountry *common.CountryCode   `json:"employing_country,omitempty"`
+	TagOID           *common.OpeningTagOID `json:"tag_oid,omitempty"`
 	Openings         []JobReference        `json:"openings,omitempty"`
 	After            *JobPosition          `json:"after,omitempty"`
 	Limit            int32                 `json:"limit"`
@@ -145,6 +146,9 @@ func (r PeerListJobsRequest) Validate() []string {
 	}
 	if r.EmployingCountry != nil && !common.IsCountryCode(*r.EmployingCountry) {
 		fields = append(fields, "employing_country")
+	}
+	if r.TagOID != nil && !common.IsOpeningTagOID(*r.TagOID) {
+		fields = append(fields, "tag_oid")
 	}
 	// An empty list is absent: it would list nothing, so no caller sends it.
 	if r.Openings != nil && (len(r.Openings) < 1 || len(r.Openings) > MaxJobsPerOwner) {

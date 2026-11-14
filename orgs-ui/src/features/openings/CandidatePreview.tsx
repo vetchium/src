@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import type { OpeningContent } from "typespec/common/openings";
 import { useMyInfoQuery } from "../account/queries";
 import { openingPresentation, questionFieldLabels } from "./presentation";
+import { useOpeningTags } from "./queries";
 
 /**
  * The Opening and its application form as Hub users see them, laid out like
@@ -28,6 +29,7 @@ export function CandidatePreview({
 }) {
   const { t, i18n } = useTranslation();
   const { data: me } = useMyInfoQuery();
+  const tags = useOpeningTags();
   const [view, setView] = useState<"opening" | "form">("opening");
   const [form] = Form.useForm();
   const questions = content.questions ?? [];
@@ -59,7 +61,7 @@ export function CandidatePreview({
       {view === "opening" ? (
         <OpeningView
           content={content}
-          presentation={openingPresentation(t, i18n.language)}
+          presentation={openingPresentation(t, i18n.language, tags)}
           {...(org && { org })}
           aside={
             <Card>

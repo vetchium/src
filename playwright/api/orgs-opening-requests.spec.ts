@@ -1114,3 +1114,104 @@ test("a revision's questions stay out of live content until approved", async ({
     cleanupOrg(org.domain);
   }
 });
+
+test("a revise of only Opening tags applies on approval or self-approval and not on rejection", async ({
+  request,
+}) => {
+  const api = new OrgsAPI(request);
+  const org = await signupOrg(api);
+  try {
+    const owner = await loginOrg(api, org);
+    const manager = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      `manager@${org.domain}`,
+      ["org:manage_openings"],
+    );
+    const publish = async (token: string): Promise<OrgOpening> => {
+      const createdResponse = await api.createOpening(token, {
+        content: { ...completeContent, tags: ["golang", "rust"] },
+        hiring_manager_email: manager.emailAddress,
+        recruiter_email: manager.emailAddress,
+        team_member_emails: [],
+      });
+      expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+      const created = (await createdResponse.json()) as OrgOpening;
+      const publishResponse = await api.requestOpeningChange(owner, {
+        opening_number: created.opening_number,
+        version: created.version,
+        kind: "publish",
+      });
+      expect(publishResponse.status(), await publishResponse.text()).toBe(200);
+      const live = (await publishResponse.json()) as OrgOpening;
+      expect(live.state).toBe("published");
+      expect(live.live_content?.tags).toEqual(["golang", "rust"]);
+      return live;
+    };
+    const requestRetag = async (
+      token: string,
+      live: OrgOpening,
+    ): Promise<OrgOpening> => {
+      const savedResponse = await api.saveOpeningWorkingCopy(token, {
+        opening_number: live.opening_number,
+        version: live.version,
+        content: { ...completeContent, tags: ["python"] },
+      });
+      expect(savedResponse.status(), await savedResponse.text()).toBe(200);
+      const saved = (await savedResponse.json()) as OrgOpening;
+      expect(saved.live_content?.tags).toEqual(["golang", "rust"]);
+      const reviseResponse = await api.requestOpeningChange(token, {
+        opening_number: live.opening_number,
+        version: saved.version,
+        kind: "revise",
+      });
+      expect(reviseResponse.status(), await reviseResponse.text()).toBe(200);
+      return (await reviseResponse.json()) as OrgOpening;
+    };
+
+    const approvedLive = await publish(manager.token);
+    const pending = await requestRetag(manager.token, approvedLive);
+    expect(pending.pending_request).toMatchObject({ kind: "revise" });
+    expect(pending.live_content?.tags).toEqual(["golang", "rust"]);
+    expect(pending.working_content?.tags).toEqual(["python"]);
+    const approvedResponse = await api.decideOpeningRequest(owner, {
+      opening_number: pending.opening_number,
+      version: pending.version,
+      decision: "approve",
+    });
+    expect(approvedResponse.status(), await approvedResponse.text()).toBe(200);
+    const approved = (await approvedResponse.json()) as OrgOpening;
+    expect(approved.live_content?.tags).toEqual(["python"]);
+    expect(approved.working_content).toBeUndefined();
+    const approvedRead = await api.getOpening(owner, {
+      opening_number: approved.opening_number,
+    });
+    expect(
+      ((await approvedRead.json()) as OrgOpening).live_content?.tags,
+    ).toEqual(["python"]);
+
+    const rejectedLive = await publish(manager.token);
+    const rejectedPending = await requestRetag(manager.token, rejectedLive);
+    const rejectedResponse = await api.decideOpeningRequest(owner, {
+      opening_number: rejectedPending.opening_number,
+      version: rejectedPending.version,
+      decision: "reject",
+      note: "Keep the original tags",
+    });
+    expect(rejectedResponse.status(), await rejectedResponse.text()).toBe(200);
+    const rejected = (await rejectedResponse.json()) as OrgOpening;
+    expect(rejected.pending_request).toBeUndefined();
+    expect(rejected.live_content?.tags).toEqual(["golang", "rust"]);
+    expect(rejected.working_content?.tags).toEqual(["python"]);
+
+    const selfLive = await publish(owner);
+    const selfApproved = await requestRetag(owner, selfLive);
+    expect(selfApproved.pending_request).toBeUndefined();
+    expect(selfApproved.live_content?.tags).toEqual(["python"]);
+    expect(selfApproved.working_content).toBeUndefined();
+  } finally {
+    await deleteOrgVerificationRecord(org.domain);
+    cleanupOrg(org.domain);
+  }
+});

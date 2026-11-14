@@ -1128,3 +1128,135 @@ test("managers edit application questions within their bounds and see the publis
     ).toBeVisible();
   });
 });
+
+test("tags are picked by default and German name, shown on detail and preview, capped at five, and cleared", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    await createCompleteOpening(api, owner, org.emailAddress);
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Select language" }),
+      "Deutsch (Deutschland)",
+    );
+    await expect(page.locator("html")).toHaveAttribute("lang", "de-DE");
+
+    const dropdown = page.locator(".ant-select-dropdown:visible");
+    const tags = page.getByRole("combobox", { name: "Schlagwörter" });
+    const pick = async (search: string, name: string) => {
+      await tags.fill(search);
+      await dropdown.getByTitle(name, { exact: true }).click();
+    };
+    await pick("Künstliche", "Künstliche Intelligenz");
+    await pick("Pyth", "Python");
+
+    await page.getByRole("tab", { name: "Vorschau für Bewerbende" }).click();
+    const previewTags = page
+      .getByRole("tabpanel")
+      .getByRole("list", { name: "Schlagwörter" });
+    await expect(previewTags.getByRole("listitem")).toHaveText([
+      "Künstliche Intelligenz",
+      "Python",
+    ]);
+    await page.getByRole("tab", { name: "Bearbeiten" }).click();
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+    await expect(
+      page.getByRole("list", { name: "Schlagwörter" }).getByRole("listitem"),
+    ).toHaveText(["Künstliche Intelligenz", "Python"]);
+    const saved = await api.getOpening(owner, { opening_number: 1 });
+    expect(((await saved.json()) as OrgOpening).working_content?.tags).toEqual([
+      "artificial-intelligence",
+      "python",
+    ]);
+
+    await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    for (const name of ["Rust", "Kotlin", "Swift"]) await pick(name, name);
+    // Five are picked, so every other tag is offered but cannot be chosen.
+    await expect(
+      dropdown.getByTitle("Buchhaltung", { exact: true }),
+    ).toHaveClass(/ant-select-item-option-disabled/);
+    for (let index = 0; index < 5; index++) await tags.press("Backspace");
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+    await expect(page.getByRole("list", { name: "Schlagwörter" })).toHaveCount(
+      0,
+    );
+    const cleared = await api.getOpening(owner, { opening_number: 1 });
+    expect((await cleared.json()) as OrgOpening).not.toHaveProperty(
+      "working_content.tags",
+    );
+  });
+});
+
+test("the working-copy switch names Tags after a tag-only revision", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const draft = await createCompleteOpening(api, owner, org.emailAddress);
+    const published = await api.requestOpeningChange(owner, {
+      opening_number: draft.opening_number,
+      version: draft.version,
+      kind: "publish",
+    });
+    expect(published.status(), await published.text()).toBe(200);
+    const live = (await published.json()) as OrgOpening;
+    const revised = await api.saveOpeningWorkingCopy(owner, {
+      opening_number: live.opening_number,
+      version: live.version,
+      content: { ...completeContent, tags: ["golang"] },
+    });
+    expect(revised.status(), await revised.text()).toBe(200);
+
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/1`);
+    await expect(
+      page.getByText("Changed in the working copy: Tags", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Tags" }).getByRole("listitem"),
+    ).toHaveText(["Go"]);
+  });
+});
+
+test("the Openings list filters by tag and keeps it across a reload", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    for (const [title, tags] of [
+      ["Tagged role", ["golang"]],
+      ["Plain role", undefined],
+    ] as const) {
+      const response = await api.createOpening(owner, {
+        content: tags === undefined ? { title } : { title, tags: [...tags] },
+        team_member_emails: [],
+      });
+      expect(response.status(), await response.text()).toBe(201);
+    }
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings`);
+    await expect(page.getByRole("link", { name: "Plain role" })).toBeVisible();
+    await page.getByRole("button", { name: "More filters" }).click();
+    await page.getByRole("combobox", { name: "Tag", exact: true }).fill("go");
+    await page
+      .locator(".ant-select-dropdown:visible")
+      .getByTitle("Go", { exact: true })
+      .click();
+    await expect(page).toHaveURL(/[?&]tag=golang/);
+    await expect(page.getByRole("link", { name: "Tagged role" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Plain role" })).toHaveCount(0);
+
+    await page.reload();
+    await expect(page.getByRole("link", { name: "Tagged role" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Plain role" })).toHaveCount(0);
+    await expect(
+      page.getByRole("combobox", { name: "Tag", exact: true }),
+    ).toBeVisible();
+  });
+});

@@ -4,6 +4,7 @@ import "@typespec/openapi";
 import "../../../common/authentication.tsp";
 import "../../../common/idempotency.tsp";
 import "../../../common/localization.tsp";
+import "../../../common/opening_tags.tsp";
 import "../../../common/pagination.tsp";
 import "../../../directory/directory.tsp";
 import "../../../hub/profile/snapshot.tsp";
@@ -196,6 +197,10 @@ model ListJobsRequest {
   search?: JobSearchText;
 
   employing_country?: Vetchium.CountryCode;
+
+  /** A well-formed OID missing from the catalog matches nothing. */
+  tag_oid?: Vetchium.OpeningTagOID;
+
   pagination_key?: Vetchium.PaginationKey;
 
   /** Defaults to 50. */

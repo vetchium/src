@@ -543,6 +543,8 @@ WHERE eng.provider_org_did = sqlc.arg(provider_org_did)
       OR o.opening_number::text = sqlc.narg(search)::text)
   AND (sqlc.narg(employing_country)::text IS NULL
       OR c.employing_country = sqlc.narg(employing_country)::text)
+  AND (sqlc.narg(tag_oid)::text IS NULL
+      OR sqlc.narg(tag_oid)::text = ANY(c.tag_oids))
   AND (sqlc.narg(owned_jobs)::text[] IS NULL
       OR eng.engagement_id::text || '/' || o.opening_number::text
           = ANY (sqlc.narg(owned_jobs)::text[]))
@@ -589,7 +591,8 @@ SELECT asg.assignment_id, eng.engagement_id,
             'salary', CASE WHEN lc.salary_currency IS NULL THEN NULL
                 ELSE jsonb_build_object('currency', lc.salary_currency,
                     'min', lc.salary_min, 'max', lc.salary_max,
-                    'period', lc.salary_period) END
+                    'period', lc.salary_period) END,
+            'tags', lc.tag_oids
         ))
         FROM vetchium.org_opening_contents AS lc
         WHERE lc.org_opening_id = o.org_opening_id AND lc.slot = 'live'

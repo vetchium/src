@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -121,6 +122,7 @@ type OpeningContent struct {
 	MinimumEducation  *OpeningEducation         `json:"minimum_education,omitempty"`
 	Salary            *OpeningSalary            `json:"salary,omitempty"`
 	Questions         []ApplicationQuestion     `json:"questions,omitempty"`
+	Tags              []OpeningTagOID           `json:"tags,omitempty"`
 }
 
 // Normalize replaces nested pointer values so a shallow copy does not alter its source.
@@ -174,6 +176,9 @@ func (c *OpeningContent) Normalize() {
 			questions[i] = question
 		}
 		c.Questions = questions
+	}
+	if c.Tags != nil {
+		c.Tags = slices.Clone(c.Tags)
 	}
 }
 
@@ -262,7 +267,23 @@ func (c OpeningContent) Validate() []string {
 			fields = append(fields, "salary.period")
 		}
 	}
-	return append(fields, validateQuestions(c.Questions)...)
+	fields = append(fields, validateQuestions(c.Questions)...)
+	return append(fields, validateTags(c.Tags)...)
+}
+
+func validateTags(tags []OpeningTagOID) []string {
+	var fields []string
+	if len(tags) > MaxOpeningTags {
+		fields = append(fields, "tags")
+	}
+	seen := map[OpeningTagOID]bool{}
+	for i, tag := range tags {
+		if !IsOpeningTagOID(tag) || seen[tag] {
+			fields = append(fields, fmt.Sprintf("tags.%d", i))
+		}
+		seen[tag] = true
+	}
+	return fields
 }
 
 func validateQuestions(questions []ApplicationQuestion) []string {

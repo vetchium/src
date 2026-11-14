@@ -115,8 +115,9 @@ test("the jobs list filters by owner, text, and employing country", () => {
       owner_email: "nobody",
       search: "",
       employing_country: "in",
+      tag_oid: "Go Lang",
     }),
-    ["owner_email", "search", "employing_country"],
+    ["owner_email", "search", "employing_country", "tag_oid"],
   );
   assert.deepEqual(validateListJobsRequest({ search: "x".repeat(101) }), [
     "search",
@@ -202,6 +203,14 @@ test("a peer's jobs read bounds the owned Jobs it names", () => {
       openings: Array(maxJobsPerOwner + 1).fill(owned),
     }),
     ["openings"],
+  );
+  assert.deepEqual(
+    validatePeerListJobsRequest({ ...base, tag_oid: "golang" }),
+    [],
+  );
+  assert.deepEqual(
+    validatePeerListJobsRequest({ ...base, tag_oid: "Go Lang" }),
+    ["tag_oid"],
   );
   assert.equal(
     normalizePeerListJobsRequest({ ...base, search: " 42 " }).search,

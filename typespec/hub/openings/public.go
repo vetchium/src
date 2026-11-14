@@ -2,6 +2,7 @@
 package openings
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -34,6 +35,15 @@ type PublicOpeningSummary struct {
 	WorkArrangement  common.OpeningWorkArrangement `json:"work_arrangement"`
 	EmploymentType   common.OpeningEmploymentType  `json:"employment_type"`
 	FirstPublishedAt time.Time                     `json:"first_published_at"`
+	Tags             []common.OpeningTagOID        `json:"tags"`
+}
+
+func (s PublicOpeningSummary) MarshalJSON() ([]byte, error) {
+	type plain PublicOpeningSummary
+	if s.Tags == nil {
+		s.Tags = []common.OpeningTagOID{}
+	}
+	return json.Marshal(plain(s))
 }
 
 type PublicOpening struct {
@@ -52,6 +62,7 @@ type ListOrgOpeningsRequest struct {
 	EmployingCountry *common.CountryCode            `json:"employing_country,omitempty"`
 	WorkArrangement  *common.OpeningWorkArrangement `json:"work_arrangement,omitempty"`
 	EmploymentType   *common.OpeningEmploymentType  `json:"employment_type,omitempty"`
+	TagOID           *common.OpeningTagOID          `json:"tag_oid,omitempty"`
 	TitleQuery       *OpeningTitleQuery             `json:"title_query,omitempty"`
 	PaginationKey    *common.PaginationKey          `json:"pagination_key,omitempty"`
 	Limit            *OpeningPageSize               `json:"limit,omitempty"`
@@ -89,6 +100,9 @@ func (r ListOrgOpeningsRequest) Validate() []string {
 	}
 	if r.EmploymentType != nil && *r.EmploymentType != common.OpeningFullTime && *r.EmploymentType != common.OpeningPartTime && *r.EmploymentType != common.OpeningContract && *r.EmploymentType != common.OpeningInternship {
 		fields = append(fields, "employment_type")
+	}
+	if r.TagOID != nil && !common.IsOpeningTagOID(*r.TagOID) {
+		fields = append(fields, "tag_oid")
 	}
 	if r.TitleQuery != nil {
 		size := utf8.RuneCountInString(string(*r.TitleQuery))

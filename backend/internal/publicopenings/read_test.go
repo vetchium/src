@@ -3,10 +3,12 @@ package publicopenings
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/vetchium/src/typespec/common"
 	openingsspec "github.com/vetchium/src/typespec/hub/openings"
 	"github.com/vetchium/src/typespec/orgs"
 
@@ -102,5 +104,46 @@ func TestListPublicOrgOpeningsSignsOnlyAvailableLogo(t *testing.T) {
 		openingsspec.ListOrgOpeningsRequest{Domain: "example.com"})
 	if err != nil || response.Org.LogoURL != nil || logo.calls != 1 {
 		t.Fatalf("Org without logo = %+v, %v", response.Org, err)
+	}
+}
+
+func TestListPublicOrgOpeningsFiltersByTagAndDecodesTags(t *testing.T) {
+	stub := &queryStub{listRow: sqlc.ListPublicOrgOpeningsRow{
+		DisplayName: "Example",
+		Openings: []byte(`[{"opening_number":2,"title":"Second",` +
+			`"employing_country":"SG","work_arrangement":"hybrid",` +
+			`"employment_type":"full_time",` +
+			`"first_published_at":"2026-10-11T01:00:00Z",` +
+			`"tags":["golang","rust"]},` +
+			`{"opening_number":1,"title":"First",` +
+			`"employing_country":"SG","work_arrangement":"hybrid",` +
+			`"employment_type":"full_time",` +
+			`"first_published_at":"2026-10-10T01:00:00Z","tags":["golang"]}]`),
+	}}
+	reader := Reader{Queries: stub}
+	limit := openingsspec.OpeningPageSize(1)
+	tag := common.OpeningTagOID("golang")
+	request := openingsspec.ListOrgOpeningsRequest{
+		Domain: "example.com", TagOID: &tag, Limit: &limit,
+	}
+	first, err := reader.List(context.Background(), request)
+	if err != nil || len(first.Openings) != 1 || first.NextPaginationKey == nil {
+		t.Fatalf("first page = %+v, %v", first, err)
+	}
+	if stub.listArg.TagOid != (pgtype.Text{String: "golang", Valid: true}) {
+		t.Fatalf("tag parameter = %+v", stub.listArg.TagOid)
+	}
+	if !slices.Equal(first.Openings[0].Tags, []common.OpeningTagOID{"golang", "rust"}) {
+		t.Fatalf("summary tags = %v", first.Openings[0].Tags)
+	}
+	calls := stub.calls
+	other := common.OpeningTagOID("rust")
+	request.TagOID = &other
+	request.PaginationKey = first.NextPaginationKey
+	if _, err := reader.List(context.Background(), request); !errors.Is(err, ErrInvalidPaginationKey) {
+		t.Fatalf("tag-bound key error = %v", err)
+	}
+	if stub.calls != calls {
+		t.Fatal("invalid key reached database")
 	}
 }

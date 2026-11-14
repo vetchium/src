@@ -1,4 +1,5 @@
 import type { IdempotencyKey } from "typespec/common/idempotency";
+import type { ListOpeningTagsResponse } from "typespec/common/opening_tags";
 import type {
   AcceptInterviewRequest,
   ApplicationReference,
@@ -228,6 +229,10 @@ export const hubAPI = {
     apiRequest<ListOrgOpeningsResponse>(`${base}/list-org-openings`, { body }),
   getOrgOpening: (body: GetOrgOpeningRequest) =>
     apiRequest<GetOrgOpeningResponse>(`${base}/get-org-opening`, { body }),
+  listOpeningTags: () =>
+    apiRequest<ListOpeningTagsResponse>(`${base}/list-opening-tags`, {
+      body: {},
+    }),
   setPublicFields: (
     body: SetPublicFieldsRequest,
     idempotencyKey: IdempotencyKey,

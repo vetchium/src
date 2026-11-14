@@ -476,3 +476,44 @@ test("question normalization makes a copy", () => {
     },
   ]);
 });
+
+const fiveTags = [
+  "golang",
+  "rust",
+  "python",
+  "kubernetes",
+  "artificial-intelligence",
+];
+
+test("tags accept none, zero, and five, and never block publication", () => {
+  for (const tags of [undefined, [], fiveTags]) {
+    const content: OpeningContent =
+      tags === undefined ? valid() : { ...valid(), tags };
+    assert.deepEqual(validateOpeningContent(content), [], String(tags));
+    assert.deepEqual(missingForPublication(content), [], String(tags));
+  }
+});
+
+test("tags refuse six, a repeat, and a malformed OID", () => {
+  const cases: [string, string[], string[]][] = [
+    ["six", [...fiveTags, "java"], ["tags"]],
+    ["repeat", ["golang", "rust", "golang"], ["tags.2"]],
+    ["malformed", ["golang", "Go Lang"], ["tags.1"]],
+    ["too short", ["g"], ["tags.0"]],
+    ["six with a repeat", [...fiveTags, "rust"], ["tags", "tags.5"]],
+  ];
+  for (const [name, tags, fields] of cases)
+    assert.deepEqual(
+      validateOpeningContent({ ...valid(), tags }),
+      fields,
+      name,
+    );
+});
+
+test("tag normalization makes a copy", () => {
+  const source: OpeningContent = { ...valid(), tags: ["golang", "rust"] };
+  const normalized = normalizeOpeningContent(source);
+  assert.notEqual(normalized.tags, source.tags);
+  assert.deepEqual(normalized.tags, ["golang", "rust"]);
+  assert.equal("tags" in normalizeOpeningContent(valid()), false);
+});

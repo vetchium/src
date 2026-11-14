@@ -171,6 +171,7 @@ type ListOpeningsRequest struct {
 	EmployingCountry    *common.CountryCode            `json:"employing_country,omitempty"`
 	WorkArrangement     *common.OpeningWorkArrangement `json:"work_arrangement,omitempty"`
 	EmploymentType      *common.OpeningEmploymentType  `json:"employment_type,omitempty"`
+	TagOID              *common.OpeningTagOID          `json:"tag_oid,omitempty"`
 	TitleQuery          *OpeningTitleQuery             `json:"title_query,omitempty"`
 	PaginationKey       *common.PaginationKey          `json:"pagination_key,omitempty"`
 	Limit               *common.PageSize               `json:"limit,omitempty"`
@@ -240,6 +241,9 @@ func (r ListOpeningsRequest) Validate() []string {
 	}
 	if r.EmploymentType != nil && *r.EmploymentType != common.OpeningFullTime && *r.EmploymentType != common.OpeningPartTime && *r.EmploymentType != common.OpeningContract && *r.EmploymentType != common.OpeningInternship {
 		fields = append(fields, "employment_type")
+	}
+	if r.TagOID != nil && !common.IsOpeningTagOID(*r.TagOID) {
+		fields = append(fields, "tag_oid")
 	}
 	if r.TitleQuery != nil && (utf8.RuneCountInString(string(*r.TitleQuery)) < 2 || utf8.RuneCountInString(string(*r.TitleQuery)) > 200) {
 		fields = append(fields, "title_query")
