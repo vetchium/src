@@ -1803,6 +1803,7 @@ export const de = {
       certifications: "Zertifikate",
       languages: "Sprachen",
       websites: "Websites",
+      idealJob: "Idealer Job",
       present: "heute",
       captured:
         "Erfasst am {{date}}, als die Person sich beworben hat. Spätere Profiländerungen erscheinen hier nicht.",

@@ -180,6 +180,31 @@ export function ProfileDescriptions({ profile }: { profile: ProfileFacts }) {
   return <Descriptions column={1} size="small" items={items} />;
 }
 
+/** The ideal job shared when applying (HP-APP-002): part of the application,
+ * not the profile, so it stays out of ProfileDescriptions, which an agency's
+ * person page also shows. */
+function IdealJobDescriptions({ idealJob }: { idealJob?: string }) {
+  const { t } = useTranslation();
+  if (!idealJob) return null;
+  return (
+    <Descriptions
+      column={1}
+      size="small"
+      items={[
+        {
+          key: "idealJob",
+          label: t("applications.snapshot.idealJob"),
+          children: (
+            <Typography.Text style={{ whiteSpace: "pre-wrap" }}>
+              {idealJob}
+            </Typography.Text>
+          ),
+        },
+      ]}
+    />
+  );
+}
+
 export function SnapshotCard({ detail }: { detail: ApplicationDetail }) {
   const { t } = useTranslation();
   const { date } = useDateTimeFormat();
@@ -206,6 +231,7 @@ export function SnapshotCard({ detail }: { detail: ApplicationDetail }) {
           <Typography.Text strong>{name}</Typography.Text>
         </Flex>
         <ProfileDescriptions profile={detail.snapshot} />
+        <IdealJobDescriptions idealJob={detail.snapshot.ideal_job} />
         <Typography.Text type="secondary">
           {t("applications.snapshot.captured", {
             date: date(detail.submitted_at),

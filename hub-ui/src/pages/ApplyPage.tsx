@@ -539,6 +539,22 @@ export function ApplyPage() {
                             count: data.websites.length,
                           }),
                         },
+                        {
+                          key: "idealJob",
+                          label: t("apply.summary.idealJob"),
+                          children: (
+                            <Flex gap="small" wrap>
+                              {t(
+                                me.data.ideal_job
+                                  ? "apply.summary.included"
+                                  : "apply.summary.none",
+                              )}
+                              <Link to="/settings/preferences">
+                                {t("apply.summary.editIdealJob")}
+                              </Link>
+                            </Flex>
+                          ),
+                        },
                       ]}
                     />
                     <Typography.Text type="secondary">

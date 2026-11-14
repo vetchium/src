@@ -1,7 +1,7 @@
 # Opening search build progress
 
 branch: opening-search
-current: T10
+current: T11
 phase: implement
 
 ## Tasks
@@ -26,7 +26,7 @@ T08 done Hub portal: Job search card on Home and in Preferences
 ### M4 Ideal job on applications
 
 T09 done Applications: Ideal job in the application snapshot
-T10 todo Portals: Ideal job on apply and application pages
+T10 done Portals: Ideal job on apply and application pages
 
 ### M5 Ideal job match
 

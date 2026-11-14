@@ -207,6 +207,20 @@ export function ApplicationDetailPage() {
               />
             ) : null}
             <AnswersCard answers={application.answers} />
+            {application.ideal_job ? (
+              <section aria-label={t("applications.detail.idealJob.title")}>
+                <Card title={t("applications.detail.idealJob.title")}>
+                  <Typography.Paragraph type="secondary">
+                    {t("applications.detail.idealJob.help")}
+                  </Typography.Paragraph>
+                  <Typography.Paragraph
+                    style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}
+                  >
+                    {application.ideal_job}
+                  </Typography.Paragraph>
+                </Card>
+              </section>
+            ) : null}
           </Space>
         </Col>
         <Col xs={24} lg={8}>

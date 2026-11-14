@@ -1756,6 +1756,7 @@ export const en = {
       certifications: "Certifications",
       languages: "Languages",
       websites: "Websites",
+      idealJob: "Ideal job",
       present: "present",
       captured:
         "Captured on {{date}} when they applied. Later profile changes do not appear here.",

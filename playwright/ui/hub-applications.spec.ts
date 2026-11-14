@@ -249,6 +249,10 @@ test("a Hub user applies from the Opening page and finds the application", async
     await expect(
       page.getByText("Nothing needs your answer right now."),
     ).toBeVisible();
+    // No ideal job was saved, so none was shared.
+    await expect(
+      page.getByRole("region", { name: "Ideal job you shared" }),
+    ).toHaveCount(0);
     const number = Number(new URL(page.url()).pathname.split("/").pop());
     const stored = await detailOf(
       world.api,
@@ -290,6 +294,47 @@ test("a Hub user applies from the Opening page and finds the application", async
     await expect(
       page.getByRole("tab", { name: "Closed (0)", selected: true }),
     ).toBeVisible();
+  });
+});
+
+test("the apply page lists the ideal job the Org will see, and the application shows it as shared", async ({
+  page,
+  request,
+  hubUser,
+  org,
+}) => {
+  await withWorld(request, hubUser, org, async (world) => {
+    await signIn(page, world.applicant);
+    await page.goto(`${openingURL(world)}/apply`);
+    const idealJobItem = page
+      .getByRole("cell")
+      .filter({ hasText: /^Ideal job/ });
+    await expect(idealJobItem).toContainText("None");
+
+    // The edit link leads to Preferences, where the ideal job is saved.
+    await idealJobItem.getByRole("link", { name: "Edit my ideal job" }).click();
+    await expect(page).toHaveURL(/\/settings\/preferences$/);
+    await page
+      .getByLabel("My ideal job")
+      .fill("Reliable services\nin a small team");
+    await page.getByRole("button", { name: "Save ideal job" }).click();
+    await expect(
+      page.getByRole("button", { name: "Save ideal job" }),
+    ).toHaveCount(0);
+
+    await page.goto(`${openingURL(world)}/apply`);
+    await expect(idealJobItem).toContainText("Included");
+    await page.getByRole("button", { name: "Submit application" }).click();
+    await expect(
+      page.getByRole("heading", { name: world.title }),
+    ).toBeVisible();
+
+    const shared = page.getByRole("region", { name: "Ideal job you shared" });
+    await expect(shared).toContainText("As saved when you applied.");
+    // Line breaks are kept.
+    await expect(
+      shared.getByText("Reliable services\nin a small team"),
+    ).toHaveCSS("white-space", "pre-wrap");
   });
 });
 

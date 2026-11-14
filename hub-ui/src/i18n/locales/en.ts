@@ -827,6 +827,10 @@ export const en = {
         help: "The questions as they were asked when you applied.",
         notAnswered: "Not answered",
       },
+      idealJob: {
+        title: "Ideal job you shared",
+        help: "As saved when you applied. Later edits do not change it.",
+      },
       yourApplication: "Your application",
       number: "Application",
       opening: "Opening",
@@ -931,6 +935,8 @@ export const en = {
       websites: "Websites",
       links_one: "{{count}} link",
       links_other: "{{count}} links",
+      idealJob: "Ideal job",
+      editIdealJob: "Edit my ideal job",
     },
     snapshotNote:
       "They get a copy of your profile as it is now. Later edits don't change it. Your picture, email address and professional emails are never shared.",

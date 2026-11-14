@@ -860,6 +860,10 @@ export const de = {
         help: "Die Fragen so, wie sie bei Ihrer Bewerbung gestellt wurden.",
         notAnswered: "Nicht beantwortet",
       },
+      idealJob: {
+        title: "Ihr geteilter idealer Job",
+        help: "So, wie er beim Bewerben gespeichert war. Spätere Änderungen wirken sich hier nicht aus.",
+      },
       yourApplication: "Ihre Bewerbung",
       number: "Bewerbung",
       opening: "Stelle",
@@ -966,6 +970,8 @@ export const de = {
       websites: "Websites",
       links_one: "{{count}} Link",
       links_other: "{{count}} Links",
+      idealJob: "Idealer Job",
+      editIdealJob: "Meinen idealen Job bearbeiten",
     },
     snapshotNote:
       "Die Organisation erhält eine Kopie Ihres Profils im heutigen Stand. Spätere Änderungen wirken sich nicht darauf aus. Ihr Foto, Ihre E-Mail-Adresse und Ihre beruflichen E-Mails werden nie weitergegeben.",
