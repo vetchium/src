@@ -1121,6 +1121,7 @@ export const en = {
     full: "All available seats are in use. Disable a user or cancel an invitation before inviting more people.",
   },
   openings: {
+    tagsUnavailable: "Tags could not be loaded",
     intro:
       "Create Openings, send them for approval, and track every Opening your organization runs.",
     breadcrumbOpening: "{{title}} #{{number}}",

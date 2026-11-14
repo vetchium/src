@@ -88,7 +88,7 @@ export function JobsPage() {
   const list = useListState();
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [ownerTarget, setOwnerTarget] = useState<Job>();
-  const tagCatalog = useOpeningTags();
+  const tags = useOpeningTags();
 
   const scope = ownerScopeOf(list.get("owner"));
   // A hand-edited URL never sends a filter the API would refuse.
@@ -399,7 +399,10 @@ export function JobsPage() {
                     value={tag}
                     onChange={(value) => list.set({ tag: value })}
                     locale={i18n.language}
-                    catalog={tagCatalog}
+                    catalog={tags.catalog}
+                    unavailable={
+                      tags.failed ? t("openings.tagsUnavailable") : undefined
+                    }
                   />
                 </Form.Item>
               </Form>

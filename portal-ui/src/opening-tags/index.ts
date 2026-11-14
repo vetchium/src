@@ -1,10 +1,8 @@
+export type { OpeningTagCatalogState } from "./catalog.ts";
+export { useOpeningTagCatalog } from "./catalog.ts";
 export { OpeningTagIcon } from "./icons.tsx";
 export type { OpeningTagCatalog } from "./names.ts";
-export {
-  openingTagCatalog,
-  openingTagMatches,
-  openingTagName,
-} from "./names.ts";
+export { openingTagName } from "./names.ts";
 export type { OpeningTagFilterProps } from "./OpeningTagFilter.tsx";
 export { OpeningTagFilter } from "./OpeningTagFilter.tsx";
 export type { OpeningTagListProps } from "./OpeningTagList.tsx";

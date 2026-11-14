@@ -9,6 +9,7 @@ import {
   isOpeningTagOID,
   type OpeningTagOID,
 } from "../../../common/opening_tags.ts";
+import type { OpeningContent } from "../../../common/openings.ts";
 import type { PaginationKey } from "../../../common/pagination.ts";
 import { isPaginationKey } from "../../../common/pagination.ts";
 import type { TenantID } from "../../../directory/directory.ts";
@@ -275,7 +276,7 @@ export interface JobSuggestedContact {
 /** The Opening's live content. */
 export interface JobDetail {
   job: Job;
-  content: Record<string, unknown>;
+  content: OpeningContent;
   credited_applications: JobCreditedApplication[];
   suggested_contacts: JobSuggestedContact[];
 }

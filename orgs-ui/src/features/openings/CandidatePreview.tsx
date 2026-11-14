@@ -29,7 +29,7 @@ export function CandidatePreview({
 }) {
   const { t, i18n } = useTranslation();
   const { data: me } = useMyInfoQuery();
-  const tags = useOpeningTags();
+  const tags = useOpeningTags().catalog;
   const [view, setView] = useState<"opening" | "form">("opening");
   const [form] = Form.useForm();
   const questions = content.questions ?? [];

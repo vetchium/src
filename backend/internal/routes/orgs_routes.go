@@ -20,6 +20,7 @@ import (
 	"backend/handlers/portal"
 	"backend/internal/apiserver"
 	"backend/internal/middleware"
+	"backend/internal/openingtags"
 	orgsruntime "backend/internal/orgs"
 
 	orgsauthorization "github.com/vetchium/src/typespec/orgs/authorization"
@@ -131,7 +132,7 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/get-opening", readOpening(orgsopenings.GetOpening(s)))
 	mux.Handle("POST /api/orgs/list-openings", readOpening(orgsopenings.ListOpenings(s)))
 	mux.Handle("POST /api/orgs/opening-summary", readOpening(orgsopenings.OpeningSummary(s)))
-	mux.Handle("POST /api/orgs/list-opening-tags", readOpening(orgsopenings.ListTags(s)))
+	mux.Handle("POST /api/orgs/list-opening-tags", readOpening(openingtags.Handler(s, s.Queries)))
 	mux.Handle("POST /api/orgs/lookup-opening-team-member", manageOpenings(orgsopenings.LookupOpeningTeamMember(s)))
 	mux.Handle("POST /api/orgs/list-opening-history", readOpening(orgsopenings.ListOpeningHistory(s)))
 	mux.Handle("POST /api/orgs/list-pipeline-templates", manageOpenings(orgspipelines.ListPipelineTemplates(s)))

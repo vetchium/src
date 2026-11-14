@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
+import { InternalServerError } from "typespec/problem/details";
 import { loginOrg, OrgsAPI } from "../lib/orgs-api.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
 import { chooseOption, chooseRegion, expect, test } from "../lib/region-ui.ts";
@@ -321,4 +322,85 @@ test("unknown and unavailable Orgs show distinct messages", async ({
   await expect(
     page.getByText("This organization is temporarily unavailable. Try again."),
   ).toBeVisible();
+});
+
+const plainContent: OpeningContent = {
+  title: "Plain role",
+  description: "Build services.",
+  language: "en",
+  employing_country: "SG",
+  work_arrangement: "on_site",
+  employment_type: "full_time",
+  positions: 1,
+};
+
+test("a failed tag catalog read is shown in the Tag filter and tags show as OIDs", async ({
+  hubUser,
+  org,
+  page,
+  request,
+}) => {
+  const local = await org("sgp");
+  const api = new OrgsAPI(request, "sgp");
+  const token = await loginOrg(api, local);
+  await publish(api, token, local.emailAddress, {
+    ...plainContent,
+    title: "Tagged role",
+    tags: ["golang"],
+  });
+  await page.route("**/api/hub/list-opening-tags", (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: "application/problem+json",
+      body: JSON.stringify(InternalServerError),
+    }),
+  );
+  await signIn(page, await hubUser("sgp"));
+  await page.goto(`${HUB_PORTAL}/org/${local.domain}`);
+  await expect(page.getByRole("link", { name: "Tagged role" })).toBeVisible();
+  await expect(
+    page.getByRole("list", { name: "Tags" }).getByRole("listitem"),
+  ).toHaveText(["golang"]);
+  await expect(page.getByText("Tags could not be loaded")).toBeVisible();
+
+  // A chosen tag hides the placeholder, so the open filter says it instead.
+  await page.goto(`${HUB_PORTAL}/org/${local.domain}?tag=golang`);
+  await expect(page.getByRole("link", { name: "Tagged role" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Tag", exact: true }).click();
+  await expect(
+    page.locator(".ant-select-dropdown:visible").getByRole("alert"),
+  ).toHaveText("Tags could not be loaded");
+});
+
+test("moving to another Org's page starts with its own empty title search", async ({
+  hubUser,
+  org,
+  page,
+  request,
+}) => {
+  const api = new OrgsAPI(request, "sgp");
+  const first = await org("sgp");
+  const second = await org("sgp");
+  await publish(api, await loginOrg(api, first), first.emailAddress, {
+    ...plainContent,
+    title: "Alpha role",
+  });
+  await publish(api, await loginOrg(api, second), second.emailAddress, {
+    ...plainContent,
+    title: "Beta role",
+  });
+  await signIn(page, await hubUser("sgp"));
+  await page.goto(`${HUB_PORTAL}/org/${first.domain}`);
+  const titleSearch = page.getByRole("searchbox", { name: "Search title" });
+  await titleSearch.fill("Alpha");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page).toHaveURL(/[?&]title=Alpha/);
+
+  // A history step between two Org pages keeps the route mounted.
+  await page.evaluate((path) => {
+    window.history.pushState(null, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, `/org/${second.domain}`);
+  await expect(page.getByRole("link", { name: "Beta role" })).toBeVisible();
+  await expect(titleSearch).toHaveValue("");
 });

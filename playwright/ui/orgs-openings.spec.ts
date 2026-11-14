@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import type { OpeningContent } from "typespec/common/openings";
 import type { OrgOpening } from "typespec/orgs/openings/types";
+import { InternalServerError } from "typespec/problem/details";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { deleteOrgVerificationRecord } from "../lib/dev-dns.ts";
 import {
@@ -1258,5 +1259,40 @@ test("the Openings list filters by tag and keeps it across a reload", async ({
     await expect(
       page.getByRole("combobox", { name: "Tag", exact: true }),
     ).toBeVisible();
+  });
+});
+
+test("a failed tag catalog read is shown in the Tag filter and the Tags field", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const response = await api.createOpening(owner, {
+      content: { ...completeContent, title: "Tagged role", tags: ["golang"] },
+      hiring_manager_email: org.emailAddress,
+      recruiter_email: org.emailAddress,
+      team_member_emails: [],
+    });
+    expect(response.status(), await response.text()).toBe(201);
+    await page.route("**/api/orgs/list-opening-tags", (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: "application/problem+json",
+        body: JSON.stringify(InternalServerError),
+      }),
+    );
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings`);
+    await expect(page.getByRole("link", { name: "Tagged role" })).toBeVisible();
+    await page.getByRole("button", { name: "More filters" }).click();
+    await expect(page.getByText("Tags could not be loaded")).toBeVisible();
+
+    await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    // Without the catalog a tag shows as its OID (OPN-TAG-004).
+    await expect(page.getByTitle("golang", { exact: true })).toBeVisible();
+    await page.getByRole("combobox", { name: "Tags" }).click();
+    await expect(
+      page.locator(".ant-select-dropdown:visible").getByRole("alert"),
+    ).toHaveText("Tags could not be loaded");
   });
 });

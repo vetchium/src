@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  compareOpeningTagNames,
   openingTagCatalog,
   openingTagMatches,
   openingTagName,
+  openingTagOptionMatches,
+  sortedOpeningTags,
 } from "./opening-tags/names.ts";
 
 const catalog = openingTagCatalog({
@@ -50,9 +51,33 @@ test("the tag picker matches the default name, the portal name, and the OID", ()
 
 test("tags are ordered by the name shown in the portal language", () => {
   const order = (locale: string) =>
-    [...catalog.values()]
-      .sort((a, b) => compareOpeningTagNames(catalog, a, b, locale))
-      .map((tag) => tag.tag_oid);
+    sortedOpeningTags(catalog, locale, () => true).map((tag) => tag.tag_oid);
   assert.deepEqual(order("en-US"), ["artificial-intelligence", "golang"]);
   assert.deepEqual(order("de-DE"), ["golang", "artificial-intelligence"]);
+  assert.deepEqual(
+    sortedOpeningTags(catalog, "en-US", (tag) => tag.tag_oid !== "golang").map(
+      (tag) => tag.tag_oid,
+    ),
+    ["artificial-intelligence"],
+  );
+});
+
+test("an option the catalog lacks matches by its OID only", () => {
+  assert.equal(
+    openingTagOptionMatches(
+      catalog,
+      "artificial-intelligence",
+      "künstliche",
+      "de-DE",
+    ),
+    true,
+  );
+  assert.equal(
+    openingTagOptionMatches(catalog, "no-such-tag", " SUCH ", "en-US"),
+    true,
+  );
+  assert.equal(
+    openingTagOptionMatches(catalog, "no-such-tag", "go", "en-US"),
+    false,
+  );
 });

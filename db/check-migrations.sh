@@ -2,7 +2,7 @@
 # Applies each migration set to a scratch PostgreSQL bootstrapped like the
 # real ones, rolls it all the way back, requires the schema to be empty, and
 # applies it again. Then it requires the audit trigger on every table and
-# exercises it as the application role.
+# exercises it and the read-only Opening tag catalog as the application role.
 # Usage: db/check-migrations.sh <postgres-image>
 set -eu
 
@@ -109,20 +109,20 @@ as_app() {
 
 expect_accepted() {
     if ! output=$(as_app "$1" 2>&1); then
-        echo "audit check: $2 was refused: $output" >&2
+        echo "app role check: $2 was refused: $output" >&2
         exit 1
     fi
 }
 
 expect_refused() {
     if output=$(as_app "$1" 2>&1); then
-        echo "audit check: $2 was accepted" >&2
+        echo "app role check: $2 was accepted" >&2
         exit 1
     fi
     case "$output" in
     *"without an audit event"*) ;;
     *)
-        echo "audit check: $2 failed for another reason: $output" >&2
+        echo "app role check: $2 failed for another reason: $output" >&2
         exit 1
         ;;
     esac
@@ -130,13 +130,13 @@ expect_refused() {
 
 expect_denied() {
     if output=$(as_app "$1" 2>&1); then
-        echo "audit check: $2 was accepted" >&2
+        echo "app role check: $2 was accepted" >&2
         exit 1
     fi
     case "$output" in
     *"permission denied"*) ;;
     *)
-        echo "audit check: $2 failed for another reason: $output" >&2
+        echo "app role check: $2 failed for another reason: $output" >&2
         exit 1
         ;;
     esac
@@ -207,7 +207,33 @@ DELETE FROM vetchium.global_audit_events;
 SQL
 }
 
+# Migrations seed the Opening tag catalog; the application only reads it
+# (OPN-TAG-001).
+check_tenant_catalog() {
+    database="$run_id-migrations"
+    echo "==> migrations: read-only Opening tag catalog"
+    expect_accepted "$database" "reading the Opening tag catalog" <<'SQL'
+SELECT count(*) FROM vetchium.opening_tags
+LEFT JOIN vetchium.opening_tag_names USING (tag_oid);
+SQL
+    for table in opening_tags opening_tag_names; do
+        expect_denied "$database" "inserting into $table" <<SQL
+INSERT INTO vetchium.$table SELECT * FROM vetchium.$table LIMIT 0;
+SQL
+        expect_denied "$database" "updating $table" <<SQL
+UPDATE vetchium.$table SET display_name = display_name WHERE false;
+SQL
+        expect_denied "$database" "deleting from $table" <<SQL
+DELETE FROM vetchium.$table WHERE false;
+SQL
+        expect_denied "$database" "truncating $table" <<SQL
+TRUNCATE vetchium.$table;
+SQL
+    done
+}
+
 check migrations
 check global-migrations
 check_tenant_audit
+check_tenant_catalog
 check_global_audit

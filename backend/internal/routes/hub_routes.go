@@ -15,6 +15,7 @@ import (
 	"backend/internal/apiserver"
 	hubruntime "backend/internal/hub"
 	"backend/internal/middleware"
+	"backend/internal/openingtags"
 )
 
 func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
@@ -128,7 +129,7 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 	mux.Handle("POST /api/hub/get-org-opening",
 		hubAuth(hubopenings.Get(s)))
 	mux.Handle("POST /api/hub/list-opening-tags",
-		hubAuth(hubopenings.ListTags(s)))
+		hubAuth(openingtags.Handler(s, s.Queries)))
 	mux.Handle("POST /api/hub/profile/professional-email/list",
 		hubAuth(hubprofile.ListProfessionalEmails(s)))
 	mux.Handle("POST /api/hub/profile/professional-email/add",

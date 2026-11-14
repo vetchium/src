@@ -20,7 +20,6 @@ import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router";
-import type { OpeningContent } from "typespec/common/openings";
 import type {
   JobCreditedApplication,
   JobSuggestedContact,
@@ -46,7 +45,7 @@ import { useOpeningTags } from "../features/openings/queries";
 export function JobDetailPage() {
   const { t, i18n } = useTranslation();
   const { date } = useDateTimeFormat();
-  const tagCatalog = useOpeningTags();
+  const tagCatalog = useOpeningTags().catalog;
   const { engagement_id = "", opening_number = "" } = useParams();
   const openingNum = Number(opening_number);
 
@@ -58,7 +57,7 @@ export function JobDetailPage() {
   const jobQuery = useJobQuery(engagement_id, openingNum);
   const detail = jobQuery.data;
   const job = detail?.job;
-  const content = detail?.content as OpeningContent | undefined;
+  const content = detail?.content;
 
   const alreadySuggestedHandles = useMemo(() => {
     return new Set((detail?.suggested_contacts ?? []).map((sc) => sc.handle));
@@ -368,7 +367,7 @@ export function JobDetailPage() {
         open={suggestModalOpen}
         onClose={() => setSuggestModalOpen(false)}
         job={job}
-        jobContent={detail?.content}
+        jobContent={content}
         alreadySuggestedHandles={alreadySuggestedHandles}
         onSuccess={() => void jobQuery.refetch()}
       />

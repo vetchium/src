@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  type OpeningTagCatalog,
-  openingTagCatalog,
+  type OpeningTagCatalogState,
+  useOpeningTagCatalog,
 } from "@vetchium/portal-ui/opening-tags";
 import type { ListOrgOpeningsRequest } from "typespec/hub/openings/public";
 import { hubAPI } from "../../api/hub";
@@ -32,18 +32,8 @@ export function useOrgOpeningQuery(
   });
 }
 
-const emptyOpeningTagCatalog: OpeningTagCatalog = new Map();
+const openingTagsQueryKey = ["hub", "opening-tags"] as const;
 
-/**
- * The Opening tag catalog, read once per session (OPN-TAG-006). Empty until it
- * loads, so tags show as their OIDs meanwhile.
- */
-export function useOpeningTags(): OpeningTagCatalog {
-  const query = useQuery({
-    queryKey: ["hub", "opening-tags"],
-    queryFn: hubAPI.listOpeningTags,
-    staleTime: Number.POSITIVE_INFINITY,
-    select: openingTagCatalog,
-  });
-  return query.data ?? emptyOpeningTagCatalog;
+export function useOpeningTags(): OpeningTagCatalogState {
+  return useOpeningTagCatalog(openingTagsQueryKey, hubAPI.listOpeningTags);
 }

@@ -48,7 +48,7 @@ export function OrgOpeningPage() {
     number > 0 &&
     number <= 2_147_483_647;
   const result = useOrgOpeningQuery(domain, number, valid);
-  const tags = useOpeningTags();
+  const tags = useOpeningTags().catalog;
   const presentation = openingPresentation(t, i18n.language, tags);
   const application = useMyOpeningApplicationQuery(domain, number, valid);
   const conversations = useConversationsQuery("all", auth.authenticated);

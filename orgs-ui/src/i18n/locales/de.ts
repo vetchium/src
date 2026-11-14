@@ -1157,6 +1157,7 @@ export const de = {
     full: "Alle Plätze sind belegt. Deaktivieren Sie einen Benutzer oder stornieren Sie eine Einladung, bevor Sie weitere Personen einladen.",
   },
   openings: {
+    tagsUnavailable: "Schlagwörter konnten nicht geladen werden",
     intro:
       "Erstellen Sie Stellenanzeigen, reichen Sie sie zur Genehmigung ein und behalten Sie alle Stellenanzeigen Ihrer Organisation im Blick.",
     breadcrumbOpening: "{{title}} #{{number}}",

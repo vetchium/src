@@ -266,7 +266,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
     ["content", "remote_eligibility", "kind"],
     form,
   );
-  const tagCatalog = useOpeningTags();
+  const tags = useOpeningTags();
   const hiringManagerEmail = Form.useWatch("hiring_manager_email", form);
   const recruiterEmail = Form.useWatch("recruiter_email", form);
   const [memberSearch, setMemberSearch] = useState("");
@@ -952,7 +952,12 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
                     >
                       <OpeningTagSelect
                         locale={i18n.language}
-                        catalog={tagCatalog}
+                        catalog={tags.catalog}
+                        unavailable={
+                          tags.failed
+                            ? t("openings.tagsUnavailable")
+                            : undefined
+                        }
                         placeholder={t("openings.editor.tagsPlaceholder")}
                       />
                     </Form.Item>
