@@ -945,3 +945,74 @@ test("Hub list-org-openings filters by tag_oid and carries tag OIDs, locally and
     cleanupHubUser(viewerEmail, "sgp");
   }
 });
+
+test("Hub list-org-openings summaries carry salary only when disclosed, locally and across regions", async ({
+  request,
+}) => {
+  const viewerEmail = `e2e+${randomUUID()}@e2e-${randomUUID()}.example.test`;
+  const hub = new HubAPI(request, "sgp");
+  const orgs: [OrgsAPI, Awaited<ReturnType<typeof signupOrg>>][] = [];
+  try {
+    const { sessionToken: token } = seedActiveHubUser(
+      "sgp",
+      viewerEmail,
+      "Salary Reader",
+    );
+    for (const api of [
+      new OrgsAPI(request, "sgp"),
+      new OrgsAPI(request, "usa1"),
+    ]) {
+      const org = await signupOrg(api);
+      orgs.push([api, org]);
+      const owner = await loginOrg(api, org);
+      const salary = {
+        currency: "SGD",
+        min: 5000,
+        max: 8000,
+        period: "month",
+      } as const;
+      const createdResponse = await api.createOpening(owner, {
+        content: { ...content("Paid Engineer"), salary },
+        hiring_manager_email: org.emailAddress,
+        recruiter_email: org.emailAddress,
+        team_member_emails: [],
+      });
+      expect(createdResponse.status(), await createdResponse.text()).toBe(201);
+      const created = (await createdResponse.json()) as OrgOpening;
+      const publishedResponse = await api.requestOpeningChange(owner, {
+        opening_number: created.opening_number,
+        version: created.version,
+        kind: "publish",
+      });
+      expect(publishedResponse.status()).toBe(200);
+      const unpaid = await publish(
+        api,
+        owner,
+        org.emailAddress,
+        "Undisclosed Engineer",
+      );
+
+      const response = await hub.listOrgOpenings({ domain: org.domain }, token);
+      expect(response.status(), await response.text()).toBe(200);
+      const openings = ((await response.json()) as ListOrgOpeningsResponse)
+        .openings;
+      expect(
+        openings.map(({ opening_number, salary }) => ({
+          opening_number,
+          salary,
+        })),
+        api.tenant,
+      ).toEqual([
+        { opening_number: unpaid.opening_number, salary: undefined },
+        { opening_number: created.opening_number, salary },
+      ]);
+      expect(openings[0], api.tenant).not.toHaveProperty("salary");
+    }
+  } finally {
+    for (const [api, org] of orgs) {
+      await deleteOrgVerificationRecord(org.domain);
+      cleanupOrg(org.domain, api.tenant);
+    }
+    cleanupHubUser(viewerEmail, "sgp");
+  }
+});

@@ -490,8 +490,9 @@ transition takes or returns one.
   of its boundary (date posted, experience bounds, education order, remote
   eligibility `worldwide` and `countries`, on-site and hybrid countries), tag
   ranking, ordering, pagination and a key reused under changed filters, a
-  remote region (`usa1`) through the mesh, `ind1` as
-  `hub-region-unavailable`, exclusion of drafts, paused, closed, and expired
+  remote region (`usa1`) through the mesh, a region no peer answers as
+  `hub-region-unavailable` (CI `ind1` lacks only the coordinator, which
+  search never calls), exclusion of drafts, paused, closed, and expired
   Openings, suspended Orgs, and released domains, `suggest-opening-orgs`, and
   no internal field in any Hub or mesh response. Cover `ideal_job_match`:
   title, tag, and description matches ranked in that order, no shared word

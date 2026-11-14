@@ -27,6 +27,10 @@ import type {
   GetOrgOpeningRequest,
   ListOrgOpeningsRequest,
 } from "typespec/hub/openings/public";
+import type {
+  SearchOpeningsRequest,
+  SuggestOpeningOrgsRequest,
+} from "typespec/hub/openings/search";
 import type { GetOperationRequest } from "typespec/hub/operations/operations";
 import type { SetAliasRequest } from "typespec/hub/profile/alias";
 import type {
@@ -132,6 +136,20 @@ export class HubAPI {
     token: string,
   ): Promise<APIResponse> {
     return this.post("/list-org-openings", body, { token });
+  }
+
+  searchOpenings(
+    body: SearchOpeningsRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/search-openings", body, { token });
+  }
+
+  suggestOpeningOrgs(
+    body: SuggestOpeningOrgsRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.post("/suggest-opening-orgs", body, { token });
   }
 
   listOpeningTags(token: string): Promise<APIResponse> {

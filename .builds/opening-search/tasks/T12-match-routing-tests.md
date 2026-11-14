@@ -66,3 +66,4 @@ The Go tests in step 3, `playwright/api/hub-opening-search.spec.ts`.
   the text never leaves hub-api except as the peer query of that search.
 
 ## Carried over
+- From T04: CI `sgp` reaches the `ind1` peer directly and search never calls the coordinator, so `region: "ind1"` answers 200; reach `hub-region-unavailable` with an uncatalogued region such as `gone` (OPN-TST-005 now says so).
