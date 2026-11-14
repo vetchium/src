@@ -84,7 +84,7 @@
     "connectionTimeout": "5s"
   },
   "orgsAPIServer": {
-    "sessionTTL": "30s",
+    "sessionTTL": "24h",
     "signupTTL": "168h",
     "invitationTTL": "168h",
     "publicBaseURL": "http://orgs.vetchium.localhost",

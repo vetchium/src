@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { text } from "node:stream/consumers";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { hubIdempotencyKey } from "../lib/hub-api.ts";
 import { orgSQL } from "../lib/orgs-api.ts";
@@ -165,8 +165,7 @@ test("accepts a client proposal, edits own reference, exports statement CSV, and
     // Export statement CSV
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export CSV" }).click();
-    const file = await (await download).path();
-    const content = await readFile(file, "utf8");
+    const content = await text(await (await download).createReadStream());
     expect(content).toContain("Event time (UTC)");
 
     // End engagement with note

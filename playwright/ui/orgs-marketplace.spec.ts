@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { text } from "node:stream/consumers";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { seedApplication } from "../lib/hiring-seed.ts";
 import { addOrgMember, orgsIdempotencyKey } from "../lib/orgs-api.ts";
@@ -95,8 +95,7 @@ test("manages an engagement: updates reference, exports statement CSV, and ends 
     // Export statement CSV
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export CSV" }).click();
-    const file = await (await download).path();
-    const content = await readFile(file, "utf8");
+    const content = await text(await (await download).createReadStream());
     expect(content).toContain("Date,Fact,Opening");
 
     // End engagement with note

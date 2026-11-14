@@ -29,7 +29,17 @@ export default defineConfig({
     {
       name: "chromium",
       testMatch: "ui/**/*.spec.ts",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        // The CI stack's playwright-browser container runs Chromium away from
+        // host network changes (playwright.md); its requests to the portals
+        // and APIs on this host's loopback travel back over the connection.
+        connectOptions: {
+          wsEndpoint:
+            process.env.PLAYWRIGHT_BROWSER_ENDPOINT ?? "ws://127.0.0.1:18030/",
+          exposeNetwork: "<loopback>",
+        },
+      },
     },
   ],
 });

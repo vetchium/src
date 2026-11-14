@@ -30,6 +30,9 @@ design (layout, saving, states, copy) is in [`ux.md`](ux.md).
 - `PortalProviders` turns off Ant Design motion (`token.motion`) while the
   browser prefers reduced motion; never animate outside Ant Design motion:
   custom animation runs only while `theme.useToken().token.motion` is on.
+- Never use `Affix`: it moves its content from a scroll handler a frame after
+  each scroll, so a click right after scrolling lands beside its target. Keep
+  content in view with `SidePanel` (CSS `position: sticky`).
 - AI controls carry `ThambiIcon` and a running AI operation shows
   `ThambiSpinner` (`@vetchium/portal-ui/thambi`). Every other wait uses Ant
   Design `Spin` or `LoadingOutlined`; the bee always means AI.
