@@ -145,12 +145,14 @@ export async function assign(
   return (await response.json()) as OpeningProviders;
 }
 
-/** A candidacy waiting at `stage`, from a Hub applicant's application. */
+/** A candidacy waiting at `stage`, from a Hub applicant's application; an
+ * applicant given idealJob saved it and says they are looking for a job. */
 export async function candidate(
   world: World,
   stage: PipelineStage,
   name?: string,
   referralAgencyDomain?: string,
+  idealJob?: string,
 ): Promise<ApplicationDetail> {
   const { consumer } = world.pair;
   const relocation = world.opening.live_content?.questions?.[0]?.id;
@@ -159,6 +161,7 @@ export async function candidate(
     world.opening.opening_number,
     {
       ...(name !== undefined && { name }),
+      ...(idealJob !== undefined && { idealJob, lookingForJob: true }),
       ...(referralAgencyDomain !== undefined && { referralAgencyDomain }),
       ...(relocation !== undefined && {
         answers: [{ question_id: relocation, value: true }],

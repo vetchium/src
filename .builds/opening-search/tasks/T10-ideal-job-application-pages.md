@@ -53,3 +53,4 @@ check of the apply page and both detail pages at phone and desktop widths.
   the stage provider see it on the candidate.
 
 ## Carried over
+From T09: `ApplicantSnapshot.ideal_job` (`typespec/hub/profile/snapshot.ts`) and `MyApplicationDetail.ideal_job` (`typespec/hub/applications/applications.ts`) exist, absent when none. Playwright helpers: `setJobSearch(applicant, idealJob, lookingForJob)` in `playwright/lib/hub-applicant.ts`; `idealJob` / `lookingForJob` in `ApplicationOptions` (`playwright/lib/hiring-seed.ts`); `candidate(world, stage, name, referralAgencyDomain, idealJob)` in `playwright/lib/orgs-routing.ts`.

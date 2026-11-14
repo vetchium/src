@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
@@ -306,13 +307,17 @@ type MyApplicationDetail struct {
 	Interviews             []MyApplicationInterview  `json:"interviews"`
 	// Answers are the questions as asked when applying, with the answers.
 	Answers []orgapplications.AnsweredQuestion `json:"answers"`
+	// IdealJob is the applicant's ideal job as shared when applying.
+	IdealJob *hub.IdealJob `json:"ideal_job,omitempty"`
 }
 
 // Valid checks a peer's answer before it reaches the browser.
 func (d MyApplicationDetail) Valid() bool {
 	if !d.MyApplication.Valid() || (d.Offer != nil && !d.Offer.Valid()) ||
 		(d.BackgroundCheckConsent != nil && !d.BackgroundCheckConsent.Valid()) ||
-		d.Interviews == nil || d.Answers == nil {
+		d.Interviews == nil || d.Answers == nil ||
+		(d.IdealJob != nil && (*d.IdealJob == "" ||
+			utf8.RuneCountInString(string(*d.IdealJob)) > hub.MaxIdealJobCodePoints)) {
 		return false
 	}
 	for _, answered := range d.Answers {

@@ -13,6 +13,7 @@ import {
   apply,
   cleanupApplicantsOf,
   seedApplicant,
+  setJobSearch,
 } from "./hub-applicant.ts";
 import type { OrgsAPI } from "./orgs-api.ts";
 import { utcDate } from "./orgs-applications.ts";
@@ -50,6 +51,11 @@ export interface ApplicationOptions {
   referralAgencyDomain?: string;
   /** Where the applicant's account lives; the Org's tenant by default. */
   applicantTenant?: TestTenant;
+  /** The ideal job the applicant saves before applying. */
+  idealJob?: string;
+  /** Whether the applicant says they are looking for a job, saved with
+   * idealJob. */
+  lookingForJob?: boolean;
   /** Moves the offer's extension this many days into the past, so a
    * joining date that long ago is allowed. */
   offerExtendedDaysAgo?: number;
@@ -97,6 +103,9 @@ export async function seedApplication(
     options.name,
   );
   org.applicants.push(applicant);
+  if (options.idealJob !== undefined) {
+    await setJobSearch(applicant, options.idealJob, options.lookingForJob);
+  }
   const reference = await apply(
     applicant,
     org.domain,

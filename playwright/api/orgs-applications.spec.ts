@@ -370,6 +370,8 @@ test("an application shows its snapshot, cover note, stages, dates, and history"
       state: "in_pipeline",
       stageId: panel.id,
       coverNote: "I would love to join.",
+      idealJob: "Compiler work\nIn a small team",
+      lookingForJob: true,
     });
     const plain = await seed(world, n, { name: "No Note" });
 
@@ -377,9 +379,12 @@ test("an application shows its snapshot, cover note, stages, dates, and history"
       opening_number: n,
       application_number: number,
     });
-    expect(response.status(), await response.text()).toBe(200);
+    const text = await response.text();
+    expect(response.status(), text).toBe(200);
     expect(response.headers()["cache-control"]).toBe("no-store");
-    const detail = (await response.json()) as ApplicationDetail;
+    const detail = JSON.parse(text) as ApplicationDetail;
+    // Whether the applicant is looking for a job is theirs alone.
+    expect(text).not.toContain("looking_for_job");
     expect(detail).toMatchObject({
       opening_number: n,
       application_number: number,
@@ -396,6 +401,7 @@ test("an application shows its snapshot, cover note, stages, dates, and history"
         certifications: [],
         language_abilities: [],
         educational_qualifications: [],
+        ideal_job: "Compiler work\nIn a small team",
       },
     });
     // The snapshot is the profile view without the picture; the applicant
@@ -417,6 +423,7 @@ test("an application shows its snapshot, cover note, stages, dates, and history"
       })
     ).json()) as ApplicationDetail;
     expect(submitted.cover_note).toBeUndefined();
+    expect(submitted.snapshot).not.toHaveProperty("ideal_job");
     expect(submitted.current_stage).toBeUndefined();
     expect(submitted.stage_records).toEqual([]);
 

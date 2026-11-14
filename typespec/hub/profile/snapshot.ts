@@ -2,8 +2,8 @@ import { isCountryCode } from "../../common/countries.ts";
 import type { CountryCode, DisplayName } from "../../common/localization.ts";
 import { isDisplayName } from "../../common/localization.ts";
 import { type HubAlias, isHubAlias } from "../../directory/directory.ts";
-import type { HubHandle } from "../types.ts";
-import { isHubHandle } from "../types.ts";
+import type { HubHandle, IdealJob } from "../types.ts";
+import { isHubHandle, maxIdealJobCodePoints } from "../types.ts";
 import type {
   Certification,
   EducationalQualification,
@@ -20,7 +20,11 @@ const maxCertifications = 50;
 const maxLanguageAbilities = 75;
 const maxEducationalQualifications = 30;
 
-/** The public profile as of the application, without the picture. */
+/**
+ * The public profile as of the application, without the picture, and the
+ * ideal job saved then. Whether the applicant is looking for a job never
+ * enters it.
+ */
 export interface ApplicantSnapshot {
   display_name: DisplayName;
   handle: HubHandle;
@@ -32,6 +36,8 @@ export interface ApplicantSnapshot {
   certifications: Certification[];
   language_abilities: LanguageAbilityEntry[];
   educational_qualifications: EducationalQualification[];
+  /** The applicant's saved ideal job at apply time. */
+  ideal_job?: IdealJob;
 }
 
 /**
@@ -73,6 +79,12 @@ export function validateApplicantSnapshot(
     snapshot.educational_qualifications.length > maxEducationalQualifications
   ) {
     fields.push("educational_qualifications");
+  }
+  if (
+    snapshot.ideal_job !== undefined &&
+    Array.from(snapshot.ideal_job).length > maxIdealJobCodePoints
+  ) {
+    fields.push("ideal_job");
   }
   return fields;
 }

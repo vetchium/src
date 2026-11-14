@@ -15,6 +15,7 @@ import "../../problem/hub/applications.tsp";
 import "../../problem/hub/authentication.tsp";
 import "../../problem/hub/openings.tsp";
 import "../operations/operations.tsp";
+import "../types.tsp";
 
 using TypeSpec.Http;
 
@@ -205,6 +206,9 @@ model MyApplicationDetail {
 
   /** The questions as asked when applying, with the applicant's answers. */
   answers: Vetchium.Orgs.Applications.AnsweredQuestion[];
+
+  /** The applicant's ideal job as shared when applying. */
+  ideal_job?: Vetchium.Hub.IdealJob;
 }
 
 /** Names an interview of the application, by its number. */

@@ -31,6 +31,7 @@ test("a snapshot validates its identity fields and array bounds", () => {
       certifications: new Array(51).fill({}),
       language_abilities: new Array(76).fill({}),
       educational_qualifications: new Array(31).fill({}),
+      ideal_job: "😀".repeat(2001),
     }),
     [
       "display_name",
@@ -42,6 +43,18 @@ test("a snapshot validates its identity fields and array bounds", () => {
       "certifications",
       "language_abilities",
       "educational_qualifications",
+      "ideal_job",
     ],
+  );
+});
+
+test("a snapshot's ideal job is optional and bounded in code points", () => {
+  assert.deepEqual(
+    validateApplicantSnapshot({ ...snapshot, ideal_job: "😀".repeat(2000) }),
+    [],
+  );
+  assert.deepEqual(
+    validateApplicantSnapshot({ ...snapshot, ideal_job: "😀".repeat(2001) }),
+    ["ideal_job"],
   );
 });

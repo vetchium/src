@@ -28,6 +28,14 @@ WHERE s.hub_session_id = sqlc.arg(hub_session_id)
   AND s.expires_at > now()
   AND u.hub_user_state = 'active';
 
+-- The ideal job an application snapshot freezes (HP-APP-002); whether the
+-- user is looking for a job never leaves with it (PROF-JOB-004).
+-- name: GetHubIdealJob :one
+SELECT u.ideal_job
+FROM vetchium.hub_users AS u
+WHERE u.hub_user_did = sqlc.arg(hub_user_did)
+  AND u.hub_user_state = 'active';
+
 -- name: SetHubPreferredLanguage :one
 WITH updated AS (
     UPDATE vetchium.hub_users

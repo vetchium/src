@@ -38,6 +38,7 @@ import {
   normalizeOrgDomain,
   type OrgDomain,
 } from "../../orgs/types.ts";
+import type { IdealJob } from "../types.ts";
 
 export const applicationStatusValues = [
   "applied",
@@ -173,6 +174,8 @@ export interface MyApplicationDetail extends MyApplication {
   interviews: MyApplicationInterview[];
   /** The questions as asked when applying, with the applicant's answers. */
   answers: AnsweredQuestion[];
+  /** The applicant's ideal job as shared when applying. */
+  ideal_job?: IdealJob;
 }
 
 export interface InterviewReference extends ApplicationReference {

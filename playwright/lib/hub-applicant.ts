@@ -138,6 +138,23 @@ export function cleanupApplicantsOf(
   );
 }
 
+/** Saves the applicant's ideal job and whether they are looking for a job
+ * through the Hub API, as they would before applying. */
+export async function setJobSearch(
+  applicant: Applicant,
+  idealJob: string,
+  lookingForJob = false,
+): Promise<void> {
+  const saved = await applicant.hub.setIdealJob(applicant.token, {
+    ideal_job: idealJob,
+  });
+  expect(saved.status(), await saved.text()).toBe(204);
+  const looking = await applicant.hub.setLookingForJob(applicant.token, {
+    looking_for_job: lookingForJob,
+  });
+  expect(looking.status(), await looking.text()).toBe(204);
+}
+
 /** Applies to the Opening through the Hub. */
 export async function apply(
   applicant: Applicant,

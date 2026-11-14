@@ -19,6 +19,7 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	federationspec "github.com/vetchium/src/typespec/federation"
+	"github.com/vetchium/src/typespec/hub"
 	hubspec "github.com/vetchium/src/typespec/hub/applications"
 	"github.com/vetchium/src/typespec/orgs"
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
@@ -294,6 +295,10 @@ func ReadForApplicant(
 			),
 		},
 		Interviews: []hubspec.MyApplicationInterview{},
+	}
+	if row.IdealJob != "" {
+		idealJob := hub.IdealJob(row.IdealJob)
+		detail.IdealJob = &idealJob
 	}
 	if err := json.Unmarshal(row.Answers, &detail.Answers); err != nil {
 		return hubspec.MyApplicationDetail{}, fmt.Errorf("decode answers: %w", err)

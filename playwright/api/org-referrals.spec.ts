@@ -14,6 +14,7 @@ import {
   apply,
   cleanupApplicant,
   seedApplicant,
+  setJobSearch,
 } from "../lib/hub-applicant.ts";
 import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
 import { orgDID } from "../lib/orgs-api.ts";
@@ -50,7 +51,8 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
     const providerDID = orgDID(provider.org.domain, provider.tenant);
 
     // 2. Seed applicants
-    // Applicant 1: tests declared referral
+    // Applicant 1: tests declared referral, with an ideal job the agency
+    // never sees (MKT-ACC-001)
     const applicant1 = seedApplicant(request, consumer.tenant);
     // Applicant 2: tests suggestion in conversation then suggested referral
     const applicant2 = seedApplicant(request, consumer.tenant);
@@ -58,6 +60,7 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
     const applicant3 = seedApplicant(request, consumer.tenant);
 
     try {
+      await setJobSearch(applicant1, "Sourced ideal job", true);
       // The Hub sees that an agency may be credited, never which one.
       const read = await applicant1.hub.getOrgOpening(
         { domain: consumer.org.domain, opening_number: opening.opening_number },
@@ -243,6 +246,9 @@ test("sourcing attribution: declared and suggested credit, eligibility, agency r
       const creditedData =
         (await creditedRes.json()) as ListCreditedApplicationsResponse;
       expect(creditedData.items).toHaveLength(2);
+      expect(JSON.stringify(creditedData)).not.toMatch(
+        /ideal_job|Sourced ideal job|looking_for_job|snapshot/,
+      );
 
       // App 3 (direct application) is not credited and does NOT appear
       expect(creditedData.items.some((i) => i.application_number === 3)).toBe(

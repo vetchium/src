@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/vetchium/src/typespec/hub"
 )
 
 func validSnapshot() ApplicantSnapshot {
@@ -38,11 +40,43 @@ func TestApplicantSnapshotNormalizesNilArraysWithoutMutation(t *testing.T) {
 	}
 }
 
+func TestApplicantSnapshotNormalizesIdealJobWithoutMutation(t *testing.T) {
+	t.Parallel()
+	text := hub.IdealJob("  Backend work\nremote first \t")
+	original := ApplicantSnapshot{IdealJob: &text}
+	normalized := original.Normalized()
+	if *original.IdealJob != "  Backend work\nremote first \t" {
+		t.Fatal("normalization mutated the caller's ideal job")
+	}
+	if normalized.IdealJob == nil ||
+		*normalized.IdealJob != "Backend work\nremote first" {
+		t.Fatalf("ideal job = %v", normalized.IdealJob)
+	}
+	blank := hub.IdealJob(" \n\t ")
+	if got := (ApplicantSnapshot{IdealJob: &blank}).Normalized(); got.IdealJob != nil {
+		t.Fatalf("blank ideal job kept: %q", *got.IdealJob)
+	}
+	data, err := json.Marshal(validSnapshot())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "ideal_job") {
+		t.Fatalf("absent ideal job encoded: %s", data)
+	}
+}
+
 func TestApplicantSnapshotValidation(t *testing.T) {
 	t.Parallel()
 	if got := validSnapshot().Validate(); len(got) != 0 {
 		t.Fatalf("valid snapshot rejected: %v", got)
 	}
+	longest := hub.IdealJob(strings.Repeat("😀", hub.MaxIdealJobCodePoints))
+	withIdealJob := validSnapshot()
+	withIdealJob.IdealJob = &longest
+	if got := withIdealJob.Validate(); len(got) != 0 {
+		t.Fatalf("ideal job at the limit rejected: %v", got)
+	}
+	tooLong := longest + "x"
 	long := ProfileLongText(strings.Repeat("é", 2001))
 	bad := validSnapshot()
 	bad.DisplayName, bad.Handle, bad.ResidentCountry = "", "x", "ZZ"
@@ -52,10 +86,11 @@ func TestApplicantSnapshotValidation(t *testing.T) {
 	bad.Certifications = make([]Certification, 51)
 	bad.LanguageAbilities = make([]LanguageAbilityEntry, 76)
 	bad.EducationalQualifications = make([]EducationalQualification, 31)
+	bad.IdealJob = &tooLong
 	want := []string{
 		"display_name", "handle", "resident_country", "biography", "websites",
 		"work_experiences", "certifications", "language_abilities",
-		"educational_qualifications",
+		"educational_qualifications", "ideal_job",
 	}
 	if got := bad.Validate(); !slices.Equal(got, want) {
 		t.Fatalf("fields = %v, want %v", got, want)
