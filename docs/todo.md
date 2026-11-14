@@ -68,6 +68,15 @@ Each item: what is not done, and what must be decided first.
   script- and region-specific language choices.
 - Profile write endpoints still lack malformed-JSON and idempotency-conflict
   replay coverage in the contract report.
+- `looking_for_job` is stored but nothing reads it (PROF-JOB-004). Agency
+  outreach, matching, or any other use needs its own privacy review first,
+  as does sending any Hub-user attribute besides the ideal-job text with a
+  cross-region search (OPN-SRCH-014).
+- hub-ui has no unsaved-changes leave guard: `useUnsavedChangesGuard` is in
+  `orgs-ui` only and needs a React Router data router, while hub-ui mounts
+  `BrowserRouter`. The Preferences ideal-job editor shows "Unsaved changes"
+  but does not block leaving. Decide whether hub-ui moves to a data router or
+  the guard moves to `portal-ui`.
 
 ## Orgs
 
@@ -116,11 +125,15 @@ Each item: what is not done, and what must be decided first.
   notifications for requests and decisions (decide recipients, batching, and
   opt-out); cost centers; multi-step or per-Org approval chains; extending
   expiry without a new quota slot.
-- Cross-Org discovery: searching Openings of every Org, filtered by preferred
-  job countries and by tag OID. Decide between a mesh fan-out and a
+- Opening search covers one region per request (OPN-SRCH-001). Searching
+  several regions at once needs a choice between a mesh fan-out and a
   rebuildable per-tenant projection fed by the outbox, and how ranking and
   pagination work across tenants. Also decide entry points to
   `/org/<domain>`, such as profile employer domains.
+- Not built for Opening search: saved searches with alerts (decide storage,
+  channel, frequency, and opt-out); keyword search over descriptions (decide
+  the index and language handling); prefilling the country filter from
+  preferred job countries (it starts empty).
 - AI drafting suggesting Opening tags; drafting returns none (OPN-TAG-010).
   Decide the prompt cost of listing the catalog and how suggested OIDs are
   validated.

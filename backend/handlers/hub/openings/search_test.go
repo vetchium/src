@@ -1,6 +1,7 @@
 package openings
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -68,7 +69,7 @@ func (*searchQueries) SuggestOpeningOrgs(
 	return nil, nil
 }
 
-// relay records each relay body and answers an empty page.
+// relay records each relay body and answers an empty page or Org list.
 type relay struct {
 	server *httptest.Server
 	calls  atomic.Int32
@@ -83,6 +84,10 @@ func newRelay(t *testing.T) *relay {
 		data, _ := io.ReadAll(req.Body)
 		r.body.Store(string(data))
 		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(req.URL.Path, "/suggest-orgs") {
+			_, _ = w.Write([]byte(`{"orgs":[]}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{"openings":[]}`))
 	}))
 	t.Cleanup(r.server.Close)
@@ -93,13 +98,22 @@ func callSearch(
 	t *testing.T, queries *searchQueries, relay *relay, body string,
 ) *httptest.ResponseRecorder {
 	t.Helper()
+	return callHandler(t, Search, queries, relay, body, io.Discard)
+}
+
+func callHandler(
+	t *testing.T, handler func(*hubruntime.Server) http.HandlerFunc,
+	queries *searchQueries, relay *relay, body string, logs io.Writer,
+) *httptest.ResponseRecorder {
+	t.Helper()
 	catalog, err := regions.Load(filepath.Join(
 		"..", "..", "..", "..", "config", "ci", "signup-regions.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := &hubruntime.Server{
-		Runtime:       apiserver.New(nil, slog.New(slog.NewTextHandler(io.Discard, nil))),
+		Runtime: apiserver.New(nil, slog.New(slog.NewJSONHandler(logs,
+			&slog.HandlerOptions{Level: slog.LevelDebug}))),
 		Queries:       queries,
 		Regions:       catalog,
 		TenantID:      "sgp",
@@ -111,7 +125,7 @@ func callSearch(
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer session-token")
 	response := httptest.NewRecorder()
-	middleware.HubAuth(s)(Search(s)).ServeHTTP(response, request)
+	middleware.HubAuth(s)(handler(s)).ServeHTTP(response, request)
 	return response
 }
 
@@ -189,5 +203,38 @@ func TestSearchIdealJobReadFailures(t *testing.T) {
 		if response.Code != tc.code || queries.searches.Load() != 0 {
 			t.Fatalf("%v: status=%d body=%s", tc.err, response.Code, response.Body.String())
 		}
+	}
+}
+
+func TestSearchAndSuggestNeverLogTheQueryOrIdealJobText(t *testing.T) {
+	t.Parallel()
+	const keyword, text = "zebrakeyword", "zebrafinch"
+	var logs bytes.Buffer
+	saved := pgtype.Text{String: text, Valid: true}
+	for _, call := range []struct {
+		handler func(*hubruntime.Server) http.HandlerFunc
+		queries *searchQueries
+		body    string
+		status  int
+	}{
+		{Search, &searchQueries{idealJob: saved},
+			`{"keyword":"` + keyword + `","sort":"ideal_job_match"}`, http.StatusOK},
+		{Search, &searchQueries{idealJob: saved},
+			`{"keyword":"` + keyword + `","sort":"ideal_job_match","region":"usa1"}`, http.StatusOK},
+		{Search, &searchQueries{},
+			`{"keyword":"` + keyword + `","pagination_key":"` + keyword + `"}`, http.StatusBadRequest},
+		{Search, &searchQueries{idealJob: saved, idealJobError: errors.New("database unavailable")},
+			`{"keyword":"` + keyword + `","sort":"ideal_job_match"}`, http.StatusInternalServerError},
+		{SuggestOrgs, &searchQueries{}, `{"query":"` + keyword + `"}`, http.StatusOK},
+		{SuggestOrgs, &searchQueries{}, `{"query":"` + keyword + `","region":"usa1"}`, http.StatusOK},
+	} {
+		response := callHandler(t, call.handler, call.queries, newRelay(t), call.body, &logs)
+		if response.Code != call.status {
+			t.Fatalf("%s: status=%d body=%s", call.body, response.Code, response.Body.String())
+		}
+	}
+	if logs.Len() == 0 || strings.Contains(logs.String(), keyword) ||
+		strings.Contains(logs.String(), text) {
+		t.Fatalf("logs hold the query or the ideal-job text, or nothing at all: %s", logs.String())
 	}
 }
