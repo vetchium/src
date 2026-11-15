@@ -44,6 +44,7 @@ func TestSetIdealJobNormalizesAndCountsCodePoints(t *testing.T) {
 		{"whitespace only", " \n\t ", "", true},
 		{"2000 astral", strings.Repeat("😀", 2000), strings.Repeat("😀", 2000), true},
 		{"2001 astral", strings.Repeat("😀", 2001), strings.Repeat("😀", 2001), false},
+		{"NUL", "a\x00b", "a\x00b", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			input := tc.input

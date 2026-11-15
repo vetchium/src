@@ -57,8 +57,8 @@ model SetAgenciesMayMessageRequest {
 }
 
 model SetIdealJobRequest {
-  /** Required. At most 2,000 code points after trimming; empty after trimming
-   * removes the ideal job (PROF-JOB-001). */
+  /** Required. At most 2,000 code points after trimming, without U+0000;
+   * empty after trimming removes the ideal job (PROF-JOB-001). */
   ideal_job: string;
 }
 

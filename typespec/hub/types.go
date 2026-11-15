@@ -1,6 +1,10 @@
 package hub
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+	"unicode/utf8"
+)
 
 type FrontendLocale string
 
@@ -35,6 +39,14 @@ type HubHandle string
 type IdealJob string
 
 const MaxIdealJobCodePoints = 2000
+
+// IsIdealJob reports trimmed text of 1 to 2,000 code points without U+0000,
+// which PostgreSQL text cannot hold.
+func IsIdealJob(value IdealJob) bool {
+	size := utf8.RuneCountInString(string(value))
+	return size >= 1 && size <= MaxIdealJobCodePoints &&
+		!strings.ContainsRune(string(value), 0)
+}
 
 var hubHandlePattern = regexp.MustCompile(
 	`^[a-z0-9]{8}-[0-9a-hjkmnp-tv-z]{11}$`,

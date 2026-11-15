@@ -19,7 +19,7 @@ import {
   normalizeOrgDomain,
   type OrgDomain,
 } from "../../orgs/types.ts";
-import { type IdealJob, maxIdealJobCodePoints } from "../types.ts";
+import { type IdealJob, isIdealJob } from "../types.ts";
 import type { PublicOpeningSummary, PublicOrg } from "./public.ts";
 
 export type OpeningSearchKeyword = string;
@@ -134,6 +134,11 @@ function codePoints(value: string): number {
   return [...value].length;
 }
 
+/** PostgreSQL cannot store or compare U+0000, so validation refuses it. */
+function hasNUL(value: string): boolean {
+  return value.includes("\0");
+}
+
 /**
  * A present list outside 1..max is `field`; a malformed or repeated item is
  * `field.<index>`.
@@ -176,7 +181,9 @@ function validateOpeningSearchFilters(request: OpeningSearchFilters): string[] {
   const fields: string[] = [];
   if (
     request.keyword !== undefined &&
-    (codePoints(request.keyword) < 2 || codePoints(request.keyword) > 200)
+    (codePoints(request.keyword) < 2 ||
+      codePoints(request.keyword) > 200 ||
+      hasNUL(request.keyword))
   )
     fields.push("keyword");
   if (request.org_domain !== undefined && !isOrgDomain(request.org_domain))
@@ -247,12 +254,7 @@ export function validateOpeningSearchQuery(
     fields.push("sort");
   const text = query.ideal_job_text;
   if ((query.sort ?? SortNewest) === SortIdealJobMatch) {
-    if (
-      text === undefined ||
-      text === "" ||
-      codePoints(text) > maxIdealJobCodePoints
-    )
-      fields.push("ideal_job_text");
+    if (text === undefined || !isIdealJob(text)) fields.push("ideal_job_text");
   } else if (text !== undefined) fields.push("ideal_job_text");
   return fields;
 }
@@ -285,7 +287,7 @@ export function validateSuggestOpeningOrgsRequest(
 ): string[] {
   const fields: string[] = [];
   const size = codePoints(request.query);
-  if (size < 2 || size > 100) fields.push("query");
+  if (size < 2 || size > 100 || hasNUL(request.query)) fields.push("query");
   if (request.region !== undefined && !isTenantID(request.region))
     fields.push("region");
   return fields;

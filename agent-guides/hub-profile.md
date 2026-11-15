@@ -207,7 +207,8 @@ Settings, not profile view fields (PROF-GEN-006). Preferred job countries are
 in [`hub-signup.md`](hub-signup.md).
 
 - **PROF-JOB-001** `ideal_job`: plain text, 1–2,000 code points after
-  trimming, internal line breaks kept; empty after trimming removes it.
+  trimming, internal line breaks kept, no U+0000; empty after trimming
+  removes it.
   `looking_for_job`: boolean, default `false`. Store them in `hub_users`
   (`ideal_job text NULL`, `looking_for_job boolean NOT NULL DEFAULT false`)
   with `job_search_prompt_dismissed_at timestamptz NULL`.

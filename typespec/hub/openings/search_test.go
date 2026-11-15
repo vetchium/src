@@ -25,6 +25,7 @@ func TestSearchOpeningsRequestValidate(t *testing.T) {
 		{"keyword 2", SearchOpeningsRequest{Keyword: new(OpeningSearchKeyword("go"))}, []string{}},
 		{"keyword 200 code points", SearchOpeningsRequest{Keyword: new(OpeningSearchKeyword(astral))}, []string{}},
 		{"keyword 201 code points", SearchOpeningsRequest{Keyword: new(OpeningSearchKeyword(astral + "a"))}, []string{"keyword"}},
+		{"keyword with NUL", SearchOpeningsRequest{Keyword: new(OpeningSearchKeyword("go\x00"))}, []string{"keyword"}},
 		{"org domain", SearchOpeningsRequest{OrgDomain: new(orgs.OrgDomain("example.com"))}, []string{}},
 		{"malformed org domain", SearchOpeningsRequest{OrgDomain: new(orgs.OrgDomain("not a domain"))}, []string{"org_domain"}},
 		{"five tags", SearchOpeningsRequest{TagOIDs: []common.OpeningTagOID{"a1", "b1", "c1", "d1", "e1"}}, []string{}},
@@ -120,6 +121,7 @@ func TestSuggestOpeningOrgsRequest(t *testing.T) {
 		{"query 2", SuggestOpeningOrgsRequest{Query: "ab"}, []string{}},
 		{"query 100 code points", SuggestOpeningOrgsRequest{Query: OrgSuggestionQuery(strings.Repeat("é", 100))}, []string{}},
 		{"query 101 code points", SuggestOpeningOrgsRequest{Query: OrgSuggestionQuery(strings.Repeat("é", 101))}, []string{"query"}},
+		{"query with NUL", SuggestOpeningOrgsRequest{Query: "ab\x00"}, []string{"query"}},
 		{"malformed region", SuggestOpeningOrgsRequest{Query: "ab", Region: new(directory.TenantID("1x"))}, []string{"region"}},
 	}
 	for _, test := range tests {
@@ -197,6 +199,7 @@ func TestOpeningSearchQueryValidate(t *testing.T) {
 		{"match with empty text", OpeningSearchQuery{Sort: new(SortIdealJobMatch), IdealJobText: text("")}, []string{"ideal_job_text"}},
 		{"match with 2000 code points", OpeningSearchQuery{Sort: new(SortIdealJobMatch), IdealJobText: text(strings.Repeat("😀", 2000))}, []string{}},
 		{"match with 2001 code points", OpeningSearchQuery{Sort: new(SortIdealJobMatch), IdealJobText: text(strings.Repeat("😀", 2001))}, []string{"ideal_job_text"}},
+		{"match with NUL", OpeningSearchQuery{Sort: new(SortIdealJobMatch), IdealJobText: text("go\x00")}, []string{"ideal_job_text"}},
 		{"unknown sort", OpeningSearchQuery{Sort: new(OpeningSearchSort("relevance"))}, []string{"sort"}},
 		{
 			"filters and text at once",

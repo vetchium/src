@@ -893,6 +893,9 @@ test("search-openings and suggest-opening-orgs reject malformed, invalid, and un
         ["query", "region"],
       ],
       ["/suggest-opening-orgs", {}, ["query"]],
+      // PostgreSQL text cannot hold U+0000, so it is refused, not a 500.
+      ["/search-openings", { keyword: "go\u0000" }, ["keyword"]],
+      ["/suggest-opening-orgs", { query: "ab\u0000" }, ["query"]],
     ];
     for (const [path, body, fields] of cases) {
       const response = await hub.post(path, body, { token: sessionToken });

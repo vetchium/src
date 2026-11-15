@@ -373,7 +373,7 @@ transition takes or returns one.
 
   | Field | Rule |
   | --- | --- |
-  | `keyword` | 2–200 code points; case-insensitive substring of the live title or the Org display name |
+  | `keyword` | 2–200 code points, no U+0000; case-insensitive substring of the live title or the Org display name |
   | `org_domain` | one `OrgDomain`; that Org's Openings only |
   | `tag_oids` | 1–5 unique OIDs; the Opening holds at least one; an OID missing from the catalog matches nothing |
   | `work_countries` | 1–10 unique `CountryCode`s where the caller may work: an `on_site` or `hybrid` Opening whose employing country is listed, or a `remote` Opening eligible `worldwide` or listing one of them |
@@ -396,10 +396,11 @@ transition takes or returns one.
   PublicOpeningSummary}` and nothing else (OPN-HUB-003). Sign each Org's logo
   once per page.
 - **OPN-SRCH-007** `suggest-opening-orgs` takes an optional `region` and a
-  `query` of 2–100 code points, and returns at most 10 `PublicOrg`s: Orgs
-  that qualify (OPN-SRCH-003) and hold an Opening search could return, whose
-  display name contains the query case-insensitively or whose domain starts
-  with it, ordered by lower-cased display name, then domain. Region routing
+  `query` of 2–100 code points without U+0000, and returns at most 10
+  `PublicOrg`s: Orgs that qualify (OPN-SRCH-003) and hold an Opening search
+  could return, whose display name contains the query case-insensitively or
+  whose domain starts with it, ordered by lower-cased display name, then
+  domain. Region routing
   and failures follow OPN-SRCH-002, through `/mesh/opening-search/suggest-orgs`
   and `/api/mesh/opening-search/suggest-orgs`.
 - **OPN-SRCH-008** Neither operation stores, logs, or audits the query, the

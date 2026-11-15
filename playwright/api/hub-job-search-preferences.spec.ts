@@ -118,7 +118,7 @@ test("job-search setters refuse malformed bodies and unauthenticated calls", asy
     expect(
       (await user.hub.setIdealJob(user.token, { ideal_job: "Kept" })).status(),
     ).toBe(204);
-    for (const body of [{}, { ideal_job: null }]) {
+    for (const body of [{}, { ideal_job: null }, { ideal_job: "a\u0000b" }]) {
       await expectProblem(
         await user.hub.post(idealJobPath, body, { token: user.token }),
         400,

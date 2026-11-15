@@ -7,7 +7,7 @@ import {
   type HubHandle,
   type IdealJob,
   isFrontendLocale,
-  maxIdealJobCodePoints,
+  isIdealJob,
 } from "../types.ts";
 
 export interface MyInfoResponse {
@@ -97,7 +97,7 @@ export function validateSetIdealJobRequest(
   request: SetIdealJobRequest,
 ): string[] {
   return typeof request.ideal_job === "string" &&
-    [...request.ideal_job].length <= maxIdealJobCodePoints
+    (request.ideal_job === "" || isIdealJob(request.ideal_job))
     ? []
     : ["ideal_job"];
 }

@@ -4,7 +4,6 @@ package users
 import (
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/hub"
@@ -104,8 +103,7 @@ func (r *SetIdealJobRequest) Normalize() {
 }
 
 func (r SetIdealJobRequest) Validate() []string {
-	if r.IdealJob == nil ||
-		utf8.RuneCountInString(*r.IdealJob) > hub.MaxIdealJobCodePoints {
+	if r.IdealJob == nil || (*r.IdealJob != "" && !hub.IsIdealJob(hub.IdealJob(*r.IdealJob))) {
 		return []string{"ideal_job"}
 	}
 	return []string{}

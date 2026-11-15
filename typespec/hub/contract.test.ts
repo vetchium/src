@@ -335,6 +335,7 @@ test("Opening search validation matches the Go companion", () => {
       ["work_countries"],
     ],
     ["unknown country", { work_countries: ["XX"] }, ["work_countries.0"]],
+    ["keyword with NUL", { keyword: "go\0" }, ["keyword"]],
     [
       "repeated arrangement",
       { work_arrangements: ["remote", "remote"] },
@@ -424,6 +425,11 @@ test("Opening search query binds ideal-job text to the match sort", () => {
       { sort: "ideal_job_match", ideal_job_text: "😀".repeat(2001) },
       ["ideal_job_text"],
     ],
+    [
+      "match with NUL",
+      { sort: "ideal_job_match", ideal_job_text: "go\0" },
+      ["ideal_job_text"],
+    ],
     ["unknown sort", { sort: "relevance" as OpeningSearchSort }, ["sort"]],
     [
       "filters and text at once",
@@ -468,6 +474,9 @@ test("Opening Org suggestions validate the query and region", () => {
     validateSuggestOpeningOrgsRequest({ query: "é".repeat(101) }),
     ["query"],
   );
+  assert.deepEqual(validateSuggestOpeningOrgsRequest({ query: "ab\0" }), [
+    "query",
+  ]);
   assert.deepEqual(
     validateSuggestOpeningOrgsRequest({ query: "ab", region: "1x" }),
     ["region"],
@@ -500,6 +509,9 @@ test("the ideal job trims, keeps line breaks, and counts code points", () => {
     validateSetIdealJobRequest({ ideal_job: "😀".repeat(2001) }),
     ["ideal_job"],
   );
+  assert.deepEqual(validateSetIdealJobRequest({ ideal_job: "a\0b" }), [
+    "ideal_job",
+  ]);
 });
 
 test("looking for a job requires an explicit boolean", () => {

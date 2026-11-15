@@ -20,6 +20,6 @@ scalar HubUserDID extends string;
 scalar HubHandle extends string;
 
 /** A Hub user's ideal job (PROF-JOB-001): plain text of 1 to 2,000 code
- * points after trimming, internal line breaks kept. */
+ * points after trimming, internal line breaks kept, without U+0000. */
 @maxLength(2000)
 scalar IdealJob extends string;

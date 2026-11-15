@@ -93,7 +93,7 @@ func (q OpeningSearchFilters) Validate() []string {
 	fields := []string{}
 	if q.Keyword != nil {
 		size := utf8.RuneCountInString(string(*q.Keyword))
-		if size < 2 || size > 200 {
+		if size < 2 || size > 200 || hasNUL(string(*q.Keyword)) {
 			fields = append(fields, "keyword")
 		}
 	}
@@ -146,6 +146,10 @@ func validateList[T comparable](field string, items []T, max int, valid func(T) 
 	return fields
 }
 
+// hasNUL reports text PostgreSQL cannot store or compare, so validation
+// refuses it instead of the query failing.
+func hasNUL(value string) bool { return strings.ContainsRune(value, 0) }
+
 func isWorkArrangement(value common.OpeningWorkArrangement) bool {
 	return value == common.OpeningOnSite || value == common.OpeningHybrid || value == common.OpeningRemote
 }
@@ -187,8 +191,7 @@ func (q OpeningSearchQuery) Validate() []string {
 	}
 	switch q.EffectiveSort() {
 	case SortIdealJobMatch:
-		if q.IdealJobText == nil || *q.IdealJobText == "" ||
-			utf8.RuneCountInString(string(*q.IdealJobText)) > hub.MaxIdealJobCodePoints {
+		if q.IdealJobText == nil || !hub.IsIdealJob(*q.IdealJobText) {
 			fields = append(fields, "ideal_job_text")
 		}
 	default:
@@ -249,7 +252,8 @@ func (q *SuggestOpeningOrgsQuery) Normalize() {
 }
 
 func (q SuggestOpeningOrgsQuery) Validate() []string {
-	if size := utf8.RuneCountInString(string(q.Query)); size < 2 || size > 100 {
+	if size := utf8.RuneCountInString(string(q.Query)); size < 2 || size > 100 ||
+		hasNUL(string(q.Query)) {
 		return []string{"query"}
 	}
 	return []string{}

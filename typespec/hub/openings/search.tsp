@@ -19,12 +19,12 @@ using TypeSpec.Http;
 
 namespace Vetchium.Hub.Openings;
 
-/** Counted in code points after trimming. */
+/** Counted in code points after trimming; U+0000 is refused. */
 @minLength(2)
 @maxLength(200)
 scalar OpeningSearchKeyword extends string;
 
-/** Counted in code points after trimming. */
+/** Counted in code points after trimming; U+0000 is refused. */
 @minLength(2)
 @maxLength(100)
 scalar OrgSuggestionQuery extends string;
