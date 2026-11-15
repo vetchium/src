@@ -545,8 +545,7 @@ export const de = {
   preferences: {
     documentTitle: "Präferenzen | Vetchium",
     title: "Präferenzen",
-    description:
-      "Legen Sie fest, wie Vetchium für Sie arbeitet. Nur Sie sehen diese Angaben.",
+    description: "Legen Sie fest, wie Vetchium für Sie arbeitet.",
     languageTitle: "Anzeigesprache",
     languageHelp:
       "Gilt für dieses Portal und für die E-Mails, die Vetchium Ihnen sendet.",

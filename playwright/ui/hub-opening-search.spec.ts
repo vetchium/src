@@ -571,6 +571,38 @@ test("the match sort ranks by the ideal job, survives reload and back, and works
   ]);
 });
 
+test("a new ideal job saved in Preferences reranks a match search the page already showed", async ({
+  hubUser,
+  org,
+  page,
+  request,
+}) => {
+  const word = token();
+  const first = token();
+  const second = token();
+  await publish(new OrgsAPI(request, "sgp"), await org("sgp"), [
+    content(`${word} ${first} lead`),
+    content(`${word} ${second} lead`),
+  ]);
+  await signIn(page, await hubUser("sgp"));
+  await saveIdealJob(page, `${first} engineering`);
+  await page.goto(`${HUB_PORTAL}/openings?q=${word}&sort=match`);
+  await expect(titles(page, word)).toHaveText([`${word} ${first} lead`]);
+
+  // In-app navigation keeps the cached search, which must not outlive the
+  // ideal job it was ranked by.
+  await page.getByRole("menuitem", { name: "Preferences" }).click();
+  await expect(page).toHaveURL(`${HUB_PORTAL}/settings/preferences`);
+  await page.getByLabel("My ideal job").fill(`${second} engineering`);
+  await page.getByRole("button", { name: "Save ideal job" }).click();
+  await expect(
+    page.getByRole("button", { name: "Save ideal job" }),
+  ).toHaveCount(0);
+  await page.goBack();
+  await expect(page).toHaveURL(`${HUB_PORTAL}/openings?q=${word}&sort=match`);
+  await expect(titles(page, word)).toHaveText([`${word} ${second} lead`]);
+});
+
 test("a hub-ideal-job-missing answer links to Preferences", async ({
   hubUser,
   page,

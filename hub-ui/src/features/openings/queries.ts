@@ -46,12 +46,16 @@ export function useOpeningTags(): OpeningTagCatalogState {
   return useOpeningTagCatalog(openingTagsQueryKey, hubAPI.listOpeningTags);
 }
 
+/** Saving a new ideal job invalidates these, since a cached match-sorted
+ * page and its pagination key reflect the old one. */
+export const openingSearchQueryKey = ["hub", "opening-search"] as const;
+
 export function useOpeningSearchQuery(
   request: SearchOpeningsRequest,
   enabled = true,
 ) {
   return useQuery({
-    queryKey: ["hub", "opening-search", request],
+    queryKey: [...openingSearchQueryKey, request],
     queryFn: () => hubAPI.searchOpenings(request),
     retry: false,
     enabled,

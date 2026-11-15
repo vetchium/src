@@ -519,7 +519,7 @@ export const en = {
   preferences: {
     documentTitle: "Preferences | Vetchium",
     title: "Preferences",
-    description: "Choose how Vetchium works for you. Only you can see these.",
+    description: "Choose how Vetchium works for you.",
     languageTitle: "Display language",
     languageHelp: "Used for this portal and for the emails Vetchium sends you.",
     jobSearchTitle: "Job search",

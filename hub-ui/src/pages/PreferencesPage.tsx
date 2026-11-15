@@ -24,6 +24,7 @@ import { hubAPI } from "../api/hub";
 import { usePreferences } from "../app/PreferencesContext";
 import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { openingSearchQueryKey } from "../features/openings/queries";
 import {
   isIdealJobValid,
   JobSearchFields,
@@ -43,7 +44,10 @@ function JobSearchPreferenceFields({ me }: { me: MyInfoResponse }) {
   const saveIdealJob = useMutation({
     mutationFn: (request: SetIdealJobRequest) => hubAPI.setIdealJob(request),
     onSuccess: async (_, request) => {
-      await queryClient.invalidateQueries({ queryKey: myInfoQueryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: myInfoQueryKey }),
+        queryClient.invalidateQueries({ queryKey: openingSearchQueryKey }),
+      ]);
       setIdealJob(request.ideal_job);
       void message.success(t("preferences.saved"));
     },
