@@ -2,6 +2,7 @@ package common
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/moov-io/iso3166"
 )
@@ -20,6 +21,7 @@ func NormalizeDisplayName(value DisplayName) DisplayName {
 }
 
 func IsDisplayName(value DisplayName) bool {
-	length := len([]rune(NormalizeDisplayName(value)))
-	return length >= 1 && length <= 200
+	normalized := string(NormalizeDisplayName(value))
+	length := utf8.RuneCountInString(normalized)
+	return length >= 1 && length <= 200 && !strings.ContainsRune(normalized, 0)
 }

@@ -27,16 +27,20 @@ scalar ProfileEntryID extends string;
 @pattern("^[0-9]{4}-(0[1-9]|1[0-2])$")
 scalar ProfileMonth extends string;
 
+/** Without U+0000, which PostgreSQL text cannot hold. */
 @minLength(1)
 @maxLength(200)
 scalar ProfileTitle extends string;
 
+/** Without U+0000. */
 @maxLength(2000)
 scalar ProfileLongText extends string;
 
+/** Without U+0000. */
 @maxLength(200)
 scalar ProfileLocation extends string;
 
+/** Without U+0000. */
 @maxLength(249)
 scalar EducationSupportingText extends string;
 

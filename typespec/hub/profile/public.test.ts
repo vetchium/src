@@ -12,9 +12,11 @@ import {
   normalizeSaveWorkExperienceRequest,
   normalizeSetPublicFieldsRequest,
   normalizeWebsiteURL,
+  validateSaveCertificationRequest,
   validateSaveEducationalQualificationRequest,
   validateSaveWebsiteRequest,
   validateSaveWorkExperienceRequest,
+  validateSetPublicFieldsRequest,
 } from "./public.ts";
 
 test("profile addressing and month boundaries", () => {
@@ -156,5 +158,39 @@ test("website URLs normalize and validate identically to the Go companion", () =
       normalizeSaveWebsiteRequest({ url: " https://GitHub.com/octocat/ " }),
     ),
     [],
+  );
+});
+
+test("profile text refuses U+0000 like the Go companion", () => {
+  const nul = "a\0b";
+  assert.deepEqual(
+    validateSetPublicFieldsRequest({ display_name: nul, biography: nul }),
+    ["display_name", "biography"],
+  );
+  assert.deepEqual(
+    validateSaveWorkExperienceRequest({
+      employer_domain: "example.com",
+      job_title: nul,
+      start_month: "2020-01",
+      location: nul,
+      description: nul,
+    }),
+    ["job_title", "location", "description"],
+  );
+  assert.deepEqual(
+    validateSaveEducationalQualificationRequest({
+      institution_domain: "example.edu",
+      degree: nul,
+      title: nul,
+      supporting_text: nul,
+    }),
+    ["degree", "title", "supporting_text"],
+  );
+  assert.deepEqual(
+    validateSaveCertificationRequest({
+      title: nul,
+      credential_url: "https://example.com/credential",
+    }),
+    ["title"],
   );
 });

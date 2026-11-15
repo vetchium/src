@@ -35,6 +35,9 @@ claim saga, mesh trust, and durable commands in
   whitespace and line breaks.
 - Count character limits in Unicode code points and enforce them in the
   authoritative API.
+- Refuse U+0000 in every profile text field (display name, biography, titles,
+  locations, descriptions, supporting text) as `validation-failed`; PostgreSQL
+  text cannot hold it.
 - **PROF-GEN-010** Hard-delete live professional-email, website, work,
   certification, language, and education records when the owner deletes them.
   The audit record keeps only a minimal non-sensitive summary.

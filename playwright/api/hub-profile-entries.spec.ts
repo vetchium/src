@@ -633,6 +633,54 @@ test("work experience, certification, and education writes require authenticatio
     expect(malformedEdu.status()).toBe(400);
     expect((await malformedEdu.json()).fields).toContain("id");
 
+    // 400: PostgreSQL text cannot hold U+0000, so every profile text field
+    // refuses it instead of failing the write with a 500.
+    const nul = "a\u0000b";
+    for (const [path, body, fields] of [
+      [
+        "/profile/set-public-fields",
+        { display_name: nul, biography: nul },
+        ["display_name", "biography"],
+      ],
+      [
+        "/profile/save-work-experience",
+        {
+          employer_domain: `wexp-${label}.example.test`,
+          job_title: nul,
+          start_month: "2015-01",
+          location: nul,
+          description: nul,
+        },
+        ["job_title", "location", "description"],
+      ],
+      [
+        "/profile/save-certification",
+        { title: nul, credential_url: "https://example.test/c" },
+        ["title"],
+      ],
+      [
+        "/profile/save-education",
+        {
+          institution_domain: `edu-${label}.example.test`,
+          degree: nul,
+          title: nul,
+          supporting_text: nul,
+        },
+        ["degree", "title", "supporting_text"],
+      ],
+    ] as const) {
+      const key = hubIdempotencyKey();
+      keys.push(key);
+      const refused = await hub.post(path, body, {
+        token,
+        idempotencyKey: key,
+      });
+      expect(refused.status(), path).toBe(400);
+      const refusedBody = await refused.json();
+      expect(refusedBody.type, path).toBe(ValidationFailedError.type);
+      expect(refusedBody.fields, path).toEqual(fields);
+    }
+
     // 409: a well-formed id that names no owned entry is a conflict, for
     // both an update (save) and a delete, rather than a silent no-op.
     const foreignSaveWorkKey = hubIdempotencyKey();
