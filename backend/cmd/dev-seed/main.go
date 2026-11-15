@@ -8,9 +8,9 @@
 //   - "domains" (the default) seeds the admin-managed Hub signup domain
 //     allowlist. It runs automatically as one dev-seed-<tenant> container per
 //     `make dev`.
-//   - "hub-profiles" seeds Hub user profiles from a hand-edited fixture file
-//     under dev/hub-seed-profiles/. It runs on demand, from the host, via
-//     `make dev-seed-hub-profiles`.
+//   - "hub-profiles" seeds Hub user profiles and job-search settings from a
+//     hand-edited fixture file under dev/hub-seed-profiles/. It runs on
+//     demand, from the host, via `make dev-seed-hub-profiles`.
 //   - "orgs" creates a hiring company per plan in each tenant (org1 to
 //     org3.<tenant>.test) through the Org APIs (signup, a simulated card, the
 //     plan, invited users, and Openings in each reachable state). It runs on

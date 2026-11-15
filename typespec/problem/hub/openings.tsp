@@ -31,3 +31,25 @@ alias HubOrgUnavailableErrorResponse = Response<
   503,
   typeof HubOrgUnavailableError
 >;
+
+const HubRegionUnavailableError = #{
+  type: "vetchium-problem-details/hub-region-unavailable",
+  title: "Region unavailable",
+  status: 503,
+  detail: "The requested region is temporarily unavailable",
+};
+alias HubRegionUnavailableErrorResponse = Response<
+  503,
+  typeof HubRegionUnavailableError
+>;
+
+const HubIdealJobMissingError = #{
+  type: "vetchium-problem-details/hub-ideal-job-missing",
+  title: "Ideal job missing",
+  status: 422,
+  detail: "Save your ideal job in Preferences to sort by match",
+};
+alias HubIdealJobMissingErrorResponse = Response<
+  422,
+  typeof HubIdealJobMissingError
+>;

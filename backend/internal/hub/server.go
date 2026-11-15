@@ -19,6 +19,7 @@ import (
 	"backend/internal/hub/emailchange"
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/hubapplicationclient"
+	"backend/internal/openingsearch"
 	"backend/internal/profileclient"
 	"backend/internal/profilepicture"
 	"backend/internal/publicopeningclient"
@@ -55,6 +56,7 @@ type Server struct {
 	Applications   *hubapplicationclient.Client
 	Conversations  *conversationclient.Client
 	PublicOpenings publicopenings.Reader
+	OpeningSearch  openingsearch.Reader
 	Pictures       PictureStorage
 	// OfferLetters signs the letters of local Orgs' offers to this tenant's
 	// applicants.

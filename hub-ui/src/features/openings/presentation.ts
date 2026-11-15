@@ -9,6 +9,7 @@ import type {
 import type { TFunction } from "i18next";
 import {
   type ApplicationQuestion,
+  type OpeningSalary,
   QuestionMultipleChoice,
   QuestionNumber,
   QuestionSingleChoice,
@@ -76,6 +77,15 @@ function describeQuestion(
   return parts.join(" · ");
 }
 
+export function formatSalary(
+  t: TFunction,
+  locale: string,
+  { currency, min, max, period }: OpeningSalary,
+): string {
+  const numbers = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+  return `${currency} ${numbers.format(min)}–${numbers.format(max)} ${t(`orgPage.salaryPeriods.${period}`, { defaultValue: period })}`;
+}
+
 export function openingPresentation(
   t: TFunction,
   locale: string,
@@ -83,7 +93,6 @@ export function openingPresentation(
 ): OpeningPresentation {
   const countries = new Intl.DisplayNames([locale], { type: "region" });
   const languages = new Intl.DisplayNames([locale], { type: "language" });
-  const numbers = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
   return {
     labels: {
       description: t("orgPage.fields.description"),
@@ -119,8 +128,8 @@ export function openingPresentation(
             : t("orgPage.experienceMax", { max }),
       minimumEducation: (value) =>
         t(`orgPage.education.${value}`, { defaultValue: value }),
-      salary: (code, min, max, period) =>
-        `${code} ${numbers.format(min)}–${numbers.format(max)} ${t(`orgPage.salaryPeriods.${period}`, { defaultValue: period })}`,
+      salary: (currency, min, max, period) =>
+        formatSalary(t, locale, { currency, min, max, period }),
       tag: (oid) => openingTagName(tags, oid, locale),
     },
     questions: {

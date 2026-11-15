@@ -600,6 +600,8 @@ SELECT d.domain::text AS org_domain, org.display_name AS org_display_name,
     a.application_number, a.application_state, stage.stage_kind,
     -- The applicant's own answers as asked; their currency is the Org's.
     a.answers,
+    -- Empty when the applicant shared none (HP-APP-002).
+    COALESCE(a.snapshot ->> 'ideal_job', '')::text AS ideal_job,
     (offer.offer_number IS NOT NULL)::boolean AS has_offer,
     COALESCE(offer.offer_number, 0)::integer AS offer_number,
     COALESCE(offer.offer_status::text, '')::text AS offer_status,

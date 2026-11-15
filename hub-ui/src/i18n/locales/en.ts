@@ -519,7 +519,7 @@ export const en = {
   preferences: {
     documentTitle: "Preferences | Vetchium",
     title: "Preferences",
-    description: "Choose how Vetchium works for you. Only you can see these.",
+    description: "Choose how Vetchium works for you.",
     languageTitle: "Display language",
     languageHelp: "Used for this portal and for the emails Vetchium sends you.",
     jobSearchTitle: "Job search",
@@ -527,6 +527,16 @@ export const en = {
     jobCountriesHelp:
       "Choose up to 10 countries. Leave empty to explore all countries. Changing residence does not change these preferences.",
     saved: "Your preference was saved.",
+    idealJob: "My ideal job",
+    idealJobHelp:
+      "Shared with Orgs when you apply; used to find matching Openings.",
+    idealJobTooLong: "Use no more than 2,000 characters.",
+    lookingForJob: "Are you currently looking for a job?",
+    lookingForJobHelp:
+      "Only you can see this. Orgs, agencies and other Hub users never do.",
+    saveIdealJob: "Save ideal job",
+    discardChanges: "Discard changes",
+    unsavedChanges: "Unsaved changes",
     agencyRequestsTitle: "Agency chat requests",
     agenciesMayRequest: "Agencies may send me chat requests",
     agenciesMayRequestHelp1:
@@ -710,6 +720,58 @@ export const en = {
       year: "per year",
     },
   },
+  openingSearch: {
+    navigation: "Openings",
+    documentTitle: "Openings | Vetchium",
+    title: "Openings",
+    description:
+      "Find openings at organizations in one region at a time, starting with your own region.",
+    keyword: "Keyword",
+    keywordPlaceholder: "Job title or organization name",
+    keywordLength: "Enter 2 to 200 characters.",
+    search: "Search",
+    region: "Region",
+    moreFilters: "More filters",
+    any: "Any",
+    anyTime: "Any time",
+    org: "Organization",
+    orgPlaceholder: "Type a name or domain",
+    orgOption: "{{name}} ({{domain}})",
+    orgTypeMore: "Type at least two characters",
+    orgNoneFound: "No organizations found",
+    orgsUnavailable: "Organizations could not be loaded",
+    tags: "Tags",
+    tagsHelp: "Up to five. Openings with more of them come first.",
+    countries: "Where you may work",
+    countriesHelp:
+      "Up to ten. Remote openings open to one of them, or worldwide, also match.",
+    posted: "Date posted",
+    postedWithin: {
+      1: "Past 24 hours",
+      7: "Past week",
+      30: "Past month",
+    },
+    experience: "Your years of experience",
+    experienceHelp: "Openings whose range includes it, and those without one.",
+    education: "Your highest education",
+    educationHelp:
+      "Openings that ask for it or less, and those that ask for none.",
+    salary: "Only openings that show a salary",
+    loading: "Loading openings",
+    empty: "No openings match this search.",
+    clearFilters: "Clear filters",
+    regionUnavailable:
+      "The {{region}} region is not answering. Try again later or choose another region.",
+    sortBy: "Sort by",
+    sortNewest: "Newest",
+    sortMatch: "Best match for my ideal job",
+    matchNeedsIdealJob: "To sort by match, save your ideal job.",
+    addIdealJob: "Add your ideal job",
+    idealJobMissing:
+      "Your ideal job is not saved, so openings cannot be sorted by match.",
+    previous: "Previous",
+    next: "Next",
+  },
   applications: {
     documentTitle: "Applications | Vetchium",
     title: "Applications",
@@ -771,6 +833,10 @@ export const en = {
         title: "Your answers",
         help: "The questions as they were asked when you applied.",
         notAnswered: "Not answered",
+      },
+      idealJob: {
+        title: "Ideal job you shared",
+        help: "As saved when you applied. Later edits do not change it.",
       },
       yourApplication: "Your application",
       number: "Application",
@@ -876,6 +942,8 @@ export const en = {
       websites: "Websites",
       links_one: "{{count}} link",
       links_other: "{{count}} links",
+      idealJob: "Ideal job",
+      editIdealJob: "Edit my ideal job",
     },
     snapshotNote:
       "They get a copy of your profile as it is now. Later edits don't change it. Your picture, email address and professional emails are never shared.",
@@ -931,6 +999,15 @@ export const en = {
     description: "The page you requested does not exist.",
     action: "Go to home",
   },
+  jobSearchPrompt: {
+    title: "Your job search",
+    description:
+      "Describe your ideal job. You can change this any time in Preferences.",
+    save: "Save",
+    notNow: "Not now",
+    saved: "Your job search preferences were saved.",
+    saveNeedsIdealJob: "Describe your ideal job to save.",
+  },
   home: {
     applicationsTitle: "Applications that need you",
     applicationsBody_one: "{{count}} application is waiting for your answer.",
@@ -962,6 +1039,8 @@ export const en = {
     securityBody:
       "Turn on two-factor authentication so that a stolen password alone cannot open your account.",
     securityAction: "Set up two-factor authentication",
+    searchTitle: "Find openings",
+    searchLabel: "Search openings",
   },
   plans: {
     endingSoon: "Your paid access ends on {{date}}.",

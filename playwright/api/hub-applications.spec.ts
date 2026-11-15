@@ -588,6 +588,102 @@ test("a Hub user applies to and withdraws from a remote Org, which shows only Hu
   );
 });
 
+test("an application freezes the applicant's ideal job and never carries looking for a job", async ({
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await withWorlds(
+    request,
+    "sgp",
+    ["sgp", "usa1"],
+    async (applicant, worlds) => {
+      const setIdealJob = async (ideal_job: string) => {
+        const saved = await applicant.hub.setIdealJob(applicant.token, {
+          ideal_job,
+        });
+        expect(saved.status(), await saved.text()).toBe(204);
+      };
+      await setIdealJob("  Platform engineering\nNear Singapore  ");
+      const looking = await applicant.hub.setLookingForJob(applicant.token, {
+        looking_for_job: true,
+      });
+      expect(looking.status(), await looking.text()).toBe(204);
+      const shared = "Platform engineering\nNear Singapore";
+
+      const applied: Array<{ world: World; reference: ApplicationReference }> =
+        [];
+      for (const world of worlds) {
+        const opening = await publish(world, `Ideal ${world.tenant}`);
+        applied.push({
+          world,
+          reference: await expectCreated(
+            await apply(applicant, world.org.domain, opening.opening_number),
+            world.org.domain,
+            opening.opening_number,
+          ),
+        });
+      }
+      const expectShared = async (
+        { world, reference }: (typeof applied)[number],
+        idealJob: string | undefined,
+      ) => {
+        const mine = await applicant.hub.getMyApplication(
+          reference,
+          applicant.token,
+        );
+        const mineText = await mine.text();
+        expect(mine.status(), mineText).toBe(200);
+        const detail = JSON.parse(mineText) as MyApplicationDetail;
+        if (idealJob === undefined) {
+          expect(detail).not.toHaveProperty("ideal_job");
+        } else {
+          expect(detail.ideal_job).toBe(idealJob);
+        }
+        expect(mineText).not.toContain("looking_for_job");
+        const org = await world.api.getApplication(world.owner, {
+          opening_number: reference.opening_number,
+          application_number: reference.application_number,
+        });
+        const orgText = await org.text();
+        expect(org.status(), orgText).toBe(200);
+        const orgView = JSON.parse(orgText) as ApplicationDetail;
+        if (idealJob === undefined) {
+          expect(orgView.snapshot).not.toHaveProperty("ideal_job");
+        } else {
+          expect(orgView.snapshot.ideal_job).toBe(idealJob);
+        }
+        expect(orgText).not.toContain("looking_for_job");
+      };
+      for (const entry of applied) await expectShared(entry, shared);
+
+      // The snapshot keeps what was shared when applying.
+      await setIdealJob("Something else entirely");
+      for (const entry of applied) await expectShared(entry, shared);
+      await setIdealJob("");
+      for (const entry of applied) await expectShared(entry, shared);
+
+      // Applying without a saved ideal job shares none.
+      const [local] = worlds;
+      if (!local) throw new Error("expected a local Org");
+      const opening = await publish(local, "No Ideal Job");
+      await expectShared(
+        {
+          world: local,
+          reference: await expectCreated(
+            await apply(applicant, local.org.domain, opening.opening_number),
+            local.org.domain,
+            opening.opening_number,
+          ),
+        },
+        undefined,
+      );
+      expect(JSON.stringify(await myApplications(applicant))).not.toContain(
+        "looking_for_job",
+      );
+    },
+  );
+});
+
 test("an uncertain outcome is 202 with a pending operation and the original request recovers it", async ({
   request,
 }) => {

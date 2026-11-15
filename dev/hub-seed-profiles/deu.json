@@ -5,6 +5,8 @@
       "displayName": "Lukas Müller",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
+      "idealJob": "Software engineer building cloud services and APIs, open to a remote role.",
+      "lookingForJob": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -35,6 +37,7 @@
       "displayName": "Anna Schmidt",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
+      "idealJob": "Engineering manager for e-commerce platform teams.",
       "plan": "hub-silver-tier",
       "billingInterval": "month",
       "profilePicture": "avatar9.jpg",
@@ -84,6 +87,8 @@
       "displayName": "Jonas Weber",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
+      "idealJob": "Technical writer for engineering documentation and product guides.",
+      "lookingForJob": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -112,6 +117,7 @@
       "displayName": "Laura Fischer",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
+      "idealJob": "Finance manager or account manager working with enterprise customers.",
       "plan": "hub-silver-tier",
       "billingInterval": "year",
       "profilePicture": "avatar10.jpg",
@@ -167,6 +173,7 @@
       "displayName": "Maximilian Schneider",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
+      "dismissJobSearchPrompt": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -197,6 +204,7 @@
       "displayName": "Hannah Becker",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
+      "idealJob": "Head of people operations for a growing engineering workforce.",
       "plan": "hub-silver-tier",
       "billingInterval": "month",
       "profilePicture": "avatar11.jpg",
@@ -264,6 +272,7 @@
       "displayName": "Sophie Hoffmann",
       "preferredLanguage": "de-DE",
       "residentCountry": "DE",
+      "idealJob": "Director of Engineering for enterprise cloud platforms and security.",
       "plan": "hub-silver-tier",
       "billingInterval": "year",
       "profilePicture": "avatar12.jpg",

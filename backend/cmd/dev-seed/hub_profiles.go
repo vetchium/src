@@ -22,6 +22,7 @@ import (
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
 	hubprofile "github.com/vetchium/src/typespec/hub/profile"
 	hubsubscriptions "github.com/vetchium/src/typespec/hub/subscriptions"
+	hubusers "github.com/vetchium/src/typespec/hub/users"
 	"golang.org/x/sync/errgroup"
 
 	"backend/internal/service"
@@ -166,6 +167,9 @@ func (c *hubProfileClient) seedUser(
 		if err := c.uploadPicture(ctx, session, user.ProfilePicture); err != nil {
 			return fmt.Errorf("upload picture: %w", err)
 		}
+	}
+	if err := c.setJobSearch(ctx, session, user); err != nil {
+		return err
 	}
 	plan := user.Plan
 	if user.BillingInterval != "" {
@@ -450,6 +454,37 @@ func (c *hubProfileClient) uploadPicture(
 	}
 	if status != http.StatusNoContent {
 		return fmt.Errorf("returned %d: %s", status, body)
+	}
+	return nil
+}
+
+// setJobSearch applies the fixture's job-search settings as the Home card and
+// Settings > Preferences would. Applications seed later, so their snapshots
+// carry the ideal job.
+func (c *hubProfileClient) setJobSearch(
+	ctx context.Context, session string, user hubUserFixture,
+) error {
+	if user.IdealJob != "" {
+		if err := c.writeProfile(ctx, session, "/api/hub/set-ideal-job",
+			hubusers.SetIdealJobRequest{IdealJob: &user.IdealJob},
+		); err != nil {
+			return fmt.Errorf("set ideal job: %w", err)
+		}
+	}
+	if user.LookingForJob {
+		if err := c.writeProfile(ctx, session, "/api/hub/set-looking-for-job",
+			hubusers.SetLookingForJobRequest{LookingForJob: &user.LookingForJob},
+		); err != nil {
+			return fmt.Errorf("set looking for job: %w", err)
+		}
+	}
+	if user.DismissJobSearchPrompt {
+		if err := c.writeProfile(ctx, session,
+			"/api/hub/dismiss-job-search-prompt",
+			hubusers.DismissJobSearchPromptRequest{},
+		); err != nil {
+			return fmt.Errorf("dismiss job search prompt: %w", err)
+		}
 	}
 	return nil
 }

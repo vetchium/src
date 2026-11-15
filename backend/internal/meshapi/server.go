@@ -17,6 +17,7 @@ import (
 	"backend/internal/hubapplicationclient"
 	"backend/internal/listingclient"
 	"backend/internal/listings"
+	"backend/internal/openingsearch"
 	"backend/internal/profileclient"
 	"backend/internal/providerwork"
 	"backend/internal/publicopeningclient"
@@ -59,6 +60,9 @@ type Server struct {
 	Openings       *publicopeningclient.Client
 	Applications   *hubapplicationclient.Client
 	PublicOpenings publicopenings.Reader
+	// OpeningSearch answers this tenant's Opening search; Openings asks
+	// another tenant's peer.
+	OpeningSearch openingsearch.Reader
 	// ListingPeers reads another tenant's Listings; PublicListings this
 	// tenant's.
 	ListingPeers   *listingclient.Client

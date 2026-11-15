@@ -111,6 +111,13 @@ agency's Home and its Contacts Requests tab, and the agency declined user
 7's for a window. For `age1.sgp.test` they are `david.chen@`,
 `ashley.williams@`, `brian.oconnor@`, and `natasha.brooks@usa1.test`.
 
+Seeded Hub users have an ideal job, except users 5 and 7 of each region's
+fixture: user 5 dismissed the Home "Your job search" card and user 7 still
+sees it (`meiling.ong@` and `jiahao.koh@sgp.test`). The published seeded
+Openings vary arrangement, remote eligibility, employment type, salary,
+experience, and education, so every Opening search filter and the ideal-job
+match sort return results in every region.
+
 Every seeded address ends in `.test`, such as `admin@sgp.test`,
 `wei.tan@sgp.test`, and `agent1@age1.sgp.test`. Hub signup accepts addresses at `<region>.test`; `sgp` also accepts
 `test1.test` to `test100.test`. Signup and reset emails arrive in Mailpit.

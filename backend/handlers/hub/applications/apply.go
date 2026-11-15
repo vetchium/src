@@ -153,7 +153,8 @@ func answersInvalid(
 }
 
 // applicantSnapshot is the caller's profile view as of now, without the
-// picture; professional-email evidence is not part of the view.
+// picture, and their saved ideal job; professional-email evidence is not part
+// of the view, and whether they are looking for a job is never read here.
 func applicantSnapshot(
 	ctx context.Context, q sqlc.Querier, did pgtype.UUID,
 ) (profile.ApplicantSnapshot, error) {
@@ -173,6 +174,14 @@ func applicantSnapshot(
 	if row.Biography.Valid {
 		biography := profile.ProfileLongText(row.Biography.String)
 		snapshot.Biography = &biography
+	}
+	idealJob, err := q.GetHubIdealJob(ctx, did)
+	if err != nil {
+		return profile.ApplicantSnapshot{}, fmt.Errorf("read ideal job: %w", err)
+	}
+	if idealJob.Valid {
+		text := hubspec.IdealJob(idealJob.String)
+		snapshot.IdealJob = &text
 	}
 	for _, item := range []struct {
 		name   string

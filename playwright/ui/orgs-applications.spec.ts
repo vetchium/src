@@ -221,6 +221,7 @@ test("application detail completes a review, moves past stages, and ends the app
     const application = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
       coverNote: "Wrote the first program",
+      idealJob: "Compilers and languages\nNear the Navy Yard",
     });
     await shortlist(api, owner, n, application, stageOf(stages, 0));
     await signIn(page, org);
@@ -231,6 +232,11 @@ test("application detail completes a review, moves past stages, and ends the app
     ).toBeVisible();
     await expect(page.getByText("In pipeline", { exact: true })).toBeVisible();
     await expect(page.getByText("Wrote the first program")).toBeVisible();
+    // The ideal job shared when applying, with its line breaks.
+    const idealJob = page.getByRole("cell").filter({ hasText: /^Ideal job/ });
+    await expect(
+      idealJob.getByText("Compilers and languages\nNear the Navy Yard"),
+    ).toHaveCSS("white-space", "pre-wrap");
 
     await page.getByRole("button", { name: "Mark review completed" }).click();
     await page
@@ -715,6 +721,7 @@ test("a removed applicant reads as Removed applicant", async ({
     const application = await seedApplicationNumber(world, n, {
       name: "Grace Hopper",
       state: "withdrawn",
+      idealJob: "Compilers",
     });
     ageTerminalApplication(world, n, application, 366);
     await expect
@@ -736,8 +743,9 @@ test("a removed applicant reads as Removed applicant", async ({
         /The retention period ended, so this applicant's data was deleted/,
       ),
     ).toBeVisible();
-    // Nothing else of the profile is shown.
+    // Nothing else of the profile is shown, the ideal job included.
     await expect(page.getByText("Grace Hopper")).toHaveCount(0);
+    await expect(page.getByText("Compilers")).toHaveCount(0);
   });
 });
 

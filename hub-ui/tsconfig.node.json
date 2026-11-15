@@ -17,6 +17,7 @@
     "vite.config.ts",
     "src/**/*.test.ts",
     "src/app/hub-region-settings.ts",
-    "src/features/subscriptions/prices.ts"
+    "src/features/subscriptions/prices.ts",
+    "src/features/openings/searchParams.ts"
   ]
 }

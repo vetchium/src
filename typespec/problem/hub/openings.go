@@ -22,3 +22,17 @@ var OrgUnavailableError = problem.Details{
 	Status: 503,
 	Detail: "The requested Org is temporarily unavailable",
 }
+
+var RegionUnavailableError = problem.Details{
+	Type:   "vetchium-problem-details/hub-region-unavailable",
+	Title:  "Region unavailable",
+	Status: 503,
+	Detail: "The requested region is temporarily unavailable",
+}
+
+var IdealJobMissingError = problem.Details{
+	Type:   "vetchium-problem-details/hub-ideal-job-missing",
+	Title:  "Ideal job missing",
+	Status: 422,
+	Detail: "Save your ideal job in Preferences to sort by match",
+}

@@ -36,6 +36,7 @@ type PublicOpeningSummary struct {
 	EmploymentType   common.OpeningEmploymentType  `json:"employment_type"`
 	FirstPublishedAt time.Time                     `json:"first_published_at"`
 	Tags             []common.OpeningTagOID        `json:"tags"`
+	Salary           *common.OpeningSalary         `json:"salary,omitempty"`
 }
 
 func (s PublicOpeningSummary) MarshalJSON() ([]byte, error) {

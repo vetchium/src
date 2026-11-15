@@ -1,5 +1,5 @@
-// Package publicopeningclient reads an Org's public Openings through the local
-// relay or its mutually authenticated home-tenant peer.
+// Package publicopeningclient reads public Openings, an Org's or a region's
+// search, through the local relay or a mutually authenticated tenant peer.
 package publicopeningclient
 
 import (
@@ -108,7 +108,7 @@ func (c *Client) PeerList(
 	ctx context.Context, tenant directoryspec.TenantID,
 	request openingsspec.ListOrgOpeningsRequest,
 ) (ListOutcome, error) {
-	endpoint, tlsConfig, err := c.peerEndpoint(tenant, "list")
+	endpoint, tlsConfig, err := c.peerEndpoint(tenant, "org-openings/list")
 	if err != nil {
 		return ListOutcome{}, err
 	}
@@ -127,7 +127,7 @@ func (c *Client) PeerGet(
 	ctx context.Context, tenant directoryspec.TenantID,
 	request openingsspec.GetOrgOpeningRequest,
 ) (GetOutcome, error) {
-	endpoint, tlsConfig, err := c.peerEndpoint(tenant, "get")
+	endpoint, tlsConfig, err := c.peerEndpoint(tenant, "org-openings/get")
 	if err != nil {
 		return GetOutcome{}, err
 	}
@@ -146,7 +146,7 @@ func (c *Client) PeerAgencies(
 	ctx context.Context, tenant directoryspec.TenantID,
 	request openingsspec.MeshListOpeningAgenciesRequest,
 ) (AgenciesOutcome, error) {
-	endpoint, tlsConfig, err := c.peerEndpoint(tenant, "agencies")
+	endpoint, tlsConfig, err := c.peerEndpoint(tenant, "org-openings/agencies")
 	if err != nil {
 		return AgenciesOutcome{}, err
 	}
@@ -162,7 +162,7 @@ func (c *Client) PeerAgencies(
 }
 
 func (c *Client) peerEndpoint(
-	tenant directoryspec.TenantID, action string,
+	tenant directoryspec.TenantID, path string,
 ) (string, *tls.Config, error) {
 	if !directoryspec.IsTenantID(tenant) || c.baseTLS == nil {
 		return "", nil, fmt.Errorf("%w: invalid peer configuration", ErrInvalidResponse)
@@ -170,8 +170,7 @@ func (c *Client) peerEndpoint(
 	name := string(tenant) + ".mesh.vetchium.com"
 	tlsConfig := c.baseTLS.Clone()
 	tlsConfig.ServerName = name
-	return "https://" + name + ":8443/api/mesh/org-openings/" + action,
-		tlsConfig, nil
+	return "https://" + name + ":8443/api/mesh/" + path, tlsConfig, nil
 }
 
 func (c *Client) read(
@@ -202,7 +201,7 @@ func (c *Client) read(
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("read public Org Openings: %w", err)
+		return nil, fmt.Errorf("read public Openings: %w", err)
 	}
 	defer func() { _ = response.Body.Close() }()
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))

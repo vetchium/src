@@ -3,9 +3,10 @@ import "./public.tsp";
 namespace Vetchium.Hub.Profile;
 
 /**
- * The profile view fields an application keeps as they were when the Hub user
- * applied: the public profile without the picture. Professional-email
- * evidence never enters it.
+ * What an application keeps of the Hub user as it was when they applied: the
+ * public profile without the picture, and their saved ideal job.
+ * Professional-email evidence and whether they are looking for a job never
+ * enter it.
  */
 model ApplicantSnapshot {
   display_name: Vetchium.DisplayName;
@@ -28,4 +29,7 @@ model ApplicantSnapshot {
 
   @maxItems(30)
   educational_qualifications: EducationalQualification[];
+
+  /** The applicant's saved ideal job at apply time (PROF-JOB-005). */
+  ideal_job?: Vetchium.Hub.IdealJob;
 }

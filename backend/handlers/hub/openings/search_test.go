@@ -1,0 +1,240 @@
+package openings
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	openingsspec "github.com/vetchium/src/typespec/hub/openings"
+	"github.com/vetchium/src/typespec/problem"
+	hubproblem "github.com/vetchium/src/typespec/problem/hub"
+
+	"backend/internal/apiserver"
+	"backend/internal/db/sqlc"
+	hubruntime "backend/internal/hub"
+	"backend/internal/middleware"
+	"backend/internal/openingsearch"
+	"backend/internal/publicopeningclient"
+	"backend/internal/regions"
+)
+
+type searchQueries struct {
+	sqlc.Querier
+	idealJob      pgtype.Text
+	idealJobError error
+	idealJobReads atomic.Int32
+	searches      atomic.Int32
+	searched      sqlc.SearchOpeningsParams
+}
+
+func (*searchQueries) AuthenticateHubSession(
+	context.Context, []byte,
+) (sqlc.AuthenticateHubSessionRow, error) {
+	return sqlc.AuthenticateHubSessionRow{
+		HubUserDid:      pgtype.UUID{Bytes: [16]byte{6: 0x40, 8: 0x80, 15: 1}, Valid: true},
+		HubSessionID:    pgtype.UUID{Bytes: [16]byte{6: 0x40, 8: 0x80, 15: 2}, Valid: true},
+		AuthenticatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	}, nil
+}
+
+func (q *searchQueries) GetHubIdealJob(context.Context, pgtype.UUID) (pgtype.Text, error) {
+	q.idealJobReads.Add(1)
+	return q.idealJob, q.idealJobError
+}
+
+func (q *searchQueries) SearchOpenings(
+	_ context.Context, params sqlc.SearchOpeningsParams,
+) ([]sqlc.SearchOpeningsRow, error) {
+	q.searches.Add(1)
+	q.searched = params
+	return nil, nil
+}
+
+func (*searchQueries) SuggestOpeningOrgs(
+	context.Context, sqlc.SuggestOpeningOrgsParams,
+) ([]sqlc.SuggestOpeningOrgsRow, error) {
+	return nil, nil
+}
+
+// relay records each relay body and answers an empty page or Org list.
+type relay struct {
+	server *httptest.Server
+	calls  atomic.Int32
+	body   atomic.Value
+}
+
+func newRelay(t *testing.T) *relay {
+	t.Helper()
+	r := &relay{}
+	r.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		r.calls.Add(1)
+		data, _ := io.ReadAll(req.Body)
+		r.body.Store(string(data))
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(req.URL.Path, "/suggest-orgs") {
+			_, _ = w.Write([]byte(`{"orgs":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"openings":[]}`))
+	}))
+	t.Cleanup(r.server.Close)
+	return r
+}
+
+func callSearch(
+	t *testing.T, queries *searchQueries, relay *relay, body string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	return callHandler(t, Search, queries, relay, body, io.Discard)
+}
+
+func callHandler(
+	t *testing.T, handler func(*hubruntime.Server) http.HandlerFunc,
+	queries *searchQueries, relay *relay, body string, logs io.Writer,
+) *httptest.ResponseRecorder {
+	t.Helper()
+	catalog, err := regions.Load(filepath.Join(
+		"..", "..", "..", "..", "config", "ci", "signup-regions.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &hubruntime.Server{
+		Runtime: apiserver.New(nil, slog.New(slog.NewJSONHandler(logs,
+			&slog.HandlerOptions{Level: slog.LevelDebug}))),
+		Queries:       queries,
+		Regions:       catalog,
+		TenantID:      "sgp",
+		OpeningSearch: openingsearch.Reader{Queries: queries, TenantID: "sgp"},
+		Openings:      publicopeningclient.NewRelay(relay.server.URL, "relay-secret", time.Second),
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/hub/search-openings",
+		strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer session-token")
+	response := httptest.NewRecorder()
+	middleware.HubAuth(s)(handler(s)).ServeHTTP(response, request)
+	return response
+}
+
+func TestSearchWithoutIdealJobIsRefusedBeforeRouting(t *testing.T) {
+	t.Parallel()
+	for _, body := range []string{
+		`{"sort":"ideal_job_match"}`,
+		`{"sort":"ideal_job_match","region":"usa1"}`,
+	} {
+		queries := &searchQueries{}
+		relay := newRelay(t)
+		response := callSearch(t, queries, relay, body)
+		var details problem.Details
+		if err := json.Unmarshal(response.Body.Bytes(), &details); err != nil ||
+			response.Code != http.StatusUnprocessableEntity ||
+			details.Type != hubproblem.IdealJobMissingError.Type {
+			t.Fatalf("%s: status=%d body=%s", body, response.Code, response.Body.String())
+		}
+		if queries.searches.Load() != 0 || relay.calls.Load() != 0 {
+			t.Fatalf("%s: searched locally %d times, relayed %d times",
+				body, queries.searches.Load(), relay.calls.Load())
+		}
+	}
+}
+
+func TestSearchSendsIdealJobTextOnlyUnderTheMatchSort(t *testing.T) {
+	t.Parallel()
+	const text = "Go backend engineer"
+	saved := pgtype.Text{String: text, Valid: true}
+
+	queries := &searchQueries{idealJob: saved}
+	response := callSearch(t, queries, newRelay(t), `{"sort":"ideal_job_match"}`)
+	if response.Code != http.StatusOK ||
+		queries.searched.IdealJobText != (pgtype.Text{String: text, Valid: true}) {
+		t.Fatalf("local match: status=%d params=%+v", response.Code, queries.searched)
+	}
+
+	queries = &searchQueries{idealJob: saved}
+	relay := newRelay(t)
+	response = callSearch(t, queries, relay, `{"sort":"ideal_job_match","region":"usa1"}`)
+	var sent openingsspec.RelaySearchOpeningsRequest
+	if response.Code != http.StatusOK ||
+		json.Unmarshal([]byte(relay.body.Load().(string)), &sent) != nil ||
+		sent.TenantID != "usa1" || sent.Query.EffectiveSort() != openingsspec.SortIdealJobMatch ||
+		sent.Query.IdealJobText == nil || *sent.Query.IdealJobText != text {
+		t.Fatalf("remote match: status=%d body=%v", response.Code, relay.body.Load())
+	}
+
+	for _, body := range []string{`{}`, `{"sort":"newest","region":"usa1"}`} {
+		queries = &searchQueries{idealJob: saved}
+		relay = newRelay(t)
+		response = callSearch(t, queries, relay, body)
+		if response.Code != http.StatusOK || queries.idealJobReads.Load() != 0 ||
+			queries.searched.IdealJobText.Valid {
+			t.Fatalf("%s: status=%d params=%+v", body, response.Code, queries.searched)
+		}
+		if sentBody, ok := relay.body.Load().(string); ok &&
+			strings.Contains(sentBody, "ideal_job_text") {
+			t.Fatalf("%s: relay body %s", body, sentBody)
+		}
+	}
+}
+
+func TestSearchIdealJobReadFailures(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		err  error
+		code int
+	}{
+		{pgx.ErrNoRows, http.StatusUnauthorized},
+		{errors.New("database unavailable"), http.StatusInternalServerError},
+	} {
+		queries := &searchQueries{idealJobError: tc.err}
+		response := callSearch(t, queries, newRelay(t), `{"sort":"ideal_job_match"}`)
+		if response.Code != tc.code || queries.searches.Load() != 0 {
+			t.Fatalf("%v: status=%d body=%s", tc.err, response.Code, response.Body.String())
+		}
+	}
+}
+
+func TestSearchAndSuggestNeverLogTheQueryOrIdealJobText(t *testing.T) {
+	t.Parallel()
+	const keyword, text = "zebrakeyword", "zebrafinch"
+	var logs bytes.Buffer
+	saved := pgtype.Text{String: text, Valid: true}
+	for _, call := range []struct {
+		handler func(*hubruntime.Server) http.HandlerFunc
+		queries *searchQueries
+		body    string
+		status  int
+	}{
+		{Search, &searchQueries{idealJob: saved},
+			`{"keyword":"` + keyword + `","sort":"ideal_job_match"}`, http.StatusOK},
+		{Search, &searchQueries{idealJob: saved},
+			`{"keyword":"` + keyword + `","sort":"ideal_job_match","region":"usa1"}`, http.StatusOK},
+		{Search, &searchQueries{},
+			`{"keyword":"` + keyword + `","pagination_key":"` + keyword + `"}`, http.StatusBadRequest},
+		{Search, &searchQueries{idealJob: saved, idealJobError: errors.New("database unavailable")},
+			`{"keyword":"` + keyword + `","sort":"ideal_job_match"}`, http.StatusInternalServerError},
+		{SuggestOrgs, &searchQueries{}, `{"query":"` + keyword + `"}`, http.StatusOK},
+		{SuggestOrgs, &searchQueries{}, `{"query":"` + keyword + `","region":"usa1"}`, http.StatusOK},
+	} {
+		response := callHandler(t, call.handler, call.queries, newRelay(t), call.body, &logs)
+		if response.Code != call.status {
+			t.Fatalf("%s: status=%d body=%s", call.body, response.Code, response.Body.String())
+		}
+	}
+	if logs.Len() == 0 || strings.Contains(logs.String(), keyword) ||
+		strings.Contains(logs.String(), text) {
+		t.Fatalf("logs hold the query or the ideal-job text, or nothing at all: %s", logs.String())
+	}
+}

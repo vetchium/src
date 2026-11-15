@@ -18,6 +18,9 @@ function myInfo(sessionAuthenticatedAt = new Date().toISOString()) {
     totp_enabled: false,
     recovery_codes_remaining: 0,
     session_authenticated_at: sessionAuthenticatedAt,
+    looking_for_job: false,
+    // A returning user who already answered the Home job search card.
+    job_search_prompt_dismissed: true,
   };
 }
 
@@ -194,7 +197,7 @@ test("a visitor with a stored session lands on a personal home page", async ({
     page.getByRole("link", { name: "Edit my profile" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "See plans" })).toBeVisible();
-  await expect(page.getByRole("menuitem")).toHaveCount(8);
+  await expect(page.getByRole("menuitem")).toHaveCount(9);
   await expect(page.getByRole("menuitem", { name: "Home" })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Hub");
 });
@@ -396,9 +399,10 @@ test("the single home entry remains usable on a narrow viewport", async ({
 
   await header.getByRole("button", { name: "Open navigation" }).click();
   const navigation = page.getByRole("dialog", { name: "Navigation" });
-  await expect(navigation.getByRole("menuitem")).toHaveCount(8);
+  await expect(navigation.getByRole("menuitem")).toHaveCount(9);
   for (const name of [
     "Home",
+    "Openings",
     "My profile",
     "Applications",
     "Messages",

@@ -142,13 +142,14 @@ async function routedScene(
   capability: "interviewing" | "assessment" | "background_check",
   stageKey: "panel" | "final" | "assess" | "check",
   name: string,
+  idealJob?: string,
 ): Promise<Scene> {
   const { pair } = world;
   const engagement = await activate(pair, capability);
   await asProvider(pair, engagement.id, engagement.version);
   const stage = world[stageKey];
   await assign(world, engagement.id, stage);
-  const waiting = await candidate(world, stage, name);
+  const waiting = await candidate(world, stage, name, undefined, idealJob);
   const application = await routed(world, waiting, engagement.id);
   return {
     world,
@@ -206,6 +207,7 @@ test("a provider performs a routed interview stage and the client sees all of it
       "interviewing",
       "panel",
       "Ada Lovelace",
+      "Interviewing for\nsystems roles",
     );
     const { item } = scene;
     expect(item).toMatchObject({
@@ -223,8 +225,11 @@ test("a provider performs a routed interview stage and the client sees all of it
     // client's other records.
     const pending = await detailAs(provider, item);
     expect(pending.snapshot.display_name).toBe("Ada Lovelace");
+    // The ideal job travels in the snapshot; looking for a job never does.
+    expect(pending.snapshot.ideal_job).toBe("Interviewing for\nsystems roles");
     expect(pending.interviews).toEqual([]);
     const text = JSON.stringify(pending);
+    expect(text).not.toContain("looking_for_job");
     expect(text).not.toMatch(/application_number|version|internal_notes|offer/);
     // Application answers and the questions are the client's alone.
     expect(text).not.toMatch(/answers|questions|relocate/i);
@@ -1342,6 +1347,7 @@ test("provider work routes authenticate, authorize, validate, and refuse suspend
       "interviewing",
       "panel",
       "Ada Lovelace",
+      "Interviewing for\nsystems roles",
     );
     const { item } = scene;
     const viewer = await addOrgMember(

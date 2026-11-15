@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/hub"
@@ -44,6 +46,12 @@ type hubUserFixture struct {
 
 	// Websites are normalized HTTPS URLs, listed in the order they are added.
 	Websites []string `json:"websites,omitempty"`
+
+	// IdealJob and LookingForJob are job-search settings (PROF-JOB-001).
+	// DismissJobSearchPrompt answers Home's job-search card with "Not now".
+	IdealJob               string `json:"idealJob,omitempty"`
+	LookingForJob          bool   `json:"lookingForJob,omitempty"`
+	DismissJobSearchPrompt bool   `json:"dismissJobSearchPrompt,omitempty"`
 }
 
 type workExperienceFixture struct {
@@ -127,6 +135,9 @@ func validateHubUserFixture(user hubUserFixture) error {
 		len([]rune(user.Biography)) > 2000 {
 		return fmt.Errorf("biography exceeds 2000 code points")
 	}
+	if err := validateIdealJobFixture(user.IdealJob); err != nil {
+		return err
+	}
 	for _, entry := range user.WorkExperience {
 		if err := validateWorkExperienceFixture(entry); err != nil {
 			return fmt.Errorf("work experience %q: %w", entry.EmployerDomain, err)
@@ -150,6 +161,24 @@ func validateHubUserFixture(user hubUserFixture) error {
 		}
 	}
 	return validateWebsiteFixtures(user.Websites)
+}
+
+// validateIdealJobFixture refuses blank text, which set-ideal-job would read
+// as removing the ideal job, so an absent idealJob is the only "none".
+func validateIdealJobFixture(idealJob string) error {
+	if idealJob == "" {
+		return nil
+	}
+	length := utf8.RuneCountInString(strings.TrimSpace(idealJob))
+	if length == 0 {
+		return fmt.Errorf("blank idealJob")
+	}
+	if length > hub.MaxIdealJobCodePoints {
+		return fmt.Errorf(
+			"idealJob exceeds %d code points", hub.MaxIdealJobCodePoints,
+		)
+	}
+	return nil
 }
 
 func validateWebsiteFixtures(websites []string) error {

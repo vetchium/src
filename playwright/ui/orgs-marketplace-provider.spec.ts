@@ -197,7 +197,13 @@ test("schedules and gives feedback on routed interview work", async ({
       [{ text: "Depth", type: "rating", required: true }],
     );
     await assign(world, interview.id, world.panel);
-    const appDetail = await candidate(world, world.panel, "Margaret Hamilton");
+    const appDetail = await candidate(
+      world,
+      world.panel,
+      "Margaret Hamilton",
+      undefined,
+      "Flight software\nfor crewed missions",
+    );
     await route(world, appDetail, interview.id);
 
     await signIn(page, world.pair.provider.org, world.pair.provider.tenant);
@@ -218,6 +224,12 @@ test("schedules and gives feedback on routed interview work", async ({
     // Snapshot and stage information
     await expect(page.getByText("Margaret Hamilton")).toBeVisible();
     await expect(page.getByText("Panel")).toBeVisible();
+    // The ideal job travels in the snapshot, with its line breaks.
+    await expect(
+      page
+        .getByRole("region", { name: "Ideal job" })
+        .getByText("Flight software\nfor crewed missions"),
+    ).toHaveCSS("white-space", "pre-wrap");
 
     // Schedule interview
     await page.getByRole("button", { name: "Schedule interview" }).click();
@@ -325,6 +337,10 @@ test("records a background check outcome on routed work once consent is given", 
     await expect(
       page.getByText("Awaiting candidate consent", { exact: false }),
     ).toBeVisible();
+    // This candidate saved no ideal job, so none is shown.
+    await expect(page.getByRole("region", { name: "Ideal job" })).toHaveCount(
+      0,
+    );
 
     // The candidate gives consent through the Hub.
     const applicant = world.hiring.applicants.at(-1);

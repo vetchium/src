@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	directoryspec "github.com/vetchium/src/typespec/directory"
 	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 
 	"backend/internal/apiserver"
@@ -23,6 +24,7 @@ import (
 	"backend/internal/meshtls"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
+	"backend/internal/openingsearch"
 	"backend/internal/orgs/entitlements"
 	"backend/internal/profileclient"
 	"backend/internal/providerwork"
@@ -123,6 +125,10 @@ func run(log *slog.Logger, address string) error {
 		Applications: applications,
 		PublicOpenings: publicopenings.Reader{
 			Queries: sqlc.New(pool), Logos: pictures,
+		},
+		OpeningSearch: openingsearch.Reader{
+			Queries: sqlc.New(pool), Logos: pictures,
+			TenantID: directoryspec.TenantID(cfg.TenantID),
 		},
 		ListingPeers:      listingPeers,
 		WorkPeers:         workPeers,

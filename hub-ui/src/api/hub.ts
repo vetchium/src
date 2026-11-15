@@ -73,6 +73,12 @@ import type {
   ListOrgOpeningsResponse,
 } from "typespec/hub/openings/public";
 import type {
+  SearchOpeningsRequest,
+  SearchOpeningsResponse,
+  SuggestOpeningOrgsRequest,
+  SuggestOpeningOrgsResponse,
+} from "typespec/hub/openings/search";
+import type {
   GetOperationRequest,
   OperationStatus,
   PendingOperation,
@@ -104,8 +110,11 @@ import type {
   SetSubscriptionPlanRequest,
 } from "typespec/hub/subscriptions/subscriptions";
 import type {
+  DismissJobSearchPromptRequest,
   MyInfoResponse,
   SetAgenciesMayMessageRequest,
+  SetIdealJobRequest,
+  SetLookingForJobRequest,
   SetPreferredJobCountriesRequest,
   SetPreferredLanguageRequest,
   SetResidentCountryRequest,
@@ -223,12 +232,24 @@ export const hubAPI = {
   setPreferredJobCountries: (body: SetPreferredJobCountriesRequest) =>
     apiRequest<void>(`${base}/set-preferred-job-countries`, { body }),
   myInfo: () => apiRequest<MyInfoResponse>(`${base}/my-info`),
+  setIdealJob: (body: SetIdealJobRequest) =>
+    apiRequest<void>(`${base}/set-ideal-job`, { body }),
+  setLookingForJob: (body: SetLookingForJobRequest) =>
+    apiRequest<void>(`${base}/set-looking-for-job`, { body }),
+  dismissJobSearchPrompt: (body: DismissJobSearchPromptRequest) =>
+    apiRequest<void>(`${base}/dismiss-job-search-prompt`, { body }),
   readProfile: (body: ReadProfileRequest) =>
     apiRequest<PublicProfile>(`${base}/profile/read`, { body }),
   listOrgOpenings: (body: ListOrgOpeningsRequest) =>
     apiRequest<ListOrgOpeningsResponse>(`${base}/list-org-openings`, { body }),
   getOrgOpening: (body: GetOrgOpeningRequest) =>
     apiRequest<GetOrgOpeningResponse>(`${base}/get-org-opening`, { body }),
+  searchOpenings: (body: SearchOpeningsRequest) =>
+    apiRequest<SearchOpeningsResponse>(`${base}/search-openings`, { body }),
+  suggestOpeningOrgs: (body: SuggestOpeningOrgsRequest) =>
+    apiRequest<SuggestOpeningOrgsResponse>(`${base}/suggest-opening-orgs`, {
+      body,
+    }),
   listOpeningTags: () =>
     apiRequest<ListOpeningTagsResponse>(`${base}/list-opening-tags`, {
       body: {},

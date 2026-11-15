@@ -5,6 +5,8 @@
       "displayName": "Emily Johnson",
       "preferredLanguage": "en-US",
       "residentCountry": "US",
+      "idealJob": "Software engineer on developer tools who also writes clear documentation, fully remote.",
+      "lookingForJob": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -35,6 +37,7 @@
       "displayName": "Marcus Reed",
       "preferredLanguage": "en-US",
       "residentCountry": "US",
+      "idealJob": "Staff security engineer protecting payments infrastructure in the cloud.",
       "plan": "hub-silver-tier",
       "billingInterval": "month",
       "profilePicture": "avatar5.jpg",
@@ -84,6 +87,8 @@
       "displayName": "Sofia Martinez",
       "preferredLanguage": "en-US",
       "residentCountry": "US",
+      "idealJob": "Product designer shaping mobile app experiences through user research.",
+      "lookingForJob": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -115,6 +120,7 @@
       "displayName": "David Chen",
       "preferredLanguage": "en-US",
       "residentCountry": "US",
+      "idealJob": "VP of Engineering leading streaming platform and cloud infrastructure teams.",
       "plan": "hub-silver-tier",
       "billingInterval": "year",
       "profilePicture": "avatar6.jpg",
@@ -170,6 +176,7 @@
       "displayName": "Ashley Williams",
       "preferredLanguage": "en-US",
       "residentCountry": "US",
+      "dismissJobSearchPrompt": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -197,6 +204,7 @@
       "displayName": "Brian O'Connor",
       "preferredLanguage": "en-US",
       "residentCountry": "US",
+      "idealJob": "Engineering director for developer platforms, API tooling, and documentation.",
       "plan": "hub-silver-tier",
       "billingInterval": "month",
       "profilePicture": "avatar7.jpg",
@@ -267,6 +275,8 @@
       "displayName": "Kevin Patel",
       "preferredLanguage": "en-US",
       "residentCountry": "US",
+      "idealJob": "Head of Product for billing, working with enterprise customer accounts and sales.",
+      "lookingForJob": true,
       "plan": "hub-silver-tier",
       "billingInterval": "year",
       "profilePicture": "avatar8.jpg",

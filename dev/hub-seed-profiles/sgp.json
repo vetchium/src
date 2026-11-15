@@ -5,6 +5,8 @@
       "displayName": "Wei Jie Tan",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
+      "idealJob": "Backend software engineer building payments and cloud platform services in Go.",
+      "lookingForJob": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -35,6 +37,7 @@
       "displayName": "Priya Ramachandran",
       "preferredLanguage": "ta",
       "residentCountry": "SG",
+      "idealJob": "Product manager for digital banking apps, working closely with design and finance teams.",
       "plan": "hub-silver-tier",
       "billingInterval": "month",
       "profilePicture": "avatar1.jpg",
@@ -85,6 +88,8 @@
       "displayName": "Siti Nurhaliza Yusof",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
+      "idealJob": "Senior product designer leading user research and a design system for a consumer mobile app.",
+      "lookingForJob": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -116,6 +121,8 @@
       "displayName": "Arun Kumar Pillai",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
+      "idealJob": "Machine learning researcher building recommendation systems and language models.",
+      "lookingForJob": true,
       "plan": "hub-silver-tier",
       "billingInterval": "year",
       "profilePicture": "avatar2.jpg",
@@ -166,6 +173,7 @@
       "displayName": "Mei Ling Ong",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
+      "dismissJobSearchPrompt": true,
       "plan": "hub-free-tier",
       "workExperience": [
         {
@@ -196,6 +204,7 @@
       "displayName": "Faizal Rahman",
       "preferredLanguage": "en-US",
       "residentCountry": "SG",
+      "idealJob": "Engineering manager for a platform team of software engineers, hybrid in Singapore.",
       "plan": "hub-silver-tier",
       "billingInterval": "month",
       "profilePicture": "avatar3.jpg",
@@ -272,6 +281,7 @@
       "displayName": "Kavitha Suresh",
       "preferredLanguage": "ta",
       "residentCountry": "SG",
+      "idealJob": "Finance director or enterprise account manager partnering with sales teams.",
       "plan": "hub-silver-tier",
       "billingInterval": "year",
       "profilePicture": "avatar4.jpg",

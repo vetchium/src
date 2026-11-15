@@ -154,6 +154,17 @@ func TestTenantFixturesAreValid(t *testing.T) {
 			if len(fixture.Users) == 0 {
 				t.Fatalf("%s defines no users", path)
 			}
+			var showsCard, dismissed bool
+			for _, user := range fixture.Users {
+				showsCard = showsCard || (user.IdealJob == "" && !user.DismissJobSearchPrompt)
+				dismissed = dismissed || (user.IdealJob == "" && user.DismissJobSearchPrompt)
+			}
+			if !showsCard || !dismissed {
+				t.Errorf(
+					"%s needs a user Home shows the job-search card to and one who dismissed it",
+					path,
+				)
+			}
 			domain := "@" + tenant + ".test"
 			for _, user := range fixture.Users {
 				if !strings.HasSuffix(user.Email, domain) {
@@ -202,6 +213,23 @@ func TestValidateHubUserFixtureRejectsBadWebsites(t *testing.T) {
 		user.Websites = websites
 		if err := validateHubUserFixture(user); err == nil {
 			t.Errorf("%s: expected an error for websites %v", name, websites)
+		}
+	}
+}
+
+func TestValidateHubUserFixtureIdealJobBounds(t *testing.T) {
+	user := validFixtureUser()
+	user.IdealJob = strings.Repeat("😀", 2000)
+	if err := validateHubUserFixture(user); err != nil {
+		t.Fatalf("2,000 code points: unexpected error: %v", err)
+	}
+	for name, idealJob := range map[string]string{
+		"over the limit": strings.Repeat("😀", 2001),
+		"blank":          " \n\t ",
+	} {
+		user.IdealJob = idealJob
+		if err := validateHubUserFixture(user); err == nil {
+			t.Errorf("%s: expected an error", name)
 		}
 	}
 }

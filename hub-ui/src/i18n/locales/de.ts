@@ -545,8 +545,7 @@ export const de = {
   preferences: {
     documentTitle: "Präferenzen | Vetchium",
     title: "Präferenzen",
-    description:
-      "Legen Sie fest, wie Vetchium für Sie arbeitet. Nur Sie sehen diese Angaben.",
+    description: "Legen Sie fest, wie Vetchium für Sie arbeitet.",
     languageTitle: "Anzeigesprache",
     languageHelp:
       "Gilt für dieses Portal und für die E-Mails, die Vetchium Ihnen sendet.",
@@ -555,6 +554,16 @@ export const de = {
     jobCountriesHelp:
       "Wählen Sie bis zu 10 Länder. Ohne Auswahl suchen Sie weltweit. Eine Änderung des Wohnsitzlands ändert diese Auswahl nicht.",
     saved: "Ihre Einstellung wurde gespeichert.",
+    idealJob: "Mein idealer Job",
+    idealJobHelp:
+      "Wird bei einer Bewerbung mit Organisationen geteilt; dient zum Finden passender Stellen.",
+    idealJobTooLong: "Verwenden Sie höchstens 2.000 Zeichen.",
+    lookingForJob: "Suchen Sie derzeit einen Job?",
+    lookingForJobHelp:
+      "Nur Sie können dies sehen. Organisationen, Agenturen und andere Hub-Nutzer sehen es nie.",
+    saveIdealJob: "Idealen Job speichern",
+    discardChanges: "Änderungen verwerfen",
+    unsavedChanges: "Nicht gespeicherte Änderungen",
     agencyRequestsTitle: "Chat-Anfragen von Agenturen",
     agenciesMayRequest: "Agenturen dürfen mir Chat-Anfragen senden",
     agenciesMayRequestHelp1:
@@ -742,6 +751,60 @@ export const de = {
       year: "pro Jahr",
     },
   },
+  openingSearch: {
+    navigation: "Stellen",
+    documentTitle: "Stellen | Vetchium",
+    title: "Stellen",
+    description:
+      "Finden Sie Stellen bei Organisationen jeweils einer Region, beginnend mit Ihrer eigenen.",
+    keyword: "Suchbegriff",
+    keywordPlaceholder: "Stellentitel oder Name der Organisation",
+    keywordLength: "Geben Sie 2 bis 200 Zeichen ein.",
+    search: "Suchen",
+    region: "Region",
+    moreFilters: "Weitere Filter",
+    any: "Beliebig",
+    anyTime: "Beliebiger Zeitraum",
+    org: "Organisation",
+    orgPlaceholder: "Name oder Domain eingeben",
+    orgOption: "{{name}} ({{domain}})",
+    orgTypeMore: "Geben Sie mindestens zwei Zeichen ein",
+    orgNoneFound: "Keine Organisationen gefunden",
+    orgsUnavailable: "Organisationen konnten nicht geladen werden",
+    tags: "Schlagwörter",
+    tagsHelp: "Bis zu fünf. Stellen mit mehr davon stehen weiter oben.",
+    countries: "Wo Sie arbeiten dürfen",
+    countriesHelp:
+      "Bis zu zehn. Remote-Stellen, die für eines davon oder weltweit offen sind, passen ebenfalls.",
+    posted: "Veröffentlicht",
+    postedWithin: {
+      1: "Letzte 24 Stunden",
+      7: "Letzte Woche",
+      30: "Letzter Monat",
+    },
+    experience: "Ihre Berufserfahrung in Jahren",
+    experienceHelp:
+      "Stellen, deren Spanne sie einschließt, und Stellen ohne Angabe.",
+    education: "Ihr höchster Abschluss",
+    educationHelp:
+      "Stellen, die ihn oder weniger verlangen, und Stellen ohne Angabe.",
+    salary: "Nur Stellen mit Gehaltsangabe",
+    loading: "Stellen werden geladen",
+    empty: "Keine Stellen entsprechen dieser Suche.",
+    clearFilters: "Filter zurücksetzen",
+    regionUnavailable:
+      "Die Region {{region}} antwortet nicht. Versuchen Sie es später erneut oder wählen Sie eine andere Region.",
+    sortBy: "Sortieren nach",
+    sortNewest: "Neueste",
+    sortMatch: "Beste Übereinstimmung mit meinem idealen Job",
+    matchNeedsIdealJob:
+      "Speichern Sie Ihren idealen Job, um nach Übereinstimmung zu sortieren.",
+    addIdealJob: "Idealen Job hinzufügen",
+    idealJobMissing:
+      "Ihr idealer Job ist nicht gespeichert, daher können Stellen nicht nach Übereinstimmung sortiert werden.",
+    previous: "Zurück",
+    next: "Weiter",
+  },
   applications: {
     documentTitle: "Bewerbungen | Vetchium",
     title: "Bewerbungen",
@@ -803,6 +866,10 @@ export const de = {
         title: "Ihre Antworten",
         help: "Die Fragen so, wie sie bei Ihrer Bewerbung gestellt wurden.",
         notAnswered: "Nicht beantwortet",
+      },
+      idealJob: {
+        title: "Ihr geteilter idealer Job",
+        help: "So, wie er beim Bewerben gespeichert war. Spätere Änderungen wirken sich hier nicht aus.",
       },
       yourApplication: "Ihre Bewerbung",
       number: "Bewerbung",
@@ -910,6 +977,8 @@ export const de = {
       websites: "Websites",
       links_one: "{{count}} Link",
       links_other: "{{count}} Links",
+      idealJob: "Idealer Job",
+      editIdealJob: "Meinen idealen Job bearbeiten",
     },
     snapshotNote:
       "Die Organisation erhält eine Kopie Ihres Profils im heutigen Stand. Spätere Änderungen wirken sich nicht darauf aus. Ihr Foto, Ihre E-Mail-Adresse und Ihre beruflichen E-Mails werden nie weitergegeben.",
@@ -967,6 +1036,15 @@ export const de = {
     description: "Die angeforderte Seite existiert nicht.",
     action: "Zur Startseite",
   },
+  jobSearchPrompt: {
+    title: "Ihre Jobsuche",
+    description:
+      "Beschreiben Sie Ihren idealen Job. Sie können ihn jederzeit unter Präferenzen ändern.",
+    save: "Speichern",
+    notNow: "Nicht jetzt",
+    saved: "Ihre Angaben zur Jobsuche wurden gespeichert.",
+    saveNeedsIdealJob: "Beschreiben Sie Ihren idealen Job, um zu speichern.",
+  },
   home: {
     applicationsTitle: "Bewerbungen, die Sie brauchen",
     applicationsBody_one: "{{count}} Bewerbung wartet auf Ihre Antwort.",
@@ -997,6 +1075,8 @@ export const de = {
     securityBody:
       "Aktivieren Sie die Zwei-Faktor-Authentifizierung, damit ein gestohlenes Passwort allein Ihr Konto nicht öffnet.",
     securityAction: "Zwei-Faktor-Authentifizierung einrichten",
+    searchTitle: "Stellen finden",
+    searchLabel: "Stellen suchen",
   },
   plans: {
     endingSoon: "Ihr kostenpflichtiger Zugang endet am {{date}}.",

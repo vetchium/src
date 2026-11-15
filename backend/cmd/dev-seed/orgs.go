@@ -124,7 +124,7 @@ func runOrgSeed() error {
 	for _, org := range seededOrgs {
 		domain := seededOrgDomain(hiringCompanyKind, org.number, settings.tenantID)
 		displayName := hiringCompanyName(settings.tenantID, org.number)
-		if err := seeder.seedOrg(ctx, domain, displayName, country, org.plan); err != nil {
+		if err := seeder.seedOrg(ctx, org.number, domain, displayName, country, org.plan); err != nil {
 			return fmt.Errorf("seed %s Org %s: %w", org.label, domain, err)
 		}
 	}
@@ -231,7 +231,7 @@ func (s *orgSeeder) inviteUsers(
 }
 
 func (s *orgSeeder) seedOrg(
-	ctx context.Context, domain orgs.OrgDomain, displayName string,
+	ctx context.Context, number int, domain orgs.OrgDomain, displayName string,
 	country common.CountryCode, plan subscriptionspec.Plan,
 ) error {
 	email := "admin@" + string(domain)
@@ -254,7 +254,7 @@ func (s *orgSeeder) seedOrg(
 			return fmt.Errorf("seed AI: %w", err)
 		}
 	}
-	if err := s.seedOrgOpenings(ctx, domain, bearer); err != nil {
+	if err := s.seedOrgOpenings(ctx, number, domain, bearer); err != nil {
 		return fmt.Errorf("seed Openings: %w", err)
 	}
 	locals := make([]string, 0, len(users))

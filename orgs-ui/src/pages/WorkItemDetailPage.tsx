@@ -951,6 +951,23 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
                 </div>
               )}
 
+              {snapshot.ideal_job && (
+                <section
+                  aria-label={t("applications.snapshot.idealJob")}
+                  style={{ marginBottom: 12 }}
+                >
+                  <Typography.Text strong style={{ fontSize: 13 }}>
+                    {t("applications.snapshot.idealJob")}
+                  </Typography.Text>
+                  <Typography.Paragraph
+                    type="secondary"
+                    style={{ marginTop: 4, whiteSpace: "pre-wrap" }}
+                  >
+                    {snapshot.ideal_job}
+                  </Typography.Paragraph>
+                </section>
+              )}
+
               {snapshot.work_experiences.length > 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <Typography.Text strong style={{ fontSize: 13 }}>

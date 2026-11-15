@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"strings"
 	"unicode/utf8"
 
 	"github.com/vetchium/src/typespec/common"
@@ -17,7 +18,8 @@ const (
 )
 
 // ApplicantSnapshot is the public profile as of the application, without the
-// picture.
+// picture, and the ideal job saved then. Whether the applicant is looking for
+// a job never enters it (PROF-JOB-004).
 type ApplicantSnapshot struct {
 	DisplayName               common.DisplayName         `json:"display_name"`
 	Handle                    hub.HubHandle              `json:"handle"`
@@ -29,11 +31,20 @@ type ApplicantSnapshot struct {
 	Certifications            []Certification            `json:"certifications"`
 	LanguageAbilities         []LanguageAbilityEntry     `json:"language_abilities"`
 	EducationalQualifications []EducationalQualification `json:"educational_qualifications"`
+	IdealJob                  *hub.IdealJob              `json:"ideal_job,omitempty"`
 }
 
 // Normalized returns a copy whose required arrays are empty rather than nil,
-// so they encode as [] and never null.
+// so they encode as [] and never null, and whose ideal job is trimmed, or
+// absent when that leaves it empty.
 func (s ApplicantSnapshot) Normalized() ApplicantSnapshot {
+	if s.IdealJob != nil {
+		trimmed := hub.IdealJob(strings.TrimSpace(string(*s.IdealJob)))
+		s.IdealJob = nil
+		if trimmed != "" {
+			s.IdealJob = &trimmed
+		}
+	}
 	if s.Websites == nil {
 		s.Websites = []Website{}
 	}
@@ -86,6 +97,10 @@ func (s ApplicantSnapshot) Validate() []string {
 	}
 	if len(s.EducationalQualifications) > maxSnapshotEducation {
 		fields = append(fields, "educational_qualifications")
+	}
+	if s.IdealJob != nil && utf8.RuneCountInString(string(*s.IdealJob)) >
+		hub.MaxIdealJobCodePoints {
+		fields = append(fields, "ideal_job")
 	}
 	return fields
 }

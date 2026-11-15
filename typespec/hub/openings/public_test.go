@@ -42,3 +42,24 @@ func TestPublicOpeningSummaryTagsAreAlwaysAList(t *testing.T) {
 		t.Fatalf("summary without tags = %s, want \"tags\":[]", body)
 	}
 }
+
+func TestPublicOpeningSummarySalaryOnlyWhenDisclosed(t *testing.T) {
+	t.Parallel()
+	body, err := json.Marshal(PublicOpeningSummary{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "salary") {
+		t.Fatalf("summary without salary = %s", body)
+	}
+	body, err = json.Marshal(PublicOpeningSummary{Salary: &common.OpeningSalary{
+		Currency: "EUR", Min: 50000, Max: 70000, Period: common.OpeningYear,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `"salary":{"currency":"EUR","min":50000,"max":70000,"period":"year"}`
+	if !strings.Contains(string(body), want) {
+		t.Fatalf("summary with salary = %s, want %s", body, want)
+	}
+}

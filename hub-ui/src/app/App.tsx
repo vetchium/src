@@ -46,6 +46,11 @@ const MessagesPage = lazy(() =>
     default: MessagesPage,
   })),
 );
+const OpeningSearchPage = lazy(() =>
+  import("../pages/OpeningSearchPage").then(({ OpeningSearchPage }) => ({
+    default: OpeningSearchPage,
+  })),
+);
 const OrgPage = lazy(() =>
   import("../pages/OrgPage").then(({ OrgPage }) => ({ default: OrgPage })),
 );
@@ -194,6 +199,14 @@ export function App() {
           />
         </Route>
         <Route element={<AppShell />}>
+          <Route
+            path="openings"
+            element={
+              <Page>
+                <OpeningSearchPage />
+              </Page>
+            }
+          />
           <Route
             path="org/:domain"
             element={

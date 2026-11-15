@@ -5,8 +5,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/vetchium/src/typespec/common"
+	"github.com/vetchium/src/typespec/hub"
 	"github.com/vetchium/src/typespec/orgs"
 	orgapplications "github.com/vetchium/src/typespec/orgs/applications"
 	"github.com/vetchium/src/typespec/orgs/hiring"
@@ -273,6 +275,34 @@ func TestMyApplicationDetailRequiresIdentifiedAnswers(t *testing.T) {
 	detail.Answers = nil
 	if detail.Valid() {
 		t.Fatal("a detail without answers passed")
+	}
+}
+
+func TestMyApplicationDetailIdealJobBounds(t *testing.T) {
+	t.Parallel()
+	detail := MyApplicationDetail{
+		MyApplication: MyApplication{
+			OrgDomain: "example.com", OrgDisplayName: "Example",
+			OpeningNumber: 1, OpeningTitle: "Engineer", ApplicationNumber: 1,
+			Status: Applied, PendingActions: []PendingActionKind{},
+		},
+		Interviews: []MyApplicationInterview{},
+		Answers:    []orgapplications.AnsweredQuestion{},
+	}
+	if !detail.Valid() {
+		t.Fatal("a detail without an ideal job rejected")
+	}
+	for text, want := range map[hub.IdealJob]bool{
+		"Backend work": true,
+		hub.IdealJob(strings.Repeat("😀", 2000)): true,
+		hub.IdealJob(strings.Repeat("😀", 2001)): false,
+		"": false,
+	} {
+		detail.IdealJob = &text
+		if got := detail.Valid(); got != want {
+			t.Errorf("ideal job of %d code points: Valid() = %v, want %v",
+				utf8.RuneCountInString(string(text)), got, want)
+		}
 	}
 }
 

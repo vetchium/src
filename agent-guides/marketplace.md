@@ -257,8 +257,8 @@ An engagement links a consumer Org to a provider's Listing.
   - `sourcing`: the applications credited to it, each with its route and Hub
     status only (MKT-SRC-006).
   - stage Capabilities: for each candidacy routed to it, the application
-    snapshot and cover note, the stage name, and its own work on that
-    candidacy.
+    snapshot (its `ideal_job` included, HP-APP-002) and cover note, the stage
+    name, and its own work on that candidacy.
 - **MKT-ACC-002** A provider never sees another agency's credited
   applications, direct applications, which agency (if any) is
   credited on a candidacy routed to it, counts or statistics of an Opening's
