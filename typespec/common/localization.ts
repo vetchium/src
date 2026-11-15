@@ -7,6 +7,7 @@ export function normalizeDisplayName(value: DisplayName): DisplayName {
 }
 
 export function isDisplayName(value: DisplayName): boolean {
-  const length = [...normalizeDisplayName(value)].length;
-  return length >= 1 && length <= 200;
+  const normalized = normalizeDisplayName(value);
+  const length = [...normalized].length;
+  return length >= 1 && length <= 200 && !normalized.includes("\0");
 }

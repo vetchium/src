@@ -54,8 +54,14 @@ export function isProfileMonth(value: ProfileMonth): boolean {
 }
 
 export function isProfileTitle(value: ProfileTitle): boolean {
-  const length = [...value.trim()].length;
-  return length >= 1 && length <= 200;
+  const trimmed = value.trim();
+  return trimmed !== "" && isProfileText(trimmed, 200);
+}
+
+/** At most `max` code points without U+0000, which PostgreSQL text cannot
+ * hold. */
+function isProfileText(value: string, max: number): boolean {
+  return [...value].length <= max && !value.includes("\0");
 }
 
 export function isCredentialURL(value: CredentialURL): boolean {
@@ -218,7 +224,7 @@ export function validateSetPublicFieldsRequest(
   if (
     request.biography !== undefined &&
     request.biography !== null &&
-    [...request.biography].length > 2000
+    !isProfileText(request.biography, 2000)
   ) {
     fields.push("biography");
   }
@@ -266,10 +272,13 @@ export function validateSaveWorkExperienceRequest(
   ) {
     fields.push("end_month");
   }
-  if (request.location != null && [...request.location].length > 200) {
+  if (request.location != null && !isProfileText(request.location, 200)) {
     fields.push("location");
   }
-  if (request.description != null && [...request.description].length > 2000) {
+  if (
+    request.description != null &&
+    !isProfileText(request.description, 2000)
+  ) {
     fields.push("description");
   }
   return fields;
@@ -363,7 +372,7 @@ export function validateSaveEducationalQualificationRequest(
   }
   if (
     request.supporting_text != null &&
-    [...request.supporting_text].length > 249
+    !isProfileText(request.supporting_text, 249)
   ) {
     fields.push("supporting_text");
   }

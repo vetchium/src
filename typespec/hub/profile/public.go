@@ -63,8 +63,14 @@ func IsProfileMonth(value ProfileMonth) bool {
 }
 
 func IsProfileTitle(value ProfileTitle) bool {
-	length := utf8.RuneCountInString(strings.TrimSpace(string(value)))
-	return length >= 1 && length <= 200
+	trimmed := strings.TrimSpace(string(value))
+	return trimmed != "" && isProfileText(trimmed, 200)
+}
+
+// isProfileText reports text of at most max code points without U+0000,
+// which PostgreSQL text cannot hold.
+func isProfileText(value string, max int) bool {
+	return utf8.RuneCountInString(value) <= max && !strings.ContainsRune(value, 0)
 }
 
 func IsCredentialURL(value CredentialURL) bool {
@@ -226,7 +232,7 @@ func (r SetPublicFieldsRequest) Validate() []string {
 	if !common.IsDisplayName(r.DisplayName) {
 		fields = append(fields, "display_name")
 	}
-	if r.Biography != nil && utf8.RuneCountInString(string(*r.Biography)) > 2000 {
+	if r.Biography != nil && !isProfileText(string(*r.Biography), 2000) {
 		fields = append(fields, "biography")
 	}
 	return fields
@@ -273,11 +279,10 @@ func (r SaveWorkExperienceRequest) Validate() []string {
 		(!IsProfileMonth(*r.EndMonth) || *r.EndMonth < r.StartMonth) {
 		fields = append(fields, "end_month")
 	}
-	if r.Location != nil && utf8.RuneCountInString(string(*r.Location)) > 200 {
+	if r.Location != nil && !isProfileText(string(*r.Location), 200) {
 		fields = append(fields, "location")
 	}
-	if r.Description != nil &&
-		utf8.RuneCountInString(string(*r.Description)) > 2000 {
+	if r.Description != nil && !isProfileText(string(*r.Description), 2000) {
 		fields = append(fields, "description")
 	}
 	return fields
@@ -369,8 +374,7 @@ func (r SaveEducationalQualificationRequest) Validate() []string {
 	if r.Title != nil && !IsProfileTitle(*r.Title) {
 		fields = append(fields, "title")
 	}
-	if r.SupportingText != nil &&
-		utf8.RuneCountInString(string(*r.SupportingText)) > 249 {
+	if r.SupportingText != nil && !isProfileText(string(*r.SupportingText), 249) {
 		fields = append(fields, "supporting_text")
 	}
 	if r.StartMonth != nil && !IsProfileMonth(*r.StartMonth) {

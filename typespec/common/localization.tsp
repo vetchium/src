@@ -4,7 +4,10 @@ namespace Vetchium;
 @pattern("^[A-Z]{2}$", "Must be an uppercase ISO 3166-1 alpha-2 code")
 scalar CountryCode extends string;
 
-/** A non-empty, Unicode display name after surrounding whitespace is removed. */
+/**
+ * A non-empty, Unicode display name after surrounding whitespace is removed,
+ * without U+0000.
+ */
 @minLength(1)
 @maxLength(200)
 scalar DisplayName extends string;

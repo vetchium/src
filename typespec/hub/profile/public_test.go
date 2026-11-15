@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/vetchium/src/typespec/common"
 )
 
 func TestProfileAddressAndMonth(t *testing.T) {
@@ -209,5 +211,37 @@ func TestLivingLanguageCatalog(t *testing.T) {
 	tags[0] = "not-a-language"
 	if SupportedLanguageTags()[0] == "not-a-language" {
 		t.Fatal("catalog caller mutated package state")
+	}
+}
+
+func TestProfileTextRefusesNUL(t *testing.T) {
+	t.Parallel()
+	nul := "a\x00b"
+	public := SetPublicFieldsRequest{
+		DisplayName: common.DisplayName(nul), Biography: new(ProfileLongText(nul)),
+	}
+	if got, want := public.Validate(), []string{"display_name", "biography"}; !slices.Equal(got, want) {
+		t.Fatalf("public fields = %v, want %v", got, want)
+	}
+	work := SaveWorkExperienceRequest{
+		EmployerDomain: "example.com", JobTitle: ProfileTitle(nul),
+		StartMonth: "2020-01", Location: new(ProfileLocation(nul)),
+		Description: new(ProfileLongText(nul)),
+	}
+	if got, want := work.Validate(), []string{"job_title", "location", "description"}; !slices.Equal(got, want) {
+		t.Fatalf("work fields = %v, want %v", got, want)
+	}
+	education := SaveEducationalQualificationRequest{
+		InstitutionDomain: "example.edu", Degree: ProfileTitle(nul),
+		Title: new(ProfileTitle(nul)), SupportingText: new(EducationSupportingText(nul)),
+	}
+	if got, want := education.Validate(), []string{"degree", "title", "supporting_text"}; !slices.Equal(got, want) {
+		t.Fatalf("education fields = %v, want %v", got, want)
+	}
+	certification := SaveCertificationRequest{
+		Title: ProfileTitle(nul), CredentialURL: "https://example.com/credential",
+	}
+	if got, want := certification.Validate(), []string{"title"}; !slices.Equal(got, want) {
+		t.Fatalf("certification fields = %v, want %v", got, want)
 	}
 }
