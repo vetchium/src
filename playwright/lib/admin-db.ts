@@ -1090,7 +1090,15 @@ export function cleanupHubUser(
   cleanupHubUsers([emailAddress], tenant);
 }
 
-/** cleanupHubUser for several accounts of one tenant in one statement batch. */
+/**
+ * cleanupHubUser for several accounts of one tenant in one statement batch.
+ *
+ * A federation event receiver still applying an event for the user upserts
+ * a projection or agency pointer row, then inserts a notice, whose foreign
+ * key share-locks the hub_users row. Deleting those rows before hub_users
+ * takes the locks in the receiver's order; leaving them to the cascade
+ * locks hub_users first and deadlocks with it.
+ */
 export function cleanupHubUsers(
   emailAddresses: string[],
   tenant: TestTenant = "sgp",
@@ -1129,6 +1137,10 @@ export function cleanupHubUsers(
     DELETE FROM vetchium.federation_operations
     WHERE aggregate_id IN ${dids} OR
           (owner_principal_type = 'hub_user' AND owner_principal_id IN ${dids});
+    DELETE FROM vetchium.hub_application_projections
+    WHERE hub_user_did::text IN ${dids};
+    DELETE FROM vetchium.hub_agency_pointers
+    WHERE hub_user_did::text IN ${dids};
     DELETE FROM vetchium.hub_users
     WHERE email_address IN (${emails});
     DELETE FROM vetchium.idempotency_ledger

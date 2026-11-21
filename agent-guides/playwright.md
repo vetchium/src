@@ -41,6 +41,10 @@ count. Any test may run at any moment, on any worker, repeatedly.
 - Fault-injection triggers on shared tables take `AUDIT_FAULT_LOCK`
   (`lib/admin-db.ts`) in the same transaction; parallel DDL deadlocks without
   it.
+- Cleanup deletes child rows a server transaction updates before inserting
+  a sibling row (e.g. `hub_application_projections`, `hub_agency_pointers`)
+  ahead of their parent; a cascade locks the parent first and deadlocks with
+  an event receiver still running.
 - A test changing singleton configuration restores it and uses a tenant or
   namespace no other test shares; if none exists, raise it.
 
