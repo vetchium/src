@@ -1362,6 +1362,15 @@ export const de = {
         location: "Standort",
         role: "Stelle und Anforderungen",
       },
+      intros: {
+        basics: "Wie die Stelle heißt und was Bewerbende darüber lesen.",
+        location:
+          "Wo die eingestellte Person beschäftigt wird und wo Bewerbende wohnen dürfen.",
+        role: "Die Art der Beschäftigung und was Bewerbende mitbringen müssen.",
+        team: "Wer diese Stellenanzeige betreut. Nur Ihre Organisation sieht diesen Abschnitt.",
+        pipeline:
+          "Die Phasen, die Bewerbungen durchlaufen. Nur Ihre Organisation sieht sie.",
+      },
       help: {
         title:
           "Die Stellenbezeichnung, nach der Bewerbende suchen, etwa Backend-Entwicklung.",
@@ -1399,12 +1408,15 @@ export const de = {
           "Änderungen werden als Revision gespeichert. Bewerbende sehen weiter die veröffentlichte Fassung, bis die Revision veröffentlicht ist.",
       },
       checklist: {
-        title: "Checkliste zur Veröffentlichung",
-        progress: "{{done}}/{{total}}",
-        help: "Sie können jederzeit speichern. Zum Veröffentlichen ist jeder Punkt unten nötig.",
         ready: "Alles für die Veröffentlichung ist vorhanden.",
       },
       steps: {
+        label: "Abschnitte",
+        position: "Schritt {{number}} von {{total}}",
+        picker: "Schritt {{number}} von {{total}}: {{section}}",
+        back: "Zurück: {{section}}",
+        backShort: "Zurück",
+        next: "Weiter: {{section}}",
         missing: "Fehlt: {{fields}}",
         incomplete:
           "Vervollständigen oder entfernen Sie die unvollständigen Einträge.",
@@ -2107,7 +2119,6 @@ export const de = {
   },
   pipeline: {
     title: "Pipeline",
-    internal: "Intern",
     startFrom: "Starten mit",
     startFromHelp:
       "Die Stellenanzeige erhält eine eigene Kopie. Ihre Phasen lassen sich jederzeit im Tab „Pipeline“ der Stellenanzeige ändern.",

@@ -13,7 +13,12 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
-import { accountMenu, chooseWorkspace, sidebarPage } from "../lib/orgs-ui.ts";
+import {
+  accountMenu,
+  chooseWorkspace,
+  openEditorStep,
+  sidebarPage,
+} from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseRegion } from "../lib/region-ui.ts";
 
@@ -143,6 +148,7 @@ test("drafting with AI fills the new Opening form without saving it", async ({
     await expect(page.getByLabel("Title")).toHaveValue(
       "Draft: Platform engineer",
     );
+    await openEditorStep(page, "Location");
     await expect(page.getByLabel("Location details")).toHaveValue(
       "Drafted by ai/qwen3:1.7b",
     );

@@ -1,4 +1,9 @@
 import {
+  ArrowLeftOutlined,
+  ArrowRightOutlined,
+  CheckCircleFilled,
+  ClockCircleOutlined,
+  CloseCircleFilled,
   EditOutlined,
   EyeOutlined,
   FileAddOutlined,
@@ -15,14 +20,13 @@ import {
   Button,
   Card,
   Col,
-  Collapse,
   ConfigProvider,
   Divider,
   Flex,
   Form,
+  Grid,
   Input,
   InputNumber,
-  Progress,
   Row,
   Select,
   Space,
@@ -173,6 +177,32 @@ const editorSections = [
   "pipeline",
 ];
 
+type StepStatus = "finish" | "process" | "wait" | "error";
+
+/** The picker's icon for a step; its text says the same for screen readers. */
+function StepStatusIcon({ status }: { status: StepStatus }) {
+  const { token } = theme.useToken();
+  switch (status) {
+    case "finish":
+      return (
+        <CheckCircleFilled aria-hidden style={{ color: token.colorSuccess }} />
+      );
+    case "error":
+      return (
+        <CloseCircleFilled aria-hidden style={{ color: token.colorError }} />
+      );
+    case "process":
+      return <EditOutlined aria-hidden style={{ color: token.colorPrimary }} />;
+    default:
+      return (
+        <ClockCircleOutlined
+          aria-hidden
+          style={{ color: token.colorTextQuaternary }}
+        />
+      );
+  }
+}
+
 interface ChecklistItem {
   label: string;
   done: boolean;
@@ -270,27 +300,19 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
   const recruiterEmail = Form.useWatch("recruiter_email", form);
   const [error, setError] = useState<string>();
   const [activeTab, setActiveTab] = useState("edit");
-  // The section in view, which the side panel's steps mark as current.
+  // The one section on screen; every section stays mounted (hidden) so the
+  // form validates and saves all of them.
   const [currentSection, setCurrentSection] = useState("basics");
   const [errorSections, setErrorSections] = useState<string[]>([]);
   // Bumped to open every question, so validation errors inside are visible.
   const [questionsOpened, setQuestionsOpened] = useState(0);
-  const sectionsRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLElement>(null);
   // Set by "Save and publish" for the submit it starts.
   const publishing = useRef(false);
   const { token } = theme.useToken();
-  // Salary and questions are optional, so their panels start closed unless
-  // the Opening already has them.
-  const initialContent = opening?.working_content ?? opening?.live_content;
-  const [openSections, setOpenSections] = useState<string[]>(() => [
-    "basics",
-    "location",
-    "role",
-    ...(initialContent?.salary ? ["salary"] : []),
-    ...(initialContent?.questions?.length ? ["questions"] : []),
-    "team",
-    ...(opening ? [] : ["pipeline"]),
-  ]);
+  // The side panel stacks under the form below lg, so its steps would be out
+  // of sight; a step picker above the section replaces them there.
+  const wide = Grid.useBreakpoint().lg === true;
   const templates = usePipelineTemplatesQuery(!opening);
   const liveQuestions = opening?.live_content
     ? (opening.live_content.questions ?? [])
@@ -326,31 +348,39 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
   const requestKey = useIdempotencyKey(
     `opening-editor-request:${opening?.opening_number ?? "new"}`,
   );
-  const openEverySection = () => {
-    setOpenSections(editorSections);
-    setQuestionsOpened((count) => count + 1);
-  };
-
-  // The current section is the last one whose header has scrolled past the
-  // top of the window.
-  useEffect(() => {
-    if (activeTab !== "edit") return;
-    const update = () => {
-      const headers =
-        sectionsRef.current?.querySelectorAll<HTMLElement>(
-          "[data-editor-section]",
-        ) ?? [];
-      let current = headers[0]?.dataset.editorSection;
-      for (const header of headers) {
-        if (header.getBoundingClientRect().top > window.innerHeight / 3) break;
-        current = header.dataset.editorSection;
+  /**
+   * Shows one section. With a field, scrolls to and focuses it (an error);
+   * otherwise focuses the section heading, scrolling up to it when the user
+   * moved on from the bottom of the previous section.
+   */
+  const showSection = (key: string, field?: (string | number)[]) => {
+    setActiveTab("edit");
+    setCurrentSection(key);
+    // The section renders before the next frame.
+    requestAnimationFrame(() => {
+      if (field) {
+        form.scrollToField(field, {
+          behavior: token.motion ? "smooth" : "auto",
+          block: "center",
+        });
+        // scrollToField's focus option needs a ref, which custom inputs such
+        // as OrgUserInput lack; every input carries the Form.Item id (the
+        // unnamed form's path joined by "_").
+        document
+          .getElementById(field.join("_"))
+          ?.focus({ preventScroll: true });
+        return;
       }
-      if (current) setCurrentSection(current);
-    };
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
-  }, [activeTab]);
+      const heading = headingRef.current;
+      if (!heading) return;
+      heading.focus({ preventScroll: true });
+      if (heading.getBoundingClientRect().top < 0)
+        heading.scrollIntoView({
+          behavior: token.motion ? "smooth" : "auto",
+          block: "start",
+        });
+    });
+  };
   const countryNames = new Intl.DisplayNames([i18n.language], {
     type: "region",
   });
@@ -411,6 +441,16 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
         .flatMap((field) => sectionOf(field.name) ?? []),
     );
 
+  /** Marks the steps with errors and opens the first field that has one. */
+  const revealErrors = () => {
+    refreshErrorSections();
+    setQuestionsOpened((count) => count + 1);
+    const first = form
+      .getFieldsError()
+      .find((field) => field.errors.length > 0);
+    if (first) showSection(sectionOf(first.name) ?? currentSection, first.name);
+  };
+
   const handleError = (cause: unknown, rotateKey: () => void) => {
     const problem = openingProblem(cause);
     if (problem.kind === "version-conflict") {
@@ -429,10 +469,8 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       const unknownTags = t("openings.errors.unknownTags", {
         tags: problem.tagOIDs.join(", "),
       });
-      setActiveTab("edit");
-      openEverySection();
       form.setFields([{ name: ["content", "tags"], errors: [unknownTags] }]);
-      refreshErrorSections();
+      revealErrors();
       setError(unknownTags);
     } else if (problem.kind === "hiring-team-invalid") {
       const values = form.getFieldsValue();
@@ -452,8 +490,6 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
               problem.emailAddresses.includes(normalizeEmailAddress(value)),
           )
         ) {
-          setActiveTab("edit");
-          openEverySection();
           form.setFields([
             {
               name: field,
@@ -466,7 +502,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
           ]);
         }
       }
-      refreshErrorSections();
+      revealErrors();
       setError(
         t("openings.errors.invalidTeam", {
           addresses: problem.emailAddresses.join(", "),
@@ -474,8 +510,6 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       );
     } else {
       if (cause instanceof APIError && cause.problem?.fields?.length) {
-        setActiveTab("edit");
-        openEverySection();
         form.setFields(
           cause.problem.fields.map((field) => ({
             name: (field.startsWith("content.")
@@ -488,7 +522,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
             errors: [t("openings.errors.invalidField")],
           })),
         );
-        refreshErrorSections();
+        revealErrors();
       }
       setError(problemMessage(t, cause));
     }
@@ -644,7 +678,6 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       form.setFieldValue(["content", field], draft.content[field]);
     }
     setActiveTab("edit");
-    if (draft.content.salary) openEverySection();
     const number = new Intl.NumberFormat(i18n.language);
     void message.success(
       t("ai.draft.applied", {
@@ -681,469 +714,11 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       ? "openings.editor.actions.draftHelp"
       : "openings.editor.actions.revisionHelp";
 
-  const sectionLabel = (key: string, text: string) => (
-    <span data-editor-section={key}>{text}</span>
-  );
   const lockable = (children: ReactNode) => (
     <ConfigProvider componentDisabled={contentLocked}>
       {children}
     </ConfigProvider>
   );
-  const optional = (
-    <Typography.Text type="secondary">
-      {t("openings.editor.optional")}
-    </Typography.Text>
-  );
-  const fields = (
-    <Form
-      form={form}
-      layout="vertical"
-      requiredMark={false}
-      onFinish={(values) => {
-        const publish = publishing.current;
-        publishing.current = false;
-        void submit(values, publish);
-      }}
-      onFieldsChange={refreshErrorSections}
-      onFinishFailed={openEverySection}
-      scrollToFirstError
-      initialValues={{
-        content: {},
-        team_member_emails: [],
-        pipeline_template_id: "",
-      }}
-    >
-      <Flex vertical gap="middle">
-        {contentLocked && (
-          <Alert
-            type="info"
-            showIcon
-            title={t("openings.errors.contentLocked")}
-          />
-        )}
-        <div ref={sectionsRef}>
-          <Collapse
-            activeKey={openSections}
-            onChange={setOpenSections}
-            items={[
-              {
-                key: "basics",
-                label: sectionLabel(
-                  "basics",
-                  t("openings.editor.sections.basics"),
-                ),
-                forceRender: true,
-                children: lockable(
-                  <>
-                    <Form.Item
-                      name={["content", "title"]}
-                      label={t("openings.fields.title")}
-                      extra={t("openings.editor.help.title")}
-                    >
-                      <Input maxLength={200} />
-                    </Form.Item>
-                    <Form.Item
-                      name={["content", "description"]}
-                      label={t("openings.fields.description")}
-                      extra={t("openings.editor.help.description")}
-                    >
-                      <Input.TextArea rows={10} maxLength={20000} />
-                    </Form.Item>
-                    <Form.Item
-                      name={["content", "language"]}
-                      label={t("openings.fields.language")}
-                      extra={t("openings.editor.help.language")}
-                    >
-                      <Select
-                        showSearch
-                        optionFilterProp="label"
-                        options={languageOptions}
-                        allowClear
-                      />
-                    </Form.Item>
-                  </>,
-                ),
-              },
-              {
-                key: "location",
-                label: sectionLabel(
-                  "location",
-                  t("openings.editor.sections.location"),
-                ),
-                forceRender: true,
-                children: lockable(
-                  <>
-                    <Row gutter={16}>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name={["content", "employing_country"]}
-                          label={t("openings.fields.country")}
-                          extra={t("openings.editor.help.country")}
-                        >
-                          <Select
-                            showSearch
-                            optionFilterProp="label"
-                            options={countryOptions}
-                            allowClear
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name={["content", "work_arrangement"]}
-                          label={t("openings.fields.workArrangement")}
-                        >
-                          <Select
-                            options={["on_site", "hybrid", "remote"].map(
-                              (value) => ({
-                                value,
-                                label: t(`openings.workArrangements.${value}`),
-                              }),
-                            )}
-                            allowClear
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                    {arrangement === "remote" && (
-                      <>
-                        <Form.Item
-                          name={["content", "remote_eligibility", "kind"]}
-                          label={t("openings.fields.remoteEligibility")}
-                          extra={t("openings.editor.help.remoteEligibility")}
-                        >
-                          <Select
-                            options={["worldwide", "countries"].map(
-                              (value) => ({
-                                value,
-                                label: t(`openings.remote.${value}`),
-                              }),
-                            )}
-                            allowClear
-                          />
-                        </Form.Item>
-                        {eligibilityKind === "countries" && (
-                          <Form.Item
-                            name={[
-                              "content",
-                              "remote_eligibility",
-                              "countries",
-                            ]}
-                            label={t("openings.remote.countries")}
-                          >
-                            <Select
-                              mode="multiple"
-                              showSearch
-                              optionFilterProp="label"
-                              options={countryOptions}
-                            />
-                          </Form.Item>
-                        )}
-                      </>
-                    )}
-                    <Form.Item
-                      name={["content", "location_details"]}
-                      label={t("openings.fields.locationDetails")}
-                      extra={t("openings.editor.help.locationDetails")}
-                    >
-                      <Input.TextArea rows={2} maxLength={2000} />
-                    </Form.Item>
-                  </>,
-                ),
-              },
-              {
-                key: "role",
-                label: sectionLabel("role", t("openings.editor.sections.role")),
-                forceRender: true,
-                children: lockable(
-                  <>
-                    <Row gutter={16}>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name={["content", "employment_type"]}
-                          label={t("openings.fields.employmentType")}
-                        >
-                          <Select
-                            options={[
-                              "full_time",
-                              "part_time",
-                              "contract",
-                              "internship",
-                            ].map((value) => ({
-                              value,
-                              label: t(`openings.employmentTypes.${value}`),
-                            }))}
-                            allowClear
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name={["content", "positions"]}
-                          label={t("openings.fields.positions")}
-                          extra={t("openings.editor.help.positions")}
-                        >
-                          <InputNumber
-                            min={1}
-                            max={10}
-                            className="full-width"
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name={["content", "experience_years", "min"]}
-                          label={t("openings.editor.minimumYears")}
-                        >
-                          <InputNumber
-                            min={0}
-                            max={50}
-                            className="full-width"
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name={["content", "experience_years", "max"]}
-                          label={t("openings.editor.maximumYears")}
-                        >
-                          <InputNumber
-                            min={0}
-                            max={50}
-                            className="full-width"
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                    <Form.Item
-                      name={["content", "minimum_education"]}
-                      label={t("openings.fields.minimumEducation")}
-                    >
-                      <Select
-                        options={[
-                          "secondary",
-                          "bachelor",
-                          "master",
-                          "doctorate",
-                        ].map((value) => ({
-                          value,
-                          label: t(`openings.education.${value}`),
-                        }))}
-                        allowClear
-                      />
-                    </Form.Item>
-                    <Form.Item
-                      name={["content", "tags"]}
-                      label={t("openings.fields.tags")}
-                      extra={t("openings.editor.help.tags")}
-                    >
-                      <OpeningTagSelect
-                        locale={i18n.language}
-                        catalog={tags.catalog}
-                        unavailable={
-                          tags.failed
-                            ? t("openings.tagsUnavailable")
-                            : undefined
-                        }
-                        placeholder={t("openings.editor.tagsPlaceholder")}
-                      />
-                    </Form.Item>
-                  </>,
-                ),
-              },
-              {
-                key: "salary",
-                label: sectionLabel("salary", t("openings.fields.salary")),
-                extra: optional,
-                forceRender: true,
-                children: lockable(
-                  <>
-                    <Typography.Paragraph type="secondary">
-                      {t("openings.editor.help.salary")}
-                    </Typography.Paragraph>
-                    <Row gutter={16}>
-                      <Col xs={24} sm={12} xl={6}>
-                        <Form.Item
-                          name={["content", "salary", "currency"]}
-                          label={t("openings.editor.currency")}
-                        >
-                          <Select
-                            showSearch
-                            options={currencyCatalog.map((value) => ({
-                              value,
-                              label: value,
-                            }))}
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} xl={6}>
-                        <Form.Item
-                          name={["content", "salary", "min"]}
-                          label={t("openings.editor.salaryMin")}
-                        >
-                          <InputNumber
-                            min={0}
-                            max={MaxOpeningSalary}
-                            className="full-width"
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} xl={6}>
-                        <Form.Item
-                          name={["content", "salary", "max"]}
-                          label={t("openings.editor.salaryMax")}
-                        >
-                          <InputNumber
-                            min={1}
-                            max={MaxOpeningSalary}
-                            className="full-width"
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} xl={6}>
-                        <Form.Item
-                          name={["content", "salary", "period"]}
-                          label={t("openings.editor.salaryPeriod")}
-                        >
-                          <Select
-                            options={["hour", "day", "month", "year"].map(
-                              (value) => ({
-                                value,
-                                label: t(`openings.salaryPeriods.${value}`),
-                              }),
-                            )}
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                  </>,
-                ),
-              },
-              {
-                key: "questions",
-                label: sectionLabel(
-                  "questions",
-                  t("openings.fields.questions"),
-                ),
-                extra: optional,
-                forceRender: true,
-                children: lockable(
-                  <QuestionsEditor
-                    opened={questionsOpened}
-                    {...(liveQuestions && { live: liveQuestions })}
-                    {...(applicationCount !== undefined && {
-                      applications: applicationCount,
-                    })}
-                  />,
-                ),
-              },
-              {
-                key: "team",
-                label: sectionLabel("team", t("openings.editor.team")),
-                forceRender: true,
-                children: (
-                  <>
-                    <Row gutter={16}>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name="hiring_manager_email"
-                          label={t("openings.fields.hiringManager")}
-                          extra={t("openings.editor.help.hiringManager")}
-                        >
-                          <OrgUserInput />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Form.Item
-                          name="recruiter_email"
-                          label={t("openings.editor.recruiter")}
-                          extra={t("openings.editor.help.recruiter")}
-                        >
-                          <OrgUserInput />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                    <Form.Item
-                      name="team_member_emails"
-                      label={t("openings.editor.teamMembers")}
-                      extra={t("openings.editor.help.teamMembers")}
-                    >
-                      <OrgUsersSelect />
-                    </Form.Item>
-                    <Form.Item
-                      name="internal_notes"
-                      label={t("openings.editor.internalNotes")}
-                      extra={t("openings.editor.help.internalNotes")}
-                    >
-                      <Input.TextArea rows={3} maxLength={2000} />
-                    </Form.Item>
-                  </>
-                ),
-              },
-              ...(opening
-                ? []
-                : [
-                    {
-                      key: "pipeline",
-                      label: sectionLabel("pipeline", t("pipeline.title")),
-                      extra: (
-                        <Typography.Text type="secondary">
-                          {t("pipeline.internal")}
-                        </Typography.Text>
-                      ),
-                      forceRender: true,
-                      children: (
-                        <>
-                          <Form.Item
-                            name="pipeline_template_id"
-                            label={t("pipeline.startFrom")}
-                            extra={t("pipeline.startFromHelp")}
-                          >
-                            <Select
-                              loading={templates.isLoading}
-                              options={[
-                                {
-                                  value: "",
-                                  label: t("pipeline.defaultStart"),
-                                },
-                                ...(templates.data ?? []).map((template) => ({
-                                  value: template.id,
-                                  label: t("pipeline.templateOption", {
-                                    name: template.name,
-                                    count: template.stages.length,
-                                  }),
-                                })),
-                              ]}
-                            />
-                          </Form.Item>
-                          {templates.isError && (
-                            <Alert
-                              type="warning"
-                              showIcon
-                              title={t("pipeline.templatesLoadError")}
-                            />
-                          )}
-                          {chosenTemplate && (
-                            <StageSummary stages={chosenTemplate.stages} />
-                          )}
-                        </>
-                      ),
-                    },
-                  ]),
-            ]}
-          />
-        </div>
-      </Flex>
-    </Form>
-  );
-
-  const preview = (
-    <CandidatePreview
-      content={previewContent}
-      help={t("openings.editor.previewHelp")}
-    />
-  );
-
   const sectionTitles: Record<string, string> = {
     basics: t("openings.editor.sections.basics"),
     location: t("openings.editor.sections.location"),
@@ -1166,13 +741,12 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       (item) => item.section === key && !item.done,
     );
     const required = checklist.some((item) => item.section === key);
-    const status: "finish" | "error" | "process" | "wait" =
-      errorSections.includes(key)
-        ? "error"
+    const status: StepStatus = errorSections.includes(key)
+      ? "error"
+      : key === currentSection
+        ? "process"
         : missing.length > 0
-          ? key === currentSection
-            ? "process"
-            : "wait"
+          ? "wait"
           : required || optionalFilled[key]
             ? "finish"
             : "wait";
@@ -1195,19 +769,496 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
               : t("openings.editor.optional"),
     };
   });
-  const goToSection = (key: string) => {
-    setActiveTab("edit");
-    setOpenSections((open) => (open.includes(key) ? open : [...open, key]));
-    // The panel may have just opened; scroll once it is laid out.
-    requestAnimationFrame(() =>
-      sectionsRef.current
-        ?.querySelector(`[data-editor-section="${key}"]`)
-        ?.scrollIntoView({
-          behavior: token.motion ? "smooth" : "auto",
-          block: "start",
-        }),
-    );
-  };
+  const sections: {
+    key: string;
+    intro?: string;
+    children: ReactNode;
+  }[] = [
+    {
+      key: "basics",
+      intro: t("openings.editor.intros.basics"),
+      children: lockable(
+        <>
+          <Form.Item
+            name={["content", "title"]}
+            label={t("openings.fields.title")}
+            extra={t("openings.editor.help.title")}
+          >
+            <Input maxLength={200} />
+          </Form.Item>
+          <Form.Item
+            name={["content", "description"]}
+            label={t("openings.fields.description")}
+            extra={t("openings.editor.help.description")}
+          >
+            <Input.TextArea rows={10} maxLength={20000} />
+          </Form.Item>
+          <Form.Item
+            name={["content", "language"]}
+            label={t("openings.fields.language")}
+            extra={t("openings.editor.help.language")}
+          >
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={languageOptions}
+              allowClear
+            />
+          </Form.Item>
+        </>,
+      ),
+    },
+    {
+      key: "location",
+      intro: t("openings.editor.intros.location"),
+      children: lockable(
+        <>
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name={["content", "employing_country"]}
+                label={t("openings.fields.country")}
+                extra={t("openings.editor.help.country")}
+              >
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  options={countryOptions}
+                  allowClear
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name={["content", "work_arrangement"]}
+                label={t("openings.fields.workArrangement")}
+              >
+                <Select
+                  options={["on_site", "hybrid", "remote"].map((value) => ({
+                    value,
+                    label: t(`openings.workArrangements.${value}`),
+                  }))}
+                  allowClear
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          {arrangement === "remote" && (
+            <>
+              <Form.Item
+                name={["content", "remote_eligibility", "kind"]}
+                label={t("openings.fields.remoteEligibility")}
+                extra={t("openings.editor.help.remoteEligibility")}
+              >
+                <Select
+                  options={["worldwide", "countries"].map((value) => ({
+                    value,
+                    label: t(`openings.remote.${value}`),
+                  }))}
+                  allowClear
+                />
+              </Form.Item>
+              {eligibilityKind === "countries" && (
+                <Form.Item
+                  name={["content", "remote_eligibility", "countries"]}
+                  label={t("openings.remote.countries")}
+                >
+                  <Select
+                    mode="multiple"
+                    showSearch
+                    optionFilterProp="label"
+                    options={countryOptions}
+                  />
+                </Form.Item>
+              )}
+            </>
+          )}
+          <Form.Item
+            name={["content", "location_details"]}
+            label={t("openings.fields.locationDetails")}
+            extra={t("openings.editor.help.locationDetails")}
+          >
+            <Input.TextArea rows={2} maxLength={2000} />
+          </Form.Item>
+        </>,
+      ),
+    },
+    {
+      key: "role",
+      intro: t("openings.editor.intros.role"),
+      children: lockable(
+        <>
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name={["content", "employment_type"]}
+                label={t("openings.fields.employmentType")}
+              >
+                <Select
+                  options={[
+                    "full_time",
+                    "part_time",
+                    "contract",
+                    "internship",
+                  ].map((value) => ({
+                    value,
+                    label: t(`openings.employmentTypes.${value}`),
+                  }))}
+                  allowClear
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name={["content", "positions"]}
+                label={t("openings.fields.positions")}
+                extra={t("openings.editor.help.positions")}
+              >
+                <InputNumber min={1} max={10} className="full-width" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name={["content", "experience_years", "min"]}
+                label={t("openings.editor.minimumYears")}
+              >
+                <InputNumber min={0} max={50} className="full-width" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name={["content", "experience_years", "max"]}
+                label={t("openings.editor.maximumYears")}
+              >
+                <InputNumber min={0} max={50} className="full-width" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item
+            name={["content", "minimum_education"]}
+            label={t("openings.fields.minimumEducation")}
+          >
+            <Select
+              options={["secondary", "bachelor", "master", "doctorate"].map(
+                (value) => ({
+                  value,
+                  label: t(`openings.education.${value}`),
+                }),
+              )}
+              allowClear
+            />
+          </Form.Item>
+          <Form.Item
+            name={["content", "tags"]}
+            label={t("openings.fields.tags")}
+            extra={t("openings.editor.help.tags")}
+          >
+            <OpeningTagSelect
+              locale={i18n.language}
+              catalog={tags.catalog}
+              unavailable={
+                tags.failed ? t("openings.tagsUnavailable") : undefined
+              }
+              placeholder={t("openings.editor.tagsPlaceholder")}
+            />
+          </Form.Item>
+        </>,
+      ),
+    },
+    {
+      key: "salary",
+      intro: t("openings.editor.help.salary"),
+      children: lockable(
+        <>
+          <Row gutter={16}>
+            <Col xs={24} sm={12} xl={6}>
+              <Form.Item
+                name={["content", "salary", "currency"]}
+                label={t("openings.editor.currency")}
+              >
+                <Select
+                  showSearch
+                  options={currencyCatalog.map((value) => ({
+                    value,
+                    label: value,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <Form.Item
+                name={["content", "salary", "min"]}
+                label={t("openings.editor.salaryMin")}
+              >
+                <InputNumber
+                  min={0}
+                  max={MaxOpeningSalary}
+                  className="full-width"
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <Form.Item
+                name={["content", "salary", "max"]}
+                label={t("openings.editor.salaryMax")}
+              >
+                <InputNumber
+                  min={1}
+                  max={MaxOpeningSalary}
+                  className="full-width"
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <Form.Item
+                name={["content", "salary", "period"]}
+                label={t("openings.editor.salaryPeriod")}
+              >
+                <Select
+                  options={["hour", "day", "month", "year"].map((value) => ({
+                    value,
+                    label: t(`openings.salaryPeriods.${value}`),
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+        </>,
+      ),
+    },
+    {
+      key: "questions",
+      children: lockable(
+        <QuestionsEditor
+          opened={questionsOpened}
+          {...(liveQuestions && { live: liveQuestions })}
+          {...(applicationCount !== undefined && {
+            applications: applicationCount,
+          })}
+        />,
+      ),
+    },
+    {
+      key: "team",
+      intro: t("openings.editor.intros.team"),
+      children: (
+        <>
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="hiring_manager_email"
+                label={t("openings.fields.hiringManager")}
+                extra={t("openings.editor.help.hiringManager")}
+              >
+                <OrgUserInput />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="recruiter_email"
+                label={t("openings.editor.recruiter")}
+                extra={t("openings.editor.help.recruiter")}
+              >
+                <OrgUserInput />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item
+            name="team_member_emails"
+            label={t("openings.editor.teamMembers")}
+            extra={t("openings.editor.help.teamMembers")}
+          >
+            <OrgUsersSelect />
+          </Form.Item>
+          <Form.Item
+            name="internal_notes"
+            label={t("openings.editor.internalNotes")}
+            extra={t("openings.editor.help.internalNotes")}
+          >
+            <Input.TextArea rows={3} maxLength={2000} />
+          </Form.Item>
+        </>
+      ),
+    },
+    ...(opening
+      ? []
+      : [
+          {
+            key: "pipeline",
+            intro: t("openings.editor.intros.pipeline"),
+            children: (
+              <>
+                <Form.Item
+                  name="pipeline_template_id"
+                  label={t("pipeline.startFrom")}
+                  extra={t("pipeline.startFromHelp")}
+                >
+                  <Select
+                    loading={templates.isLoading}
+                    options={[
+                      {
+                        value: "",
+                        label: t("pipeline.defaultStart"),
+                      },
+                      ...(templates.data ?? []).map((template) => ({
+                        value: template.id,
+                        label: t("pipeline.templateOption", {
+                          name: template.name,
+                          count: template.stages.length,
+                        }),
+                      })),
+                    ]}
+                  />
+                </Form.Item>
+                {templates.isError && (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    title={t("pipeline.templatesLoadError")}
+                  />
+                )}
+                {chosenTemplate && (
+                  <StageSummary stages={chosenTemplate.stages} />
+                )}
+              </>
+            ),
+          },
+        ]),
+  ];
+  const stepIndex = Math.max(
+    0,
+    steps.findIndex((step) => step.key === currentSection),
+  );
+  const previousStep = steps[stepIndex - 1];
+  const nextStep = steps[stepIndex + 1];
+  const currentIntro = sections.find(
+    (section) => section.key === currentSection,
+  )?.intro;
+  const fields = (
+    <Form
+      form={form}
+      layout="vertical"
+      requiredMark={false}
+      onFinish={(values) => {
+        const publish = publishing.current;
+        publishing.current = false;
+        void submit(values, publish);
+      }}
+      onFieldsChange={refreshErrorSections}
+      onFinishFailed={revealErrors}
+      initialValues={{
+        content: {},
+        team_member_emails: [],
+        pipeline_template_id: "",
+      }}
+    >
+      <Flex vertical gap="middle">
+        {contentLocked && (
+          <Alert
+            type="info"
+            showIcon
+            title={t("openings.errors.contentLocked")}
+          />
+        )}
+        {!wide && (
+          <Select
+            size="large"
+            aria-label={t("openings.editor.steps.label")}
+            value={currentSection}
+            onChange={(key: string) => showSection(key)}
+            options={steps.map((step, index) => ({
+              value: step.key,
+              label: t("openings.editor.steps.picker", {
+                number: index + 1,
+                total: steps.length,
+                section: step.title,
+              }),
+            }))}
+            optionRender={(option) => {
+              const step = steps.find((entry) => entry.key === option.value);
+              return (
+                <Flex gap="small" align="baseline">
+                  {step && <StepStatusIcon status={step.status} />}
+                  <Flex vertical>
+                    <span>{option.label}</span>
+                    {step && (
+                      <Typography.Text type="secondary">
+                        {step.content}
+                      </Typography.Text>
+                    )}
+                  </Flex>
+                </Flex>
+              );
+            }}
+          />
+        )}
+        <Flex vertical gap={4}>
+          {wide && (
+            <Typography.Text type="secondary">
+              {t("openings.editor.steps.position", {
+                number: stepIndex + 1,
+                total: steps.length,
+              })}
+            </Typography.Text>
+          )}
+          <Typography.Title
+            ref={headingRef}
+            tabIndex={-1}
+            level={3}
+            style={{ margin: 0 }}
+          >
+            {sectionTitles[currentSection]}
+          </Typography.Title>
+          {currentIntro && (
+            <Typography.Text type="secondary">{currentIntro}</Typography.Text>
+          )}
+        </Flex>
+        {sections.map((section) => (
+          <div key={section.key} hidden={section.key !== currentSection}>
+            {section.children}
+          </div>
+        ))}
+        <Divider />
+        <Flex justify="space-between" gap="small" wrap>
+          {previousStep ? (
+            <Button
+              icon={<ArrowLeftOutlined aria-hidden />}
+              onClick={() => showSection(previousStep.key)}
+            >
+              {wide
+                ? t("openings.editor.steps.back", {
+                    section: previousStep.title,
+                  })
+                : t("openings.editor.steps.backShort")}
+            </Button>
+          ) : (
+            <span />
+          )}
+          {nextStep && (
+            <Button
+              type="primary"
+              ghost
+              icon={<ArrowRightOutlined aria-hidden />}
+              iconPlacement="end"
+              onClick={() => showSection(nextStep.key)}
+            >
+              {wide
+                ? t("openings.editor.steps.next", { section: nextStep.title })
+                : t("common.next")}
+            </Button>
+          )}
+        </Flex>
+      </Flex>
+    </Form>
+  );
+
+  const preview = (
+    <CandidatePreview
+      content={previewContent}
+      help={t("openings.editor.previewHelp")}
+    />
+  );
+
   const publishKind = !opening
     ? "publish"
     : opening.state === "draft"
@@ -1269,13 +1320,13 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
             >
               {publishLabel}
             </Button>
-            {!ready && (
-              <Typography.Text type="secondary">
-                {t("openings.editor.publishBlocked", {
-                  count: checklist.length - checklistDone,
-                })}
-              </Typography.Text>
-            )}
+            <Typography.Text type="secondary">
+              {ready
+                ? t("openings.editor.checklist.ready")
+                : t("openings.editor.publishBlocked", {
+                    count: checklist.length - checklistDone,
+                  })}
+            </Typography.Text>
           </Flex>
         )}
         <Button
@@ -1300,48 +1351,27 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
           </Typography.Text>
         )}
       </Flex>
-      <Divider />
-      <Flex vertical gap="small">
-        <Typography.Title level={5}>
-          {t("openings.editor.checklist.title")}
-        </Typography.Title>
-        <Progress
-          percent={Math.floor((checklistDone / checklist.length) * 100)}
-          status={ready ? "success" : "normal"}
-          format={() =>
-            t("openings.editor.checklist.progress", {
-              done: checklistDone,
-              total: checklist.length,
-            })
-          }
-        />
-        <Typography.Text type="secondary">
-          {t(
-            ready
-              ? "openings.editor.checklist.ready"
-              : "openings.editor.checklist.help",
-          )}
-        </Typography.Text>
-        <nav aria-label={t("openings.editor.checklist.title")}>
-          <Steps
-            orientation="vertical"
-            size="small"
-            current={Math.max(
-              0,
-              steps.findIndex((step) => step.key === currentSection),
-            )}
-            onChange={(index) => {
-              const step = steps[index];
-              if (step) goToSection(step.key);
-            }}
-            items={steps.map(({ title, status, content }) => ({
-              title,
-              status,
-              content,
-            }))}
-          />
-        </nav>
-      </Flex>
+      {wide && (
+        <>
+          <Divider />
+          <nav aria-label={t("openings.editor.steps.label")}>
+            <Steps
+              orientation="vertical"
+              size="small"
+              current={stepIndex}
+              onChange={(index) => {
+                const step = steps[index];
+                if (step) showSection(step.key);
+              }}
+              items={steps.map(({ title, status, content }) => ({
+                title,
+                status,
+                content,
+              }))}
+            />
+          </nav>
+        </>
+      )}
     </Card>
   );
 

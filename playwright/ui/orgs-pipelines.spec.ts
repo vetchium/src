@@ -8,7 +8,7 @@ import { expect, test } from "../lib/admin-fixtures.ts";
 import { seedApplication } from "../lib/hiring-seed.ts";
 import { addOrgMember, type OrgsAPI } from "../lib/orgs-api.ts";
 import { openingContent } from "../lib/orgs-applications.ts";
-import { signIn, withOrg } from "../lib/orgs-ui.ts";
+import { openEditorStep, signIn, withOrg } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 
 test.describe.configure({ timeout: 90_000 });
@@ -193,6 +193,7 @@ test("a new Opening starts from a chosen template and keeps its own copy", async
     ]);
     await signIn(page, org);
     await page.goto(`${ORGS_PORTAL}/openings/new`);
+    await openEditorStep(page, "Pipeline");
     await expect(page.getByText("One review stage")).toBeVisible();
     await page.getByRole("combobox", { name: "Start from" }).click();
     await page
@@ -200,6 +201,7 @@ test("a new Opening starts from a chosen template and keeps its own copy", async
       .getByTitle("Design hiring · 2 stages")
       .click();
     await expect(page.getByText("2. Design panel")).toBeVisible();
+    await openEditorStep(page, "Basics");
     await page.getByRole("textbox", { name: "Title" }).fill("Designer");
     await page.getByRole("button", { name: "Create draft" }).click();
     await expect(page).toHaveURL(/\/openings\/1$/);

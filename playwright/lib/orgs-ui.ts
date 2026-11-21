@@ -101,3 +101,21 @@ export async function withOrg(
     cleanupOrg(org.domain);
   }
 }
+
+/** The Opening editor's side-panel steps; the name follows the portal
+ * language ("Sections" in English). */
+export function editorSteps(page: Page, name = "Sections"): Locator {
+  return page.getByRole("navigation", { name });
+}
+
+/** Shows one Opening editor section by its step title. */
+export async function openEditorStep(
+  page: Page,
+  title: string,
+  navigation = "Sections",
+): Promise<void> {
+  await editorSteps(page, navigation).getByText(title, { exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: title, level: 3 }),
+  ).toBeVisible();
+}

@@ -1323,6 +1323,15 @@ export const en = {
         location: "Location",
         role: "Role and requirements",
       },
+      intros: {
+        basics: "What the role is called and what candidates read about it.",
+        location:
+          "Where the person hired is employed and where candidates may live.",
+        role: "The kind of employment and what candidates need to bring.",
+        team: "Who runs this Opening. Only your organization sees this section.",
+        pipeline:
+          "The stages applications move through. Only your organization sees them.",
+      },
       help: {
         title: "The job title candidates search for, such as Backend engineer.",
         description:
@@ -1360,12 +1369,15 @@ export const en = {
           "Changes are saved as a revision. Candidates keep seeing the live Opening until the revision is published.",
       },
       checklist: {
-        title: "Publication checklist",
-        progress: "{{done}}/{{total}}",
-        help: "You can save at any time. Publishing needs every item below.",
         ready: "Everything needed to publish is in place.",
       },
       steps: {
+        label: "Sections",
+        position: "Step {{number}} of {{total}}",
+        picker: "Step {{number}} of {{total}}: {{section}}",
+        back: "Back: {{section}}",
+        backShort: "Back",
+        next: "Next: {{section}}",
         missing: "Missing: {{fields}}",
         incomplete: "Finish or remove the incomplete entries.",
         invalid: "Check the marked fields.",
@@ -2052,7 +2064,6 @@ export const en = {
   },
   pipeline: {
     title: "Pipeline",
-    internal: "Internal",
     startFrom: "Start from",
     startFromHelp:
       "The Opening gets its own copy. You can change its stages any time from the Opening's Pipeline tab.",

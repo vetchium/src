@@ -13,7 +13,7 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "../lib/orgs-api.ts";
-import { accountMenu } from "../lib/orgs-ui.ts";
+import { accountMenu, editorSteps, openEditorStep } from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseOption, chooseRegion } from "../lib/region-ui.ts";
 
@@ -91,6 +91,7 @@ test("creates a partial draft, previews Markdown, edits, duplicates, and discard
     await page
       .getByRole("textbox", { name: "Description" })
       .fill("**Important** <script>bad</script>");
+    await openEditorStep(page, "Location");
     await page
       .getByRole("textbox", { name: "Location details" })
       .fill("<script>plain</script>");
@@ -270,6 +271,7 @@ test("Opening managers find team members from the first letters typed", async ({
     );
     await signIn(page, manager);
     await page.goto(`${ORGS_PORTAL}/openings/new`);
+    await openEditorStep(page, "Hiring team and notes");
     const options = page.locator(
       ".ant-select-dropdown:visible .ant-select-item-option-content",
     );
@@ -300,12 +302,20 @@ test("invalid team addresses and a full quota get specific messages", async ({
   await withOrg(request, async (org) => {
     await signIn(page, org);
     await page.goto(`${ORGS_PORTAL}/openings/new`);
-    await page
-      .getByRole("combobox", { name: "Hiring manager" })
-      .fill(`unknown@${org.domain}`);
+    await openEditorStep(page, "Hiring team and notes");
+    const hiringManager = page.getByRole("combobox", {
+      name: "Hiring manager",
+    });
+    await hiringManager.fill(`unknown@${org.domain}`);
+    // A refused save shows the section holding the refused field.
+    await openEditorStep(page, "Basics");
     await page.getByRole("button", { name: "Create draft" }).click();
     await expect(
       page.getByText(/not active members of this organization/).first(),
+    ).toBeVisible();
+    await expect(hiringManager).toBeFocused();
+    await expect(
+      page.getByRole("heading", { name: "Hiring team and notes", level: 3 }),
     ).toBeVisible();
     orgSQL(`INSERT INTO vetchium.org_openings (org_opening_id, org_did, opening_number, created_by)
       SELECT gen_random_uuid(), o.org_did, n, u.org_user_id FROM vetchium.orgs AS o
@@ -335,6 +345,7 @@ test("team edits flag invalid addresses and save valid members", async ({
     expect(created.status()).toBe(201);
     await signIn(page, org);
     await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    await openEditorStep(page, "Hiring team and notes");
     await page
       .getByRole("combobox", { name: "Hiring manager" })
       .fill(`unknown@${org.domain}`);
@@ -349,6 +360,7 @@ test("team edits flag invalid addresses and save valid members", async ({
       .getByRole("textbox", { name: "Internal notes" })
       .fill("Private note");
     // One save keeps both sections' edits.
+    await openEditorStep(page, "Basics");
     await page.getByRole("textbox", { name: "Title" }).fill("Team editor v2");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page).toHaveURL(/\/openings\/1$/);
@@ -377,11 +389,12 @@ test("a new Opening starts from the Org's country and default language", async (
     ).toBeVisible();
 
     await page.getByRole("button", { name: "New Opening" }).click();
-    await expect(page.getByText("Germany", { exact: true })).toBeVisible();
     await expect(page.getByText("German", { exact: true })).toBeVisible();
     await page
       .getByRole("textbox", { name: "Title" })
       .fill("Prefilled engineer");
+    await openEditorStep(page, "Location");
+    await expect(page.getByText("Germany", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Create draft" }).click();
     await expect(page).toHaveURL(/\/openings\/1$/);
     const read = await api.getOpening(owner, { opening_number: 1 });
@@ -534,9 +547,7 @@ test("the editor's steps show what each section needs, and a complete draft save
     await signIn(page, org);
     await page.goto(`${ORGS_PORTAL}/openings/new`);
     await page.getByRole("textbox", { name: "Title" }).fill("Stepped engineer");
-    const steps = page.getByRole("navigation", {
-      name: "Publication checklist",
-    });
+    const steps = editorSteps(page);
     await expect(
       steps.getByText("Missing: Description", { exact: false }),
     ).toBeVisible();
@@ -549,9 +560,46 @@ test("the editor's steps show what each section needs, and a complete draft save
       page.getByText(/^Complete \d+ more items to publish\.$/),
     ).toBeVisible();
 
-    // A step opens its section and brings it into view.
+    // One section shows at a time; Next and Back move between neighbours and
+    // focus the section heading.
+    await expect(page.getByText("Step 1 of 7")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Back:/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Next: Location" }).click();
+    const locationHeading = page.getByRole("heading", {
+      name: "Location",
+      level: 3,
+    });
+    await expect(locationHeading).toBeFocused();
+    await expect(page.getByText("Step 2 of 7")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Title" })).toBeHidden();
+    await page.getByRole("button", { name: "Back: Basics" }).click();
+    await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(
+      "Stepped engineer",
+    );
+
+    // A step opens its section in view; the last one offers no Next.
     await steps.getByText("Hiring team and notes", { exact: true }).click();
     await expect(page.getByLabel("Hiring manager")).toBeInViewport();
+    await steps.getByText("Pipeline", { exact: true }).click();
+    await expect(page.getByText("Step 7 of 7")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Next:/ })).toHaveCount(0);
+
+    // Below lg the side panel stacks under the form, so a picker above the
+    // section replaces its steps.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(steps).toHaveCount(0);
+    await expect(page.getByText("Step 7 of 7: Pipeline")).toBeVisible();
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Sections" }),
+      "Step 6 of 7: Hiring team and notes",
+    );
+    await expect(page.getByLabel("Hiring manager")).toBeVisible();
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Application questions", level: 3 }),
+    ).toBeFocused();
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.getByRole("button", { name: "Create draft" }).click();
     await expect(page).toHaveURL(/\/openings\/1$/);
 
@@ -1007,6 +1055,7 @@ test("managers edit application questions within their bounds and see the publis
 
     await signIn(page, org);
     await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    await openEditorStep(page, "Application questions");
     // Saved questions start closed to one summary line each.
     const firstQuestion = page.getByRole("button", {
       name: /1\. Notice period in days\?/,
@@ -1156,6 +1205,7 @@ test("tags are picked by default and German name, shown on detail and preview, c
       "Deutsch (Deutschland)",
     );
     await expect(page.locator("html")).toHaveAttribute("lang", "de-DE");
+    await openEditorStep(page, "Stelle und Anforderungen", "Abschnitte");
 
     const dropdown = page.locator(".ant-select-dropdown:visible");
     const tags = page.getByRole("combobox", { name: "Schlagwörter" });
@@ -1187,6 +1237,7 @@ test("tags are picked by default and German name, shown on detail and preview, c
     ]);
 
     await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    await openEditorStep(page, "Stelle und Anforderungen", "Abschnitte");
     for (const name of ["Rust", "Kotlin", "Swift"]) await pick(name, name);
     // Five are picked, so every other tag is offered but cannot be chosen.
     await expect(
@@ -1300,6 +1351,7 @@ test("a failed tag catalog read is shown in the Tag filter and the Tags field", 
     await expect(page.getByText("Tags could not be loaded")).toBeVisible();
 
     await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    await openEditorStep(page, "Role and requirements");
     // Without the catalog a tag shows as its OID (OPN-TAG-004).
     await expect(page.getByTitle("golang", { exact: true })).toBeVisible();
     await page.getByRole("combobox", { name: "Tags" }).click();

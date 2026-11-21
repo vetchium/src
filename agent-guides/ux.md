@@ -32,18 +32,26 @@ first version; a screen that needs a redesign pass missed a rule here.
 - Lists: server-side pagination; search plus the one or two most used filters
   visible, the rest under "More filters" with a `Badge` count; state tabs with
   counts; `Empty` that offers the next action.
-- Long forms: titled sections (`Collapse` or `Card`), two columns from `md`
+- Long forms: titled sections, two columns from `md`
   (`Col xs={24} md={12}`), "Optional" on optional fields, plain-language
-  `extra` help on any field whose rule is not obvious, optional sections
-  closed unless filled.
+  `extra` help on any field whose rule is not obvious.
 - Right-hand panels of two-column pages use `SidePanel`
   (`@vetchium/portal-ui/shell`) in `Col lg={8}`: sticky from `lg`, scrolling
   inside itself when taller than the window.
-- Editors: a side panel holding the primary action, what saving does (quota,
-  visibility, approval), and a vertical `Steps` with one step per section: its
-  status, what it still needs, the section in view as current, and a click
-  opening and scrolling to it. Offer the next step (publish, submit) beside
-  Save once the checklist is complete.
+- Editors show one section at a time, never a stack of `Collapse` panels.
+  The side panel holds the primary action, what saving does (quota,
+  visibility, approval), and a vertical `Steps` with one step per section:
+  its status and what it still needs, the shown section as current, a click
+  showing it. No separate checklist or `Progress`; the steps are the
+  checklist. Offer the next step (publish, submit) beside Save once no step
+  needs anything.
+- An editor section shows "Step n of m", its title as a heading that takes
+  focus on change, a one-sentence intro, and Back and Next buttons naming the
+  neighbouring sections. Any step opens at any time; saving never requires
+  walking the steps. Keep every section mounted (`hidden`) so the form
+  validates and saves all of them; a failed save shows the first section with
+  an error and focuses that field. Below `lg`, where the side panel stacks
+  under the form, a step `Select` above the section replaces the `Steps`.
 - Detail pages of an item with a lifecycle: `Title` with a status `Tag`, the
   content on the left, and a side panel holding the state, any pending
   request, and every lifecycle action. Disable an action the item is not ready
