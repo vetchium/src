@@ -62,7 +62,11 @@ interface World {
 }
 
 /** Removes the commands, outbox events, and inbox rows the applicant's
- * applications left in the sgp tenant, which hosts both sides. */
+ * applications left in the sgp tenant, which hosts both sides.
+ *
+ * The outbox goes in a transaction of its own: a deliverer applying an event
+ * locally locks the watermark before it completes the outbox row, so deleting
+ * both in one transaction deadlocks with it. */
 function cleanupFederation(applicant: HubTestUser, domain: string) {
   const did = hubUserDIDForHandle(applicant.handle);
   const commandIDs = sqlScalarForTenant(
@@ -82,8 +86,11 @@ function cleanupFederation(applicant: HubTestUser, domain: string) {
            WHERE command_id::text IN (${commandIDs});`
     }
      DELETE FROM vetchium.federation_outbox
-     WHERE destination_principal_did = ${sqlLiteral(did)}::uuid;
-     DELETE FROM vetchium.audit_events
+     WHERE destination_principal_did = ${sqlLiteral(did)}::uuid;`,
+  );
+  sqlScalarForTenant(
+    "sgp",
+    `DELETE FROM vetchium.audit_events
      WHERE entity_type = 'federation_event' AND entity_id IN (
        SELECT event_id::text FROM vetchium.federation_inbox
        WHERE aggregate_type = 'org_application'

@@ -41,10 +41,13 @@ count. Any test may run at any moment, on any worker, repeatedly.
 - Fault-injection triggers on shared tables take `AUDIT_FAULT_LOCK`
   (`lib/admin-db.ts`) in the same transaction; parallel DDL deadlocks without
   it.
-- Cleanup deletes child rows a server transaction updates before inserting
-  a sibling row (e.g. `hub_application_projections`, `hub_agency_pointers`)
-  ahead of their parent; a cascade locks the parent first and deadlocks with
-  an event receiver still running.
+- Cleanup takes row locks in the order a running server transaction does, or
+  in separate transactions. A deliverer applying an event locally locks the
+  watermark, then the projection or agency pointer row, then `hub_users` (a
+  notice's foreign key), and completes the outbox row last. So delete
+  `hub_application_projections` and `hub_agency_pointers` before
+  `hub_users`, never by cascade, and never delete `federation_outbox` rows in
+  the transaction that deletes `federation_event_watermarks`.
 - A test changing singleton configuration restores it and uses a tenant or
   namespace no other test shares; if none exists, raise it.
 
