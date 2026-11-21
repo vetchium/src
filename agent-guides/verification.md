@@ -8,7 +8,7 @@ the coverage reports. `make fmt` applies every formatter.
 
 | Changed | Run |
 | --- | --- |
-| Go in `backend/` or `typespec/` | `go test ./...` in the module, `make test-go`, `make test-go-static`; before handoff `make test-go-lint` and `make test-go-vuln` |
+| Go in `backend/` or `typespec/` | `go test ./...` in the module (database integration tests skip), `make test-go` (runs them on scratch databases), `make test-go-static`; before handoff `make test-go-lint` and `make test-go-vuln` |
 | Queries, migrations, `sqlc.yaml` | `make sqlc`, then `make sql-check` |
 | `typespec/` | `make typespec-check`; `make test-go` if a `.go` companion changed |
 | `admin-ui/`, `hub-ui/`, `orgs-ui/` | `make admin-ui-check`, `make hub-ui-check`, `make orgs-ui-check` |

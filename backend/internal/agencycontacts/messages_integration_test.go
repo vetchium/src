@@ -17,10 +17,24 @@ import (
 func TestAgencyMessageDeletedAuditsWithoutTheTextIntegration(t *testing.T) {
 	f := newFixture(t)
 	agencyDID, hubDID := f.agency(t), newID(t)
+	// The receiver applies only events for a Hub user this tenant homes.
+	f.exec(t, `INSERT INTO vetchium.hub_users (hub_user_did, handle,
+        email_address, email_digest, display_name, password_hash,
+        resident_country, hub_plan_oid)
+        VALUES ($1, $2, $3, sha256(convert_to($3, 'UTF8')), 'Ada Lovelace',
+            'test-hash', 'SG', 'hub-free-tier')`,
+		hubDID, handleOf(hubDID), "ada-"+handleOf(hubDID)+"@contacts.example")
 	t.Cleanup(func() {
-		if _, err := f.owner.Exec(context.Background(), `DELETE FROM vetchium.audit_events
-            WHERE subject_hub_user_did = $1`, hubDID); err != nil {
-			t.Errorf("clean up: %v", err)
+		ctx := context.Background()
+		for _, sql := range []string{
+			`DELETE FROM vetchium.audit_events WHERE subject_hub_user_did = $1`,
+			`DELETE FROM vetchium.federation_event_watermarks
+             WHERE destination_principal_did = $1`,
+			`DELETE FROM vetchium.hub_users WHERE hub_user_did = $1`,
+		} {
+			if _, err := f.owner.Exec(ctx, sql, hubDID); err != nil {
+				t.Errorf("clean up: %v", err)
+			}
 		}
 	})
 	payload := federationspec.AgencyMessageDeletedPayload{

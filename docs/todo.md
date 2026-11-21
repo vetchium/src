@@ -36,9 +36,6 @@ Each item: what is not done, and what must be decided first.
 - Go contract tests for `typespec/hub/auth` and `typespec/hub/users`.
 - `backend/handlers/mesh` directory relays have no Go tests; only the
   Playwright API suite exercises them.
-- The database integration tests (`TENANT_DATABASE_URL`,
-  `GLOBAL_DATABASE_URL`) run in no make target. Decide where they run (a
-  scratch database like `make migration-check`, or the CI stack).
 - Opening tags: no test shows a Simple Icons icon, the `TagOutlined`
   fallback, or `aria-hidden` on either (OPN-TAG-005); none shows that
   applying an AI draft keeps the editor's tags (OPN-TAG-010); and the

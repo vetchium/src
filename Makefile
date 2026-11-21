@@ -74,7 +74,8 @@ serving_services = $$(docker compose -f $(1) config --services | \
 .PHONY: check fmt tools backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs dev-seed-applications dev-seed-marketplace dev-accounts sqlc sqlc-vet \
 	sql-lint migration-check sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
-	test-go test-go-static test-go-lint test-go-vuln coverage-summary \
+	test-go test-go-run test-go-static test-go-lint test-go-vuln \
+	coverage-summary \
 	admin-ui-deps admin-ui-check admin-ui-check-ready \
 	hub-ui-deps hub-ui-check hub-ui-check-ready portal-dist \
 	orgs-ui-deps orgs-ui-check orgs-ui-check-ready portal-ui-deps \
@@ -305,15 +306,17 @@ sql-lint:
 		$(SQLFLUFF_IMAGE) lint --dialect postgres --ignore parsing \
 		--rules AM04,ST03 $(SQL_DIRS)
 
-# Every database uses the one PostgreSQL image the CI stack pins.
-migration-check:
-	@image=$$(docker compose -f docker-compose-ci.json config --images | \
-		grep '^postgres:' | sort -u); \
+# Every database uses the one PostgreSQL image the CI stack pins. This recipe
+# fragment sets the shell variable image to it.
+ci_postgres_image = image=$$(docker compose -f docker-compose-ci.json \
+		config --images | grep '^postgres:' | sort -u); \
 	test "$$(printf '%s\n' "$$image" | wc -l)" -eq 1 || { \
 		echo "docker-compose-ci.json must pin exactly one postgres image"; \
 		exit 1; \
-	}; \
-	./db/check-migrations.sh "$$image"
+	}
+
+migration-check:
+	@$(ci_postgres_image); ./db/check-migrations.sh "$$image"
 
 sql-check: sqlc-vet sqlc sql-lint migration-check
 
@@ -351,16 +354,37 @@ test-stack: dev-secrets
 		sleep 5; \
 	done
 
-# Unit tests for every Go module; no database or running stack needed.
-# Race detection is always enabled. Pass extra flags with, for example,
+# Tests for every Go module against migrated scratch tenant and global
+# databases; without TENANT_DATABASE_URL and GLOBAL_DATABASE_URL the database
+# integration tests skip. No running stack needed. Race detection is always
+# enabled. Pass extra flags with, for example,
 # make test-go GOTESTFLAGS='-count=1'.
 test-go: typespec-deps sqlc
+	@$(ci_postgres_image); ./db/with-scratch-databases.sh "$$image" \
+		$(MAKE) --no-print-directory test-go-run
+
+# Packages whose tests read either database URL share the databases, so they
+# run one at a time: a test that claims every due row, like the outbox
+# deliverer's, must not see another package's rows. The rest run in parallel;
+# the two profiles merge into one per module.
+test-go-run:
 	@mkdir -p "$(COVERAGE_DIR)"
 	@for m in $(GO_MODULES); do \
 		echo "==> $$m"; \
 		profile="$(COVERAGE_DIR)/$$m.out"; \
-		(cd "$$m" && go test -race $(GOTESTFLAGS) -covermode=atomic \
-			-coverprofile="$$profile" ./...) || exit $$?; \
+		(cd "$$m" && \
+		dirs=$$(grep -rl --include='*_test.go' -e TENANT_DATABASE_URL \
+			-e GLOBAL_DATABASE_URL . | sed 's|/[^/]*$$||' | sort -u); \
+		shared=$$(test -z "$$dirs" || go list $$dirs) && \
+		rest=$$(go list ./... | grep -vxF "$${shared:-.}") && \
+		go test -race $(GOTESTFLAGS) -covermode=atomic \
+			-coverprofile="$$profile" $$rest && \
+		if [ -n "$$shared" ]; then \
+			go test -race -p 1 $(GOTESTFLAGS) -covermode=atomic \
+				-coverprofile="$$profile.shared" $$shared && \
+			tail -n +2 "$$profile.shared" >> "$$profile" && \
+			rm -f "$$profile.shared"; \
+		fi) || exit $$?; \
 	done
 
 test-go-static: typespec-deps sqlc

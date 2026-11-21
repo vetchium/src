@@ -154,3 +154,14 @@ privileges. A separate container then runs the Goose migrations.
   no fixture holds one.
 - `deu` has no `manager@deu.test` on purpose: Playwright provokes the
   last-manager refusal there.
+
+## Integration tests
+
+- A Go test that needs PostgreSQL reads `TENANT_DATABASE_URL` or
+  `GLOBAL_DATABASE_URL` (the owner role of a migrated database), skips when it
+  is unset, and seeds and removes its own rows; the database holds only what
+  migrations create.
+- `make test-go` supplies both through `db/with-scratch-databases.sh` and runs
+  the packages that read either one at a time. A test that claims or counts
+  rows beyond its own seeds, like the outbox deliverer's, never calls
+  `t.Parallel`.

@@ -9,62 +9,18 @@ set -eu
 postgres_image=${1:?postgres image required}
 root=$(cd "$(dirname "$0")/.." && pwd)
 run_id="vetchium-migration-check-$$"
-network="$run_id"
-password_file=$(mktemp)
-containers=""
-
-cleanup() {
-    for container in $containers; do
-        docker rm -f "$container" >/dev/null 2>&1 || true
-    done
-    docker network rm "$network" >/dev/null 2>&1 || true
-    rm -f "$password_file"
-}
-trap cleanup EXIT INT TERM
-
-printf '%s' check-app-password > "$password_file"
-chmod 644 "$password_file"
-docker network create "$network" >/dev/null
+. "$root/db/scratch-postgres.sh"
+scratch_setup
 
 check() {
     set_name=$1
     database="$run_id-$set_name"
-    containers="$containers $database"
-    image=$(docker build -q "$root/db/$set_name")
-    docker run -d --name "$database" --network "$network" \
-        -e POSTGRES_USER=check -e POSTGRES_PASSWORD=check \
-        -e POSTGRES_DB=check \
-        -e APP_POSTGRES_PASSWORD_FILE=/run/app_postgres_password \
-        -v "$password_file:/run/app_postgres_password:ro" \
-        -v "$root/db/bootstrap/entrypoint.sh:/usr/local/bin/vetchium-entrypoint.sh:ro" \
-        -v "$root/db/bootstrap/init.sql:/docker-entrypoint-initdb.d/10-vetchium.sql:ro" \
-        --entrypoint /bin/sh "$postgres_image" \
-        /usr/local/bin/vetchium-entrypoint.sh postgres >/dev/null
-
-    # The init scripts run against a socket-only server; TCP readiness means
-    # bootstrap finished.
-    attempts=0
-    until docker exec "$database" \
-        pg_isready -q -h 127.0.0.1 -U check -d check 2>/dev/null; do
-        attempts=$((attempts + 1))
-        if [ "$attempts" -ge 60 ]; then
-            echo "$set_name: PostgreSQL did not become ready" >&2
-            docker logs "$database" >&2
-            exit 1
-        fi
-        sleep 1
-    done
-
-    goose() {
-        docker run --rm --network "$network" \
-            -e "GOOSE_DBSTRING=postgres://check:check@$database:5432/check?sslmode=disable" \
-            "$image" "$@" >/dev/null
-    }
+    scratch_start "$database"
 
     echo "==> $set_name: up"
-    goose up
+    scratch_goose "$database" "$set_name" up
     echo "==> $set_name: reset"
-    goose reset
+    scratch_goose "$database" "$set_name" reset
     leftovers=$(docker exec "$database" psql -U check -d check -tA -c "
         SELECT 'relation ' || relname FROM pg_class
         WHERE relnamespace = 'vetchium'::regnamespace
@@ -81,7 +37,7 @@ check() {
         exit 1
     fi
     echo "==> $set_name: up again"
-    goose up
+    scratch_goose "$database" "$set_name" up
 
     unguarded=$(docker exec "$database" psql -U check -d check -tA -c "
         SELECT c.relname FROM pg_class AS c
