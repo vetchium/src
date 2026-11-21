@@ -1,4 +1,4 @@
-import { Form, Input, InputNumber, Radio, Select, Typography } from "antd";
+import { Form, Input, InputNumber, Radio, Typography } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isEmailAddress, normalizeEmailAddress } from "typespec/common/common";
@@ -13,6 +13,7 @@ import {
   isInterviewLocation,
   maxInterviewers,
 } from "typespec/orgs/applications/applications";
+import { OrgUsersSelect } from "../users/OrgUserPickers";
 import { ActionDialog } from "./ActionDialog";
 import { fromLocalInput, localTimeZone, toLocalInput } from "./presentation";
 import {
@@ -32,7 +33,9 @@ interface Props {
 
 /**
  * Schedules or changes an interview. Interviewers are typed or picked as
- * email addresses; the API names any that are not active users of the Org.
+ * email addresses: the Opening's team first, then the Org's other active users
+ * matching the text typed. The API names any that are not active users of the
+ * Org.
  */
 export function InterviewDialog({
   detail,
@@ -74,10 +77,6 @@ export function InterviewDialog({
     emails.length <= maxInterviewers &&
     emails.every(isEmailAddress);
 
-  const options = [...new Set([...suggestions, ...emails])].map((email) => ({
-    value: email,
-    label: email,
-  }));
   const kind = interview ? "change" : "schedule";
 
   return (
@@ -203,12 +202,10 @@ export function InterviewDialog({
             max: maxInterviewers,
           })}
         >
-          <Select
-            mode="tags"
+          <OrgUsersSelect
             value={people}
-            options={options}
-            tokenSeparators={[",", " "]}
             onChange={setPeople}
+            preferred={suggestions}
             aria-label={t("applications.work.interviewers")}
             placeholder={t("applications.interview.interviewersPlaceholder")}
           />

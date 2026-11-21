@@ -21,7 +21,6 @@ import {
   Modal,
   Radio,
   Row,
-  Select,
   Space,
   Tag,
   Typography,
@@ -68,6 +67,7 @@ import {
   useSubmitWorkInterviewFeedbackMutation,
   useWorkItemQuery,
 } from "../features/marketplace/queries";
+import { OrgUsersSelect } from "../features/users/OrgUserPickers";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -1082,8 +1082,7 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
             </Form.Item>
           )}
           <Form.Item label={t("marketplace.work.interviewers")}>
-            <Select
-              mode="tags"
+            <OrgUsersSelect
               value={interviewerEmails}
               onChange={setInterviewerEmails}
               placeholder="interviewer@agency.example"
@@ -1147,8 +1146,7 @@ export function WorkItemDetailPage({ capability }: { capability: Capability }) {
             </Form.Item>
           )}
           <Form.Item label={t("marketplace.work.interviewers")}>
-            <Select
-              mode="tags"
+            <OrgUsersSelect
               value={interviewerEmails}
               onChange={setInterviewerEmails}
             />

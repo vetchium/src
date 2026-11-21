@@ -39,6 +39,33 @@ enum OrgUserSort {
 @maxLength(320)
 scalar OrgUserFilterText extends string;
 
+/** Text an Org user autocomplete matches against addresses, trimmed. */
+@minLength(1)
+@maxLength(100)
+scalar OrgUserSuggestionQuery extends string;
+
+@minValue(1)
+@maxValue(20)
+scalar OrgUserSuggestionLimit extends int32;
+
+/**
+ * Suggests the Org's active users for every people picker (hiring team,
+ * interviewers): those whose address contains `query` case-insensitively;
+ * without `query`, the first ones. Addresses that start with `query` come
+ * first, then the rest, each group in address order. It answers at most
+ * `limit` and has no further pages: typing more narrows it.
+ */
+model SuggestOrgUsersRequest {
+  query?: OrgUserSuggestionQuery;
+
+  /** Defaults to 20. */
+  limit?: OrgUserSuggestionLimit = 20;
+}
+
+model SuggestOrgUsersResponse {
+  users: EmailAddress[];
+}
+
 /** Filter and continue a stable keyset-ordered member listing. */
 model ListUsersRequest {
   /** Defaults to 50. */
@@ -186,6 +213,26 @@ interface UserManagementOperations {
     | Vetchium.Problem.InvalidPaginationKeyErrorResponse
     | Vetchium.Problem.OrgAuthenticationRequiredErrorResponse
     | Vetchium.Problem.OrgPermissionRequiredErrorResponse
+    | Vetchium.Problem.OrgSuspendedErrorResponse
+    | Vetchium.Problem.RateLimitExceededErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  /**
+   * Any signed-in user of an active Org may call it: colleagues' work
+   * addresses are known inside the Org.
+   */
+  @route("/suggest-org-users")
+  @post
+  @useAuth(BearerAuth)
+  suggestOrgUsers(@body request: SuggestOrgUsersRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: SuggestOrgUsersResponse;
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.OrgAuthenticationRequiredErrorResponse
     | Vetchium.Problem.OrgSuspendedErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;

@@ -5,14 +5,13 @@ import {
   SaveOutlined,
   SendOutlined,
 } from "@ant-design/icons";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
 import { OpeningTagSelect } from "@vetchium/portal-ui/opening-tags";
 import { SidePanel } from "@vetchium/portal-ui/shell";
 import {
   Alert,
   App,
-  AutoComplete,
   Button,
   Card,
   Col,
@@ -36,7 +35,7 @@ import type { TFunction } from "i18next";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { isEmailAddress, normalizeEmailAddress } from "typespec/common/common";
+import { normalizeEmailAddress } from "typespec/common/common";
 import { countryCodeValues } from "typespec/common/countries";
 import { currencyCatalog } from "typespec/common/currency_catalog";
 import {
@@ -52,7 +51,6 @@ import type { DraftOpeningResponse } from "typespec/orgs/ai/ai";
 import { ApproveOpenings, holds } from "typespec/orgs/authorization/types";
 import type { OrgOpening } from "typespec/orgs/openings/types";
 import { APIError, isDefiniteRefusal } from "../../api/client";
-import { orgsAPI } from "../../api/orgs";
 import { paths } from "../../app/paths";
 import { problemMessage } from "../../components/common/APIErrorAlert";
 import { useMyInfoQuery } from "../account/queries";
@@ -62,6 +60,7 @@ import {
   useStageCountsQuery,
 } from "../pipelines/queries";
 import { StageSummary } from "../pipelines/StageSummary";
+import { OrgUserInput, OrgUsersSelect } from "../users/OrgUserPickers";
 import { CandidatePreview } from "./CandidatePreview";
 import { OpeningsBreadcrumb } from "./OpeningsBreadcrumb";
 import { openingProblem } from "./problems";
@@ -269,7 +268,6 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
   const tags = useOpeningTags();
   const hiringManagerEmail = Form.useWatch("hiring_manager_email", form);
   const recruiterEmail = Form.useWatch("recruiter_email", form);
-  const [memberSearch, setMemberSearch] = useState("");
   const [error, setError] = useState<string>();
   const [activeTab, setActiveTab] = useState("edit");
   // The section in view, which the side panel's steps mark as current.
@@ -328,17 +326,6 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
   const requestKey = useIdempotencyKey(
     `opening-editor-request:${opening?.opening_number ?? "new"}`,
   );
-  const lookupEmail = normalizeEmailAddress(memberSearch);
-  const members = useQuery({
-    queryKey: ["orgs", "opening-member-lookup", lookupEmail],
-    queryFn: () =>
-      orgsAPI.lookupOpeningTeamMember({ email_address: lookupEmail }),
-    enabled: isEmailAddress(lookupEmail),
-  });
-  const memberOptions =
-    members.data?.member !== undefined
-      ? [{ value: members.data.member.email, label: members.data.member.email }]
-      : [];
   const openEverySection = () => {
     setOpenSections(editorSections);
     setQuestionsOpened((count) => count + 1);
@@ -1063,10 +1050,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
                           label={t("openings.fields.hiringManager")}
                           extra={t("openings.editor.help.hiringManager")}
                         >
-                          <AutoComplete
-                            options={memberOptions}
-                            onSearch={setMemberSearch}
-                          />
+                          <OrgUserInput />
                         </Form.Item>
                       </Col>
                       <Col xs={24} md={12}>
@@ -1075,10 +1059,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
                           label={t("openings.editor.recruiter")}
                           extra={t("openings.editor.help.recruiter")}
                         >
-                          <AutoComplete
-                            options={memberOptions}
-                            onSearch={setMemberSearch}
-                          />
+                          <OrgUserInput />
                         </Form.Item>
                       </Col>
                     </Row>
@@ -1087,13 +1068,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
                       label={t("openings.editor.teamMembers")}
                       extra={t("openings.editor.help.teamMembers")}
                     >
-                      <Select
-                        mode="tags"
-                        showSearch
-                        options={memberOptions}
-                        onSearch={setMemberSearch}
-                        filterOption={false}
-                      />
+                      <OrgUsersSelect />
                     </Form.Item>
                     <Form.Item
                       name="internal_notes"

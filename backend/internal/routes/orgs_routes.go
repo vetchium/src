@@ -133,7 +133,6 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.Handle("POST /api/orgs/list-openings", readOpening(orgsopenings.ListOpenings(s)))
 	mux.Handle("POST /api/orgs/opening-summary", readOpening(orgsopenings.OpeningSummary(s)))
 	mux.Handle("POST /api/orgs/list-opening-tags", readOpening(openingtags.Handler(s, s.Queries)))
-	mux.Handle("POST /api/orgs/lookup-opening-team-member", manageOpenings(orgsopenings.LookupOpeningTeamMember(s)))
 	mux.Handle("POST /api/orgs/list-opening-history", readOpening(orgsopenings.ListOpeningHistory(s)))
 	mux.Handle("POST /api/orgs/list-pipeline-templates", manageOpenings(orgspipelines.ListPipelineTemplates(s)))
 	mux.Handle("POST /api/orgs/create-pipeline-template", manageOpenings(orgspipelines.CreatePipelineTemplate(s)))
@@ -276,6 +275,9 @@ func RegisterOrgsRoutes(mux *http.ServeMux, s *orgsruntime.Server) {
 	mux.HandleFunc(
 		"POST /api/orgs/accept-invitation", orgsusers.AcceptInvitation(s),
 	)
+	// Every people picker suggests colleagues, so any user of an active Org
+	// may ask.
+	mux.Handle("POST /api/orgs/suggest-org-users", orgAuth(activeOrg(orgsusers.SuggestOrgUsers(s))))
 	mux.Handle("POST /api/orgs/list-users", manageUsers(orgsusers.ListUsers(s)))
 	mux.Handle("POST /api/orgs/user-summary", manageUsers(orgsusers.UserSummary(s)))
 	mux.Handle("POST /api/orgs/disable-user", manageUsers(orgsusers.DisableUser(s)))

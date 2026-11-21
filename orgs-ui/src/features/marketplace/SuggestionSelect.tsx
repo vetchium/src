@@ -1,28 +1,13 @@
 import { Select } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import type { OpeningSuggestion } from "typespec/orgs/marketplace/contacts/contacts";
+import { useTypedQuery } from "../../components/common/useTypedQuery";
 import {
   useClientSuggestionsQuery,
   useJobOwnerSuggestionsQuery,
   useJobsQuery,
 } from "./queries";
-
-const debounceMs = 250;
-
-/** The trimmed text typed, once typing pauses; undefined while empty. */
-function useTypedQuery(): [string | undefined, (value: string) => void] {
-  const [typed, setTyped] = useState("");
-  const [settled, setSettled] = useState<string>();
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmed = typed.trim();
-      setSettled(trimmed === "" ? undefined : trimmed);
-    }, debounceMs);
-    return () => clearTimeout(timer);
-  }, [typed]);
-  return [settled, setTyped];
-}
 
 interface PickerProps {
   value?: string;

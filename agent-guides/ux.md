@@ -142,6 +142,10 @@ first version; a screen that needs a redesign pass missed a rule here.
   credits). Colors come from theme tokens (`colorWarning`, `colorError`) and
   `Typography` `type`, never hex values, so both themes work.
 - Show personal data such as email addresses only where the task needs it.
+- An autocomplete over people or records asks the API from the first key
+  press (`useTypedQuery` in orgs-ui), matches any part of the name or address
+  with prefix matches first, and keeps each field's search its own. Never
+  require the exact value, and never filter only one loaded page.
 
 ## Copy
 

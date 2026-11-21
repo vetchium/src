@@ -349,3 +349,17 @@ SELECT CASE
     WHEN NOT (SELECT ok FROM keeps_superadmin) THEN 'last-superadmin'
     ELSE 'ok'
 END::text AS result;
+
+-- The Org's active users for every people picker: addresses containing the
+-- query, those starting with it first. A null query answers the first
+-- addresses.
+-- name: SuggestOrgUsers :many
+SELECT u.email_address
+FROM vetchium.org_users AS u
+WHERE u.org_did = sqlc.arg(org_did)
+  AND u.org_user_state = 'active'
+  AND (sqlc.narg(query)::text IS NULL
+      OR strpos(u.email_address, lower(sqlc.narg(query)::text)) > 0)
+ORDER BY strpos(u.email_address, lower(COALESCE(sqlc.narg(query)::text, ''))) <> 1,
+    u.email_address
+LIMIT sqlc.arg(row_limit);

@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import type { ListPermissionsResponse } from "typespec/orgs/authorization/management";
 import type {
   ListUsersResponse,
+  SuggestOrgUsersResponse,
   UserSummaryResponse,
 } from "typespec/orgs/users/management";
 import { expectProblem, responseJSON } from "../lib/admin-api.ts";
@@ -350,6 +351,98 @@ test.describe("list-users and user-summary", () => {
       suspend(org);
       await expectProblem(await api.listUsers(owner), 403, orgSuspended);
       await expectProblem(await api.userSummary(owner), 403, orgSuspended);
+    });
+  });
+});
+
+test.describe("suggest-org-users", () => {
+  test("any user finds active colleagues by any part of an address, prefix first", async ({
+    request,
+  }) => {
+    await withOrg(request, async ({ api, org, owner }) => {
+      const at = (local: string) => `${local}@${org.domain}`;
+      // A Member with no permissions may ask.
+      const reader = await addOrgMember(api, owner, org.domain, at("reader"));
+      await addOrgMember(api, owner, org.domain, at("viewer"));
+      await addOrgMember(api, owner, org.domain, at("manager"), [
+        "org:manage_openings",
+      ]);
+      const suggested = async (
+        body: Parameters<OrgsAPI["suggestOrgUsers"]>[1],
+      ) => {
+        const response = await api.suggestOrgUsers(reader.token, body);
+        expect(response.status(), await response.text()).toBe(200);
+        expect(response.headers()["cache-control"]).toBe("no-store");
+        return (await responseJSON<SuggestOrgUsersResponse>(response)).users;
+      };
+      expect(await suggested({})).toEqual(
+        ["it", "manager", "reader", "viewer"].map(at),
+      );
+      expect(await suggested({ limit: 2 })).toEqual(["it", "manager"].map(at));
+      // Every address is under org-….example.com, so "r" matches each; the
+      // one starting with it leads.
+      expect(await suggested({ query: "R" })).toEqual(
+        ["reader", "it", "manager", "viewer"].map(at),
+      );
+      expect(await suggested({ query: " ER@ " })).toEqual(
+        ["manager", "reader", "viewer"].map(at),
+      );
+      expect(await suggested({ query: "nobody" })).toEqual([]);
+
+      const disabled = await api.disableUser(owner, {
+        email_address: at("viewer"),
+      });
+      expect(disabled.status(), await disabled.text()).toBe(204);
+      expect(await suggested({ query: "er@" })).toEqual(
+        ["manager", "reader"].map(at),
+      );
+
+      // Another Org's users never appear.
+      const other = await signupOrg(api);
+      try {
+        expect(await suggested({ query: "it@" })).toEqual([at("it")]);
+      } finally {
+        await deleteOrgVerificationRecord(other.domain);
+        cleanupOrg(other.domain);
+      }
+    });
+  });
+
+  test("validates, authenticates, and refuses suspended Orgs", async ({
+    request,
+  }) => {
+    await withOrg(request, async ({ api, org, owner }) => {
+      for (const [body, fields] of [
+        [{ query: "" }, ["query"]],
+        [{ query: "a".repeat(101) }, ["query"]],
+        [{ limit: 0 }, ["limit"]],
+        [{ limit: 21 }, ["limit"]],
+      ] as const) {
+        await expectProblem(
+          await api.suggestOrgUsers(owner, body),
+          400,
+          validationFailed,
+          [...fields],
+        );
+      }
+      const raw = await request.post(
+        `${api.origin}/api/orgs/suggest-org-users`,
+        {
+          data: "{",
+          headers: {
+            Authorization: `Bearer ${owner}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      await expectProblem(raw, 400, invalidJSON);
+      await expectProblem(
+        await api.post("/suggest-org-users", {}),
+        401,
+        authenticationRequired,
+      );
+      suspend(org);
+      await expectProblem(await api.suggestOrgUsers(owner), 403, orgSuspended);
     });
   });
 });

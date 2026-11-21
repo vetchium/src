@@ -143,6 +143,7 @@ import type {
   EnableUserRequest,
   ListUsersRequest,
   SetUserPermissionsRequest,
+  SuggestOrgUsersRequest,
 } from "typespec/orgs/users/management";
 import {
   AUDIT_FAULT_LOCK,
@@ -1227,15 +1228,11 @@ export class OrgsAPI {
     return this.post("/list-users", request, { token });
   }
 
-  lookupOpeningTeamMember(
+  suggestOrgUsers(
     token: string,
-    emailAddress: string,
+    request: SuggestOrgUsersRequest = {},
   ): Promise<APIResponse> {
-    return this.post(
-      "/lookup-opening-team-member",
-      { email_address: emailAddress },
-      { token },
-    );
+    return this.post("/suggest-org-users", request, { token });
   }
 
   userSummary(token: string): Promise<APIResponse> {

@@ -1,7 +1,9 @@
 package users
 
 import (
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs/authorization"
@@ -229,4 +231,53 @@ func (r BulkSetUserPermissionsRequest) Validate() []string {
 		fields = append(fields, "permissions")
 	}
 	return fields
+}
+
+// MaxUserSuggestions is the most suggest-org-users answers, and its default.
+const MaxUserSuggestions = 20
+
+// UserSuggestionQuery is trimmed text matched against users' addresses.
+type UserSuggestionQuery string
+
+// IsUserSuggestionQuery accepts trimmed text of 1 to 100 code points without
+// NUL.
+func IsUserSuggestionQuery(value UserSuggestionQuery) bool {
+	length := utf8.RuneCountInString(string(value))
+	return length >= 1 && length <= 100 &&
+		string(value) == strings.TrimSpace(string(value)) &&
+		!strings.ContainsRune(string(value), 0)
+}
+
+type SuggestOrgUsersRequest struct {
+	Query *UserSuggestionQuery `json:"query,omitempty"`
+	Limit *int32               `json:"limit,omitempty"`
+}
+
+func (r *SuggestOrgUsersRequest) Normalize() {
+	if r.Query != nil {
+		trimmed := UserSuggestionQuery(strings.TrimSpace(string(*r.Query)))
+		r.Query = &trimmed
+	}
+}
+
+func (r SuggestOrgUsersRequest) Validate() []string {
+	fields := []string{}
+	if r.Query != nil && !IsUserSuggestionQuery(*r.Query) {
+		fields = append(fields, "query")
+	}
+	if r.Limit != nil && (*r.Limit < 1 || *r.Limit > MaxUserSuggestions) {
+		fields = append(fields, "limit")
+	}
+	return fields
+}
+
+func (r SuggestOrgUsersRequest) EffectiveLimit() int32 {
+	if r.Limit == nil {
+		return MaxUserSuggestions
+	}
+	return *r.Limit
+}
+
+type SuggestOrgUsersResponse struct {
+	Users []common.EmailAddress `json:"users"`
 }

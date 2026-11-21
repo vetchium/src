@@ -188,8 +188,6 @@ import type {
   ListOpeningHistoryResponse,
   ListOpeningsRequest,
   ListOpeningsResponse,
-  LookupOpeningTeamMemberRequest,
-  LookupOpeningTeamMemberResponse,
   OpeningSummaryResponse,
   RequestOpeningChangeRequest,
   SaveOpeningWorkingCopyRequest,
@@ -231,6 +229,8 @@ import type {
   ListUsersRequest,
   ListUsersResponse,
   SetUserPermissionsRequest,
+  SuggestOrgUsersRequest,
+  SuggestOrgUsersResponse,
   UserSummaryResponse,
 } from "typespec/orgs/users/management";
 import { apiRequest } from "./client";
@@ -456,10 +456,6 @@ export const orgsAPI = {
     apiRequest<OpeningSummaryResponse>("/opening-summary", { body: {} }),
   listOpeningTags: () =>
     apiRequest<ListOpeningTagsResponse>("/list-opening-tags", { body: {} }),
-  lookupOpeningTeamMember: (body: LookupOpeningTeamMemberRequest) =>
-    apiRequest<LookupOpeningTeamMemberResponse>("/lookup-opening-team-member", {
-      body,
-    }),
   saveOpeningWorkingCopy: (
     body: SaveOpeningWorkingCopyRequest,
     idempotencyKey: IdempotencyKey,
@@ -630,6 +626,8 @@ export const orgsAPI = {
     apiRequest<ListPermissionsResponse>("/list-permissions"),
   listUsers: (body: ListUsersRequest) =>
     apiRequest<ListUsersResponse>("/list-users", { body }),
+  suggestOrgUsers: (body: SuggestOrgUsersRequest) =>
+    apiRequest<SuggestOrgUsersResponse>("/suggest-org-users", { body }),
   userSummary: () =>
     apiRequest<UserSummaryResponse>("/user-summary", { method: "POST" }),
   disableUser: (body: DisableUserRequest) =>

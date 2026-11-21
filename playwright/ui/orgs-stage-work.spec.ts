@@ -120,10 +120,16 @@ test("an interview is scheduled, changed, run, and given feedback by its intervi
     await dialog.getByLabel("Meeting link").fill("https://meet.example.com/x");
     const interviewers = dialog.getByRole("combobox", { name: "Interviewers" });
     const stranger = `nobody-${randomUUID()}@${org.domain}`;
-    for (const email of [org.emailAddress, panelist.emailAddress, stranger]) {
-      await interviewers.fill(email);
-      await interviewers.press("Enter");
-    }
+    await interviewers.fill(org.emailAddress);
+    await interviewers.press("Enter");
+    // A few letters find a colleague outside the Opening's team.
+    await interviewers.fill("PANEL-");
+    await page
+      .locator(".ant-select-dropdown:visible .ant-select-item-option-content")
+      .filter({ hasText: panelist.emailAddress })
+      .click();
+    await interviewers.fill(stranger);
+    await interviewers.press("Enter");
     await dialog.getByRole("button", { name: "Schedule", exact: true }).click();
     await expect(
       dialog.getByText(/not active users of your Org/),

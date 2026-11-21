@@ -256,7 +256,7 @@ test("hiring-team readers see only their Opening; other members see an empty lis
   });
 });
 
-test("Opening managers can find an active team member by exact email", async ({
+test("Opening managers find team members from the first letters typed", async ({
   page,
   request,
 }) => {
@@ -270,13 +270,25 @@ test("Opening managers can find an active team member by exact email", async ({
     );
     await signIn(page, manager);
     await page.goto(`${ORGS_PORTAL}/openings/new`);
-    await page
-      .getByRole("combobox", { name: "Hiring manager" })
-      .fill(org.emailAddress);
+    const options = page.locator(
+      ".ant-select-dropdown:visible .ant-select-item-option-content",
+    );
+    const hiringManager = page.getByRole("combobox", {
+      name: "Hiring manager",
+    });
+    await hiringManager.fill("MAN");
     await expect(
-      page
-        .locator(".ant-select-dropdown:visible .ant-select-item-option-content")
-        .filter({ hasText: org.emailAddress }),
+      options.filter({ hasText: manager.emailAddress }),
+    ).toBeVisible();
+    await expect(options.filter({ hasText: org.emailAddress })).toHaveCount(0);
+    await options.filter({ hasText: manager.emailAddress }).click();
+    await expect(hiringManager).toHaveValue(manager.emailAddress);
+
+    // Each field searches on its own: the recruiter's starts unfiltered.
+    await page.getByRole("combobox", { name: "Recruiter" }).click();
+    await expect(options.filter({ hasText: org.emailAddress })).toBeVisible();
+    await expect(
+      options.filter({ hasText: manager.emailAddress }),
     ).toBeVisible();
   });
 });

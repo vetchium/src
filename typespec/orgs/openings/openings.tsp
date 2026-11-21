@@ -89,14 +89,6 @@ model OpeningSummaryResponse {
   quota: OpeningQuotaUsage;
 }
 
-model LookupOpeningTeamMemberRequest {
-  email_address: Vetchium.EmailAddress;
-}
-
-model LookupOpeningTeamMemberResponse {
-  member?: OpeningTeamUser;
-}
-
 model SaveOpeningWorkingCopyRequest {
   opening_number: OpeningNumber;
   version: OpeningVersion;
@@ -316,22 +308,6 @@ interface OpeningOperations {
         @body body: Vetchium.ListOpeningTagsResponse;
       }
     | OpeningSummaryErrors;
-
-  @route("/lookup-opening-team-member")
-  @post
-  @useAuth(BearerAuth)
-  @TypeSpec.OpenAPI.extension(
-    "x-vetchium-required-permission",
-    "org:manage_openings"
-  )
-  lookupOpeningTeamMember(@body request: LookupOpeningTeamMemberRequest):
-    | {
-        @statusCode status_code: 200;
-        @header("Cache-Control") cache_control: "no-store";
-        @body body: LookupOpeningTeamMemberResponse;
-      }
-    | OpeningBaseErrors
-    | Vetchium.Problem.OrgPermissionRequiredErrorResponse;
 
   @route("/save-opening-working-copy")
   @post

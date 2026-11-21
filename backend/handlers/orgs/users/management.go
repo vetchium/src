@@ -70,6 +70,36 @@ func permissionIDs(values []string) []authorization.OrgPermissionID {
 	return result
 }
 
+// SuggestOrgUsers answers the people pickers with the Org's active users.
+func SuggestOrgUsers(s *orgsruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request users.SuggestOrgUsersRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		identity, _ := middleware.OrgIdentityFromContext(r.Context())
+		params := sqlc.SuggestOrgUsersParams{
+			OrgDid: identity.OrgDID, RowLimit: request.EffectiveLimit(),
+		}
+		if request.Query != nil {
+			params.Query = dbvalue.Text(string(*request.Query))
+		}
+		rows, err := s.Queries.SuggestOrgUsers(r.Context(), params)
+		if err != nil {
+			s.InternalError(r.Context(), w, "suggest Org users", err)
+			return
+		}
+		response := users.SuggestOrgUsersResponse{
+			Users: make([]common.EmailAddress, 0, len(rows)),
+		}
+		for _, email := range rows {
+			response.Users = append(response.Users, common.EmailAddress(email))
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, response)
+	}
+}
+
 func ListUsers(s *orgsruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request users.ListUsersRequest

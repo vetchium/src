@@ -195,3 +195,55 @@ export function validateBulkSetUserPermissionsRequest(
   if (!validatePermissions(request.permissions)) fields.push("permissions");
   return fields;
 }
+
+/** The most suggest-org-users answers, and its default. */
+export const maxUserSuggestions = 20;
+
+/** Trimmed text matched against users' addresses. */
+export type UserSuggestionQuery = string;
+
+export function isUserSuggestionQuery(
+  value: string,
+): value is UserSuggestionQuery {
+  const length = Array.from(value).length;
+  return (
+    length >= 1 &&
+    length <= 100 &&
+    value === value.trim() &&
+    !value.includes("\u0000")
+  );
+}
+
+export interface SuggestOrgUsersRequest {
+  query?: UserSuggestionQuery;
+  /** Defaults to 20. */
+  limit?: number;
+}
+
+export interface SuggestOrgUsersResponse {
+  users: EmailAddress[];
+}
+
+export function normalizeSuggestOrgUsersRequest(
+  request: SuggestOrgUsersRequest,
+): SuggestOrgUsersRequest {
+  return request.query === undefined
+    ? { ...request }
+    : { ...request, query: request.query.trim() };
+}
+
+export function validateSuggestOrgUsersRequest(
+  request: SuggestOrgUsersRequest,
+): string[] {
+  const fields: string[] = [];
+  if (request.query !== undefined && !isUserSuggestionQuery(request.query))
+    fields.push("query");
+  if (
+    request.limit !== undefined &&
+    (!Number.isInteger(request.limit) ||
+      request.limit < 1 ||
+      request.limit > maxUserSuggestions)
+  )
+    fields.push("limit");
+  return fields;
+}

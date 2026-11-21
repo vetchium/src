@@ -52,6 +52,12 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
   at most), and a summary. Bulk operations take at most 100 targets, run in one
   transaction under the lock, and are all or nothing. CSV export is built in
   the browser by paging the list.
+- Every people picker (hiring team, interviewers, provider interviewers)
+  uses `suggest-org-users` through `OrgUserInput` or `OrgUsersSelect`
+  (`orgs-ui/src/features/users/OrgUserPickers.tsx`); never add a picker
+  endpoint per screen. Any user of an active Org may call it, with no
+  permission: it answers active users whose address contains the query,
+  prefix matches first, at most 20.
 - Not built: groups, custom roles beyond the catalog, SCIM, invite links,
   domain auto-join, an Org-facing audit log (`docs/todo.md`).
 

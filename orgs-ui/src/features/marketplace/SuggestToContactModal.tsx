@@ -15,9 +15,13 @@ import {
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { OpeningContent } from "typespec/common/openings";
-import type { ContactSummary } from "typespec/orgs/marketplace/contacts/contacts";
+import {
+  type ContactSummary,
+  isContactNameQuery,
+} from "typespec/orgs/marketplace/contacts/contacts";
 import type { Job } from "typespec/orgs/marketplace/work/work";
 import { isDefiniteRefusal } from "../../api/client";
+import { useTypedQuery } from "../../components/common/useTypedQuery";
 import { getInitials } from "./presentation";
 import { chatRequestProblem } from "./problems";
 import { useContactsQuery, useSendMessageMutation } from "./queries";
@@ -50,16 +54,36 @@ export function SuggestToContactModal({
   const { t } = useTranslation();
   const { message } = App.useApp();
   const suggestKey = useIdempotencyKey("suggest-opening");
-  const [selectedHandle, setSelectedHandle] = useState<string>();
+  const [selectedContact, setSelectedContact] = useState<ContactSummary>();
+  const selectedHandle = selectedContact?.handle;
   const [requestFor, setRequestFor] = useState<string>();
 
-  const contactsQuery = useContactsQuery({}, open);
-  const contacts = contactsQuery.data?.items ?? [];
-
-  const selectedContact: ContactSummary | undefined = useMemo(
-    () => contacts.find((c) => c.handle === selectedHandle),
-    [contacts, selectedHandle],
+  // The most recent page answers short text by name or handle; longer text
+  // also searches every Contact's name on the server, so a Contact beyond
+  // that page is still found.
+  const [query, setQuery, typed] = useTypedQuery();
+  const needle = typed.trim().toLowerCase();
+  const nameQuery =
+    query !== undefined && isContactNameQuery(query) ? query : undefined;
+  const recentQuery = useContactsQuery({}, open);
+  const namedQuery = useContactsQuery(
+    nameQuery === undefined ? {} : { name_query: nameQuery },
+    open && nameQuery !== undefined,
   );
+  const contacts = useMemo(() => {
+    const recent = (recentQuery.data?.items ?? []).filter(
+      (c) =>
+        c.display_name.toLowerCase().includes(needle) ||
+        c.handle.toLowerCase().includes(needle),
+    );
+    const named = nameQuery === undefined ? [] : (namedQuery.data?.items ?? []);
+    const all = [
+      ...named,
+      ...recent,
+      ...(selectedContact ? [selectedContact] : []),
+    ];
+    return [...new Map(all.map((c) => [c.handle, c])).values()];
+  }, [recentQuery.data, namedQuery.data, nameQuery, needle, selectedContact]);
   const mayWrite = selectedContact?.status === "in_conversation";
   const sendMessage = useSendMessageMutation(selectedHandle ?? "");
 
@@ -131,7 +155,8 @@ export function SuggestToContactModal({
     .join(" · ");
 
   const close = () => {
-    setSelectedHandle(undefined);
+    setSelectedContact(undefined);
+    setQuery("");
     onClose();
   };
 
@@ -205,23 +230,15 @@ export function SuggestToContactModal({
             style={{ marginBottom: 0 }}
           >
             <Select
-              showSearch={{
-                filterOption: (input, option) => {
-                  const c = contacts.find(
-                    (item) => item.handle === option?.value,
-                  );
-                  if (!c) return false;
-                  const q = input.toLowerCase();
-                  return (
-                    c.display_name.toLowerCase().includes(q) ||
-                    c.handle.toLowerCase().includes(q)
-                  );
-                },
-              }}
+              showSearch={{ filterOption: false, onSearch: setQuery }}
+              loading={recentQuery.isFetching || namedQuery.isFetching}
               placeholder={t("marketplace.jobs.selectContactPlaceholder")}
               aria-label={t("marketplace.jobs.contactFieldLabel")}
               value={selectedHandle}
-              onChange={setSelectedHandle}
+              onChange={(handle: string) => {
+                setSelectedContact(contacts.find((c) => c.handle === handle));
+                setQuery("");
+              }}
               options={contactOptions}
               style={{ width: "100%" }}
             />

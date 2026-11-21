@@ -15,6 +15,21 @@ export function useUsersQuery(request: ListUsersRequest) {
   });
 }
 
+/** The Org's active users matching `query`, for the people pickers. */
+export function useOrgUserSuggestionsQuery(
+  query: string | undefined,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: [...usersQueryKey, "suggestions", query ?? ""],
+    queryFn: () =>
+      orgsAPI.suggestOrgUsers(query === undefined ? {} : { query }),
+    placeholderData: (previous) => previous,
+    retry: false,
+    enabled,
+  });
+}
+
 export function useUserSummaryQuery() {
   return useQuery({
     queryKey: userSummaryQueryKey,
