@@ -1,6 +1,7 @@
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { seedApplication } from "../lib/hiring-seed.ts";
+import { expectContinuousNavigationEdge } from "../lib/navigation-edge.ts";
 import { addOrgMember, inviteeAddress, orgSQL } from "../lib/orgs-api.ts";
 import {
   detailOf,
@@ -274,5 +275,18 @@ test("Home shows an agent the chat requests waiting for the agency, and not a co
       page.getByRole("heading", { name: "Home", level: 1 }),
     ).toBeVisible();
     await expect(page.getByTestId("home-chat-requests")).toHaveCount(0);
+  });
+});
+
+test("the sidebar's border runs its full height, past the switcher and divider", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org) => {
+    await signIn(page, org);
+    await expect(
+      page.getByRole("combobox", { name: "Workspace" }),
+    ).toBeVisible();
+    await expectContinuousNavigationEdge(page);
   });
 });

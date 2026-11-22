@@ -1,6 +1,7 @@
 import type { MyInfoResponse } from "typespec/admin/users/profile";
 import { responseJSON } from "../lib/admin-api.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
+import { expectContinuousNavigationEdge } from "../lib/navigation-edge.ts";
 
 test("public theme and language choices survive a reload", async ({ page }) => {
   await page.goto("/login");
@@ -155,4 +156,16 @@ test("authenticated header remains usable on a 320px viewport", async ({
   await header.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("dialog", { name: "Navigation" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Overview" })).toBeVisible();
+});
+
+test("the sidebar's border runs its full height", async ({
+  createAdmin,
+  page,
+}) => {
+  const admin = await createAdmin();
+  await page.addInitScript((sessionToken) => {
+    sessionStorage.setItem("vetchium.admin.session-token", sessionToken);
+  }, admin.sessionToken);
+  await page.goto("/");
+  await expectContinuousNavigationEdge(page);
 });

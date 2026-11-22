@@ -1,5 +1,6 @@
 import { expect, type Locator, test } from "@playwright/test";
 import { stubShellReads } from "../lib/hub-ui-stubs.ts";
+import { expectContinuousNavigationEdge } from "../lib/navigation-edge.ts";
 import { HUB_PORTAL, rememberRegion } from "../lib/portals.ts";
 import { chooseRegion, searchAndChooseOption } from "../lib/region-ui.ts";
 
@@ -234,6 +235,14 @@ test("the navigation's background matches its menu in light and dark mode", asyn
   await page.setViewportSize({ width: 390, height: 900 });
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expectMenuColor(drawer);
+});
+
+test("the sidebar's border runs its full height", async ({ page }) => {
+  await provideStoredSession(page);
+  await provideMyInfo(page);
+  await provideMySubscription(page);
+  await page.goto(HUB_PORTAL);
+  await expectContinuousNavigationEdge(page);
 });
 
 test("a visitor with a stored session lands on a personal home page", async ({

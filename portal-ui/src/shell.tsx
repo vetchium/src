@@ -449,6 +449,9 @@ export function PortalShell<Locale extends string>({
     await onSignOut();
     navigate("/login", { replace: true });
   };
+  // An inline Menu's own edge ends with the menu, so the Sider draws the line.
+  // Transparent rather than none, so that the items keep their width.
+  const menuStyle = { borderInlineEndColor: "transparent" };
   const navigation = (
     <>
       {pinnedNavigationItems === undefined ||
@@ -456,6 +459,7 @@ export function PortalShell<Locale extends string>({
         <>
           <Menu
             mode="inline"
+            style={menuStyle}
             selectedKeys={[selectedKey]}
             items={pinnedNavigationItems}
             onClick={({ key }) => navigateFromMenu(key)}
@@ -468,6 +472,7 @@ export function PortalShell<Locale extends string>({
       )}
       <Menu
         mode="inline"
+        style={menuStyle}
         selectedKeys={[selectedKey]}
         items={navigationItems}
         onClick={({ key }) => navigateFromMenu(key)}
@@ -508,6 +513,18 @@ export function PortalShell<Locale extends string>({
           // one follows the active palette in both modes.
           <Sider theme="light" width={232}>
             {navigation}
+            {/* Over the content, not a border of the Sider, which would take
+                a pixel from what the navigation holds. */}
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                insetBlock: 0,
+                insetInlineEnd: 0,
+                pointerEvents: "none",
+                borderInlineEnd: `${token.lineWidth}px ${token.lineType} ${token.colorSplit}`,
+              }}
+            />
           </Sider>
         ) : null}
         <Flex
