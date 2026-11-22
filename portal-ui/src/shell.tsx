@@ -430,7 +430,7 @@ export function PortalShell<Locale extends string>({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
-  const preferences = usePreferences(localization);
+  const { token } = theme.useToken();
   const { message } = App.useApp();
   const { pending } = usePendingOperations();
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -494,14 +494,19 @@ export function PortalShell<Locale extends string>({
         placement="left"
         size={280}
         open={screens.lg !== true && navigationOpen}
-        styles={{ body: { padding: 0 } }}
+        styles={{
+          section: { background: token.colorBgContainer },
+          body: { padding: 0 },
+        }}
         onClose={() => setNavigationOpen(false)}
       >
         {navigation}
       </Drawer>
       <Layout>
         {screens.lg === true ? (
-          <Sider theme={preferences.themeMode} width={232}>
+          // Not themeMode: the dark variant is a fixed navy, while the light
+          // one follows the active palette in both modes.
+          <Sider theme="light" width={232}>
             {navigation}
           </Sider>
         ) : null}

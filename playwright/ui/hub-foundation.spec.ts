@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
 import { stubShellReads } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL, rememberRegion } from "../lib/portals.ts";
 import { chooseRegion, searchAndChooseOption } from "../lib/region-ui.ts";
@@ -179,6 +179,61 @@ test("a stored primary color that is not usable falls back to the portal's own",
   await expect(
     page.getByRole("button", { name: "Primary color" }).getByRole("img"),
   ).toHaveCSS("color", "rgb(37, 99, 235)");
+});
+
+/** The color painted just inside an element's bottom edge, below what it
+ * holds. */
+async function backgroundAtBottom(element: Locator) {
+  return element.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    let painted = document.elementFromPoint(
+      box.x + box.width / 2,
+      Math.min(box.bottom, innerHeight) - 8,
+    );
+    while (painted !== null) {
+      const color = getComputedStyle(painted).backgroundColor;
+      if (color !== "rgba(0, 0, 0, 0)") return color;
+      painted = painted.parentElement;
+    }
+    return "transparent";
+  });
+}
+
+test("the navigation's background matches its menu in light and dark mode", async ({
+  page,
+}) => {
+  await provideStoredSession(page);
+  await provideMyInfo(page);
+  await provideMySubscription(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(HUB_PORTAL);
+  const sidebar = page.getByRole("complementary");
+  const drawer = page.getByRole("dialog", { name: "Navigation" });
+  const expectMenuColor = async (container: Locator) => {
+    const menu = container.getByRole("menu").first();
+    await expect(menu).toBeVisible();
+    await expect
+      .poll(async () => {
+        const below = await backgroundAtBottom(container);
+        const color = await menu.evaluate(
+          (node) => getComputedStyle(node).backgroundColor,
+        );
+        return below === color ? "the menu's color" : `${below} under ${color}`;
+      })
+      .toBe("the menu's color");
+  };
+
+  await expectMenuColor(sidebar);
+  const toggle = page.getByRole("switch", {
+    name: "Switch light or dark mode",
+  });
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+  await expectMenuColor(sidebar);
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expectMenuColor(drawer);
 });
 
 test("a visitor with a stored session lands on a personal home page", async ({
