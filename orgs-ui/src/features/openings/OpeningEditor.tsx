@@ -68,6 +68,7 @@ import type { OrgOpening } from "typespec/orgs/openings/types";
 import { APIError, isDefiniteRefusal } from "../../api/client";
 import { paths } from "../../app/paths";
 import { problemMessage } from "../../components/common/APIErrorAlert";
+import { useUnsavedChangesGuard } from "../../components/common/useUnsavedChangesGuard";
 import { useMyInfoQuery } from "../account/queries";
 import { DraftWithAIButton } from "../ai/DraftWithAIButton";
 import {
@@ -220,6 +221,22 @@ function changesFrom(opening: OrgOpening, values: EditorValues) {
     content: contentChanged ? content : undefined,
     team: teamChanged ? team : undefined,
   };
+}
+
+/**
+ * Whether creating from `values` would write more than an untouched form,
+ * which holds only the `prefilled` content.
+ */
+function editedNew(values: EditorValues, prefilled: OpeningContent): boolean {
+  return (
+    Boolean(values.pipeline_template_id) ||
+    !sameValue(cleanContent(values.content), cleanContent(prefilled)) ||
+    !sameValue(teamRequest(values), teamRequest({}))
+  );
+}
+
+function isEditable(opening: OrgOpening): boolean {
+  return ["draft", "published", "paused"].includes(opening.state);
 }
 
 const editorSections = [
@@ -376,6 +393,10 @@ export function OpeningEditor({
   const headingRef = useRef<HTMLElement>(null);
   // Set by "Save and publish" for the submit it starts.
   const publishing = useRef(false);
+  // Set once everything typed is written, as the editor then closes itself.
+  const written = useRef(false);
+  const prefilled = useRef<OpeningContent>({});
+  const [creating, setCreating] = useState(false);
   const { token } = theme.useToken();
   // The side panel stacks under the form below lg, so its steps would be out
   // of sight; a step picker above the section replaces them there.
@@ -482,8 +503,18 @@ export function OpeningEditor({
       )
         continue;
       form.setFieldValue([...field], value);
+      Object.assign(prefilled.current, { [field[1]]: value });
     }
   }, [form, opening, orgCountry, orgLanguage]);
+
+  useUnsavedChangesGuard(() => {
+    // An Opening that cannot be edited renders no form to read.
+    if (written.current || (opening && !isEditable(opening))) return false;
+    const values: EditorValues = form.getFieldsValue(true);
+    if (!opening) return editedNew(values, prefilled.current);
+    const { content, team } = changesFrom(opening, values);
+    return Boolean(content || team);
+  });
 
   /** Shows `copy` in place of what the form holds. */
   const adopt = useCallback(
@@ -769,6 +800,7 @@ export function OpeningEditor({
         void message.warning(t("openings.editor.savedExceptTyped"));
         return;
       }
+      written.current = true;
       if (publish) {
         await requestPublication(
           opening.opening_number,
@@ -781,6 +813,7 @@ export function OpeningEditor({
       navigate(paths.openingDetail(opening.opening_number));
       return;
     }
+    setCreating(true);
     try {
       const created = await create.mutateAsync({
         request: {
@@ -793,6 +826,7 @@ export function OpeningEditor({
         key: contentKey.current(),
       });
       contentKey.rotate();
+      written.current = true;
       if (publish) {
         await requestPublication(
           created.opening_number,
@@ -805,6 +839,8 @@ export function OpeningEditor({
       navigate(paths.openingDetail(created.opening_number));
     } catch (cause) {
       if (isDefiniteRefusal(cause)) contentKey.rotate();
+      // Enabled again first: handleError focuses the field refused.
+      flushSync(() => setCreating(false));
       handleError(cause);
     }
   };
@@ -841,8 +877,8 @@ export function OpeningEditor({
   };
 
   const pending = create.isPending || save.isPending || saveTeam.isPending;
-  // The editor closes after the request, so input during it would be lost.
-  const requesting = requestChange.isPending;
+  // The editor closes after either, so input during one would be lost.
+  const closing = creating || requestChange.isPending;
   const previewContent = cleanContent(content);
   const checklist = publicationChecklist(t, previewContent, {
     hiring_manager_email: hiringManagerEmail,
@@ -857,7 +893,7 @@ export function OpeningEditor({
       : "openings.editor.actions.revisionHelp";
 
   const lockable = (children: ReactNode) => (
-    <ConfigProvider componentDisabled={contentLocked || requesting}>
+    <ConfigProvider componentDisabled={contentLocked || closing}>
       {children}
     </ConfigProvider>
   );
@@ -1281,7 +1317,7 @@ export function OpeningEditor({
       form={form}
       layout="vertical"
       requiredMark={false}
-      disabled={requesting}
+      disabled={closing}
       onFinish={(values) => {
         const publish = publishing.current;
         publishing.current = false;
@@ -1518,7 +1554,7 @@ export function OpeningEditor({
     </Card>
   );
 
-  if (opening && !["draft", "published", "paused"].includes(opening.state))
+  if (opening && !isEditable(opening))
     return <Alert type="warning" title={t("openings.errors.notEditable")} />;
 
   return (
@@ -1552,7 +1588,7 @@ export function OpeningEditor({
                     cleanContent(form.getFieldValue("content"), true)
                   }
                   onDrafted={applyDraft}
-                  disabled={contentLocked || pending || requesting}
+                  disabled={contentLocked || pending || closing}
                 />
               }
               items={[

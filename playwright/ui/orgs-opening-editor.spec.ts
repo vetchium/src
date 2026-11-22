@@ -9,7 +9,12 @@ import type { OrgOpening } from "typespec/orgs/openings/types";
 import { InternalServerError } from "typespec/problem/details";
 import { expect, test } from "../lib/admin-fixtures.ts";
 import { addOrgMember, type OrgMember, type OrgsAPI } from "../lib/orgs-api.ts";
-import { openEditorStep, signIn, withOrg } from "../lib/orgs-ui.ts";
+import {
+  openEditorStep,
+  sidebarPage,
+  signIn,
+  withOrg,
+} from "../lib/orgs-ui.ts";
 import { ORGS_PORTAL } from "../lib/portals.ts";
 import { chooseOption, searchAndChooseOption } from "../lib/region-ui.ts";
 
@@ -946,5 +951,194 @@ test("another Opening never receives this one's values or unfinished save", asyn
     const saved = await read(2);
     expect(saved.internal_notes).toBe("Only for the second");
     expect(saved.working_content).toEqual(secondContent);
+  });
+});
+
+function leavePrompt(page: Page) {
+  const prompt = page.getByRole("dialog", { name: "Leave without saving?" });
+  return {
+    prompt,
+    stay: prompt.getByRole("button", { name: "Stay", exact: true }),
+    leave: prompt.getByRole("button", { name: "Leave", exact: true }),
+  };
+}
+
+test("Cancel, the sidebar, and Back ask before discarding an Opening's edits", async ({
+  page,
+  request,
+}) => {
+  await withEditor(page, request, async ({ created, read }) => {
+    const { title } = fields(page);
+    const cancel = page
+      .getByRole("main")
+      .getByRole("button", { name: "Cancel", exact: true });
+    const edit = page.getByRole("button", { name: "Edit", exact: true });
+    const { prompt, stay, leave } = leavePrompt(page);
+
+    // Nothing to lose, so nothing asks; this also gives Back an entry.
+    await cancel.click();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+    await edit.click();
+    await title.fill("Edited engineer");
+
+    for (const [go, left] of [
+      [() => cancel.click(), /\/openings\/1$/],
+      [() => sidebarPage(page, "Openings").click(), /\/openings$/],
+      [() => page.evaluate(() => history.back()), /\/openings\/1$/],
+    ] as const) {
+      await go();
+      await expect(prompt).toBeVisible();
+      await stay.click();
+      await expect(prompt).toHaveCount(0);
+      await expect(page).toHaveURL(/\/openings\/1\/edit$/);
+      await expect(title).toHaveValue("Edited engineer");
+
+      await go();
+      await leave.click();
+      await expect(page).toHaveURL(left);
+      await expect(prompt).toHaveCount(0);
+      expect(await read()).toEqual(created);
+
+      if (!page.url().endsWith("/openings/1"))
+        await page.evaluate(() => history.back());
+      if (page.url().endsWith("/openings/1")) await edit.click();
+      await expect(title).toHaveValue("Stored engineer");
+      await title.fill("Edited engineer");
+    }
+  });
+});
+
+test("edits outside the content ask too, and undoing them stops asking", async ({
+  page,
+  request,
+}) => {
+  await withEditor(page, request, async () => {
+    const { notes } = fields(page);
+    const cancel = page
+      .getByRole("main")
+      .getByRole("button", { name: "Cancel", exact: true });
+    const { prompt, stay } = leavePrompt(page);
+    await openEditorStep(page, teamStep);
+    await notes.fill("Edited note");
+    await cancel.click();
+    await stay.click();
+    await expect(prompt).toHaveCount(0);
+    await notes.fill("Stored note");
+    await cancel.click();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+    await expect(prompt).toHaveCount(0);
+  });
+});
+
+test("closing the tab asks only while the Opening has unsaved edits", async ({
+  page,
+  request,
+}) => {
+  await withEditor(page, request, async () => {
+    const { title } = fields(page);
+    await title.fill("Edited engineer");
+    const asked = page.waitForEvent("dialog");
+    await page.close({ runBeforeUnload: true });
+    const dialog = await asked;
+    expect(dialog.type()).toBe("beforeunload");
+    await dialog.dismiss();
+    await expect(title).toHaveValue("Edited engineer");
+
+    await title.fill("Stored engineer");
+    const closed = page.waitForEvent("close");
+    await page.close({ runBeforeUnload: true });
+    await closed;
+  });
+});
+
+test("a save that ends while the prompt is open leaves without it", async ({
+  page,
+  request,
+}) => {
+  await withEditor(page, request, async ({ read }) => {
+    const { title, save } = fields(page);
+    await title.fill("Edited engineer");
+    const held = await holdNext(page, "save-opening-working-copy");
+    await save.click();
+    await held.arrived;
+    await sidebarPage(page, "Openings").click();
+    const { prompt } = leavePrompt(page);
+    await expect(prompt).toBeVisible();
+    held.release();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+    await expect(prompt).toHaveCount(0);
+    expect((await read()).working_content?.title).toBe("Edited engineer");
+  });
+});
+
+test("an Opening that cannot be edited leaves without asking", async ({
+  page,
+  request,
+}) => {
+  await withEditor(page, request, async ({ api, owner, created }) => {
+    const discarded = await api.discardOpening(owner, {
+      opening_number: 1,
+      version: created.version,
+    });
+    expect(discarded.status(), await discarded.text()).toBe(200);
+    await page.reload();
+    await expect(
+      page.getByText("This Opening cannot be edited in its current state."),
+    ).toBeVisible();
+    await sidebarPage(page, "Openings").click();
+    await expect(page).toHaveURL(/\/openings$/);
+    await expect(leavePrompt(page).prompt).toHaveCount(0);
+  });
+});
+
+test("a new Opening asks once edited, and its creation leaves without asking", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org) => {
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/new`);
+    const cancel = page
+      .getByRole("main")
+      .getByRole("button", { name: "Cancel", exact: true });
+    const { title, notes } = fields(page);
+    const { prompt, stay } = leavePrompt(page);
+
+    // The Org's country and language are filled in, which is no edit.
+    await openEditorStep(page, "Location");
+    await expect(page.getByTitle("Singapore", { exact: true })).toBeVisible();
+    await cancel.click();
+    await expect(page).toHaveURL(/\/openings$/);
+    await expect(prompt).toHaveCount(0);
+
+    await page.goto(`${ORGS_PORTAL}/openings/new`);
+    await title.fill("New engineer");
+    await cancel.click();
+    await stay.click();
+    await expect(prompt).toHaveCount(0);
+
+    // Creation closes the editor, so it takes no input while it runs.
+    await page.route("**/api/orgs/create-opening", failsOnServer, {
+      times: 1,
+    });
+    const create = page.getByRole("button", { name: "Create draft" });
+    await create.click();
+    await expect(
+      page.getByText("The request could not be completed"),
+    ).toBeVisible();
+    await expect(title).toBeEnabled();
+    await cancel.click();
+    await stay.click();
+    await expect(prompt).toHaveCount(0);
+
+    const held = await holdNext(page, "create-opening");
+    await create.click();
+    await held.arrived;
+    await expect(title).toBeDisabled();
+    await openEditorStep(page, teamStep);
+    await expect(notes).toBeDisabled();
+    held.release();
+    await expect(page).toHaveURL(/\/openings\/1$/);
+    await expect(prompt).toHaveCount(0);
   });
 });

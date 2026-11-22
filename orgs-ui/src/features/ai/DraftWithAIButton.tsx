@@ -104,8 +104,8 @@ export function DraftWithAIButton({
     data?.models.find((entry) => entry.model_oid === data.default_model);
   const ready = data?.availability === "ready" && chosen !== undefined;
   // Why drafting cannot run and how to fix it. The fix is described, not
-  // linked: the editor has no unsaved-changes guard, so leaving it from here
-  // would discard the Opening being written.
+  // linked: following a link from here would leave the Opening being
+  // written.
   const unavailable: { reason: string; hint?: string } | undefined =
     data === undefined || ready
       ? undefined

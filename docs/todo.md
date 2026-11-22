@@ -249,6 +249,10 @@ Not built:
 - The Vite dev servers cannot call regional APIs (CORS allows only the
   `*.vetchium.localhost` portal origins). Use `make dev` or Tilt, or decide a
   dev-server origin.
+- Signing out skips the unsaved-changes guard: the protected route
+  unmounts the page before the blocker runs, so every guarded page discards
+  its edits silently (seen in the Opening editor). Decide whether sign-out
+  asks first; an expired session must still leave.
 - Production TLS issuance and the static-host deploy have not been exercised.
 
 ## Demo video
