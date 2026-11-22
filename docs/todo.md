@@ -254,9 +254,21 @@ Not built:
   its edits silently (seen in the Opening editor). Decide whether sign-out
   asks first; an expired session must still leave.
 - Production TLS issuance and the static-host deploy have not been exercised.
+- Release order for Hub signup: `get-signup-details` must be live in every
+  region's `hub-api` before this `hub-ui` ships, or emailed signup links
+  cannot be completed. Neither is deployed; remove this item once both are.
+- German and Tamil portal copy has had no native-speaker review, including
+  Hub signup and Home, field errors, and the Opening editor's save messages.
+  Decide who reviews each language before launch.
+- Toasts and confirmation dialogs already open keep their language after a
+  language switch. Decide whether that is acceptable or they must translate
+  at render like kept errors (`ui.md`).
 
 ## Demo video
 
 - The agency's chat request and suggestion cards read `Opening #1 at
   hogwarts.test`: `OpeningSuggestion` carries only the client domain and
   number. Show the Opening title there, then record the demo again.
+- `video-demos/record.ts` waits for a "Welcome back" heading that Hub Home
+  no longer shows, so recording fails there. Update it when the demo is next
+  recorded.
