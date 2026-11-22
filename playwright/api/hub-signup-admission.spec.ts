@@ -93,6 +93,13 @@ test("online tenants claim global handles while an offline tenant remains pendin
       operation_id: string;
     };
     expect(pending.operation_id).toMatch(/^[0-9a-f-]{36}$/);
+    // The completion spent the token, but a reload must still resume it.
+    const pendingDetails = await request.post(
+      `${apiOrigin("ind1")}/api/hub/get-signup-details`,
+      { data: { signup_token: indiaToken } },
+    );
+    expect(pendingDetails.status(), await pendingDetails.text()).toBe(200);
+    expect(await pendingDetails.json()).toEqual({ email_address: indiaEmail });
 
     const singapore = await signup(
       request,

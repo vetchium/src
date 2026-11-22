@@ -48,7 +48,7 @@ type hubUserFixture struct {
 	Websites []string `json:"websites,omitempty"`
 
 	// IdealJob and LookingForJob are job-search settings (PROF-JOB-001).
-	// DismissJobSearchPrompt answers Home's job-search card with "Not now".
+	// DismissJobSearchPrompt hides Home's setup.
 	IdealJob               string `json:"idealJob,omitempty"`
 	LookingForJob          bool   `json:"lookingForJob,omitempty"`
 	DismissJobSearchPrompt bool   `json:"dismissJobSearchPrompt,omitempty"`

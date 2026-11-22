@@ -149,6 +149,34 @@ function AbilitySection({
   );
 }
 
+/** The three ability lists, each change saved at once; shared with Home's
+ * setup. */
+export function LanguageAbilityLists({
+  address,
+  profile,
+}: {
+  address: string;
+  profile: PublicProfile;
+}) {
+  const byAbility = (ability: LanguageAbility) =>
+    profile.language_abilities
+      .filter((entry) => entry.ability === ability)
+      .map((entry) => entry.language_tag);
+
+  return (
+    <Flex vertical gap="large">
+      {abilities.map((ability) => (
+        <AbilitySection
+          key={ability}
+          address={address}
+          ability={ability}
+          tags={byAbility(ability)}
+        />
+      ))}
+    </Flex>
+  );
+}
+
 function LanguageAbilitiesListCard({
   address,
   profile,
@@ -157,23 +185,9 @@ function LanguageAbilitiesListCard({
   profile: PublicProfile;
 }) {
   const { t } = useTranslation();
-  const byAbility = (ability: LanguageAbility) =>
-    profile.language_abilities
-      .filter((entry) => entry.ability === ability)
-      .map((entry) => entry.language_tag);
-
   return (
     <Card title={t("profileLanguages.title")}>
-      <Flex vertical gap="large">
-        {abilities.map((ability) => (
-          <AbilitySection
-            key={ability}
-            address={address}
-            ability={ability}
-            tags={byAbility(ability)}
-          />
-        ))}
-      </Flex>
+      <LanguageAbilityLists address={address} profile={profile} />
     </Card>
   );
 }

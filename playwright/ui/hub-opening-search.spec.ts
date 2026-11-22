@@ -26,7 +26,7 @@ async function signIn(page: Page, user: { email: string; password: string }) {
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(
-    page.getByRole("heading", { name: /Welcome back/ }),
+    page.getByRole("heading", { name: /^(Welcome|Hello), / }),
   ).toBeVisible();
 }
 
@@ -387,7 +387,7 @@ test("a search without results offers to clear filters, and an unavailable regio
   await page.goto(`${HUB_PORTAL}/openings?region=ind1`);
   await expect(
     page.getByText(
-      "The India (ind1) region is not answering. Try again later or choose another region.",
+      "The India region is not answering. Try again later or choose another region.",
     ),
   ).toBeVisible();
 });
@@ -454,12 +454,14 @@ test("the Home search box opens Opening search with its keyword, or unfiltered w
 
 const matchOption = "Best match for my ideal job";
 
-/** Saves the ideal job through the Home job search card. */
+/** Saves the ideal job through Home's setup. */
 async function saveIdealJob(page: Page, text: string) {
   await page.goto(`${HUB_PORTAL}/`);
-  await page.getByLabel("My ideal job").fill(text);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByLabel("My ideal job")).toHaveCount(0);
+  await page.getByRole("textbox", { name: "My ideal job" }).fill(text);
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Where have you worked?" }),
+  ).toBeFocused();
 }
 
 async function expectSort(page: Page, label: string) {
@@ -593,7 +595,9 @@ test("a new ideal job saved in Preferences reranks a match search the page alrea
   // ideal job it was ranked by.
   await page.getByRole("menuitem", { name: "Preferences" }).click();
   await expect(page).toHaveURL(`${HUB_PORTAL}/settings/preferences`);
-  await page.getByLabel("My ideal job").fill(`${second} engineering`);
+  await page
+    .getByRole("textbox", { name: "My ideal job" })
+    .fill(`${second} engineering`);
   await page.getByRole("button", { name: "Save ideal job" }).click();
   await expect(
     page.getByRole("button", { name: "Save ideal job" }),

@@ -34,7 +34,10 @@ first version; a screen that needs a redesign pass missed a rule here.
   counts; `Empty` that offers the next action.
 - Long forms: titled sections, two columns from `md`
   (`Col xs={24} md={12}`), "Optional" on optional fields, plain-language
-  `extra` help on any field whose rule is not obvious.
+  `extra` help on any field whose rule is not obvious. Help a user needs only
+  when unsure goes in a tooltip behind a focusable icon button named for the
+  field and outside its `<label>` (`FieldLabel` in hub-ui); never
+  `Form.Item tooltip`, which keyboards cannot reach.
 - Right-hand panels of two-column pages use `SidePanel`
   (`@vetchium/portal-ui/shell`) in `Col lg={8}`: sticky from `lg`, scrolling
   inside itself when taller than the window.
@@ -113,7 +116,8 @@ first version; a screen that needs a redesign pass missed a rule here.
   needs consent shows the terms in a dialog; turning off something others
   rely on asks first.
 - A form with Save shows Save and Discard only after a change, tags it
-  "Unsaved changes", and blocks leaving with `useUnsavedChangesGuard`.
+  "Unsaved changes", and blocks leaving with `useUnsavedChangesGuard`
+  (`@vetchium/portal-ui/unsaved-changes`).
 - Never disable an action silently: say why beside it (the invalid choice,
   the missing fields, the plan or permission needed) and how to fix it.
 - An Org whose plan lacks a feature sees what the plan adds and how to get

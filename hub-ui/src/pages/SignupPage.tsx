@@ -1,264 +1,273 @@
 import { useMutation } from "@tanstack/react-query";
-import { frontendLocaleOptions } from "@vetchium/portal-ui/localization";
-import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
-import type { PortalRegion } from "@vetchium/portal-ui/regions";
 import {
-  Alert,
   Button,
   Card,
+  Flex,
   Form,
   Input,
+  type InputRef,
   Select,
   Space,
   Typography,
 } from "antd";
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import { isCountryCode } from "typespec/common/countries";
-import type { CountryCode } from "typespec/common/localization";
-import type { RequestSignupRequest } from "typespec/hub/auth/signup";
-import { type FrontendLocale, isFrontendLocale } from "typespec/hub/types";
+import { Link } from "react-router";
+import { isEmailAddress } from "typespec/common/common";
+import { isDisplayName } from "typespec/common/localization";
+import {
+  normalizeRequestSignupRequest,
+  type RequestSignupRequest,
+} from "typespec/hub/auth/signup";
+import {
+  SignupDomainNotAllowedError,
+  SignupUnavailableError,
+} from "typespec/problem/hub/signup";
+import { isProblem } from "../api/client";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePreferences } from "../app/PreferencesContext";
-import { regionTable } from "../app/regions";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
-import { countryName, countryOptions } from "../i18n/countries";
+import { FieldLabel } from "../components/common/FieldLabel";
+import { regionNameOf } from "../features/regions/names";
+import { CheckEmail } from "../features/signup/CheckEmail";
+import { RegionChoice } from "../features/signup/RegionChoice";
+import { eligibleRegions, recommendedRegion } from "../features/signup/regions";
+import { countryOptions } from "../i18n/countries";
 
-/** Regions accepting Hub signup from residents of `country`. The destination
- * region still decides admission; this only avoids offering a region whose
- * compiled-in policy would refuse. */
-function eligibleRegions(country: string): readonly PortalRegion[] {
-  if (!isCountryCode(country)) return [];
-  return regionTable.regions.filter(
-    (region) =>
-      region.signupEnabled &&
-      (region.allowedCountries.length === 0 ||
-        region.allowedCountries.includes(country)),
-  );
+type SignupValues = Pick<
+  RequestSignupRequest,
+  "display_name" | "email_address" | "resident_country"
+>;
+
+interface Submission {
+  values: SignupValues;
+  tenantId: string;
 }
 
 export function SignupPage() {
-  const params = useParams();
-  return (
-    <SignupFlow
-      key={`${params.residentCountry ?? ""}/${params.language ?? ""}/${params.step ?? ""}`}
-    />
-  );
-}
-
-function SignupFlow() {
   const { t } = useTranslation();
-  const preferences = usePreferences();
-  const countries = countryOptions(preferences.language);
-  const params = useParams();
-  const navigate = useNavigate();
-  const [country, setCountry] = useState(
-    isCountryCode(params.residentCountry ?? "")
-      ? (params.residentCountry ?? "")
-      : "",
-  );
-  const [language, setLanguage] = useState<FrontendLocale>(
-    isFrontendLocale(params.language) ? params.language : preferences.language,
-  );
-  const [selectedTenant, setSelectedTenant] = useState<string>();
-  const [search] = useSearchParams();
+  const { language } = usePreferences();
+  const [form] = Form.useForm<SignupValues>();
+  const nameID = useId();
+  const emailID = useId();
+  const countryID = useId();
+  const emailInput = useRef<InputRef>(null);
+  const country = Form.useWatch("resident_country", form);
+  const [chosen, setChosen] = useState<string>();
+  const [choosing, setChoosing] = useState(false);
+  const [sent, setSent] = useState<Submission>();
+  const [resent, setResent] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
   const key = useIdempotencyKey();
+  const lastPayload = useRef<string | null>(null);
+
   const options = eligibleRegions(country);
-  // The country's recommendation, else the table default, when it is eligible.
-  const preferred =
-    regionTable.recommendations[country as CountryCode] ??
-    regionTable.defaultTenant;
-  const recommended = options.find(
-    (region) => region.tenantId === preferred,
-  )?.tenantId;
+  const recommended = recommendedRegion(country);
   const selected =
-    options.find((region) => region.tenantId === selectedTenant) ??
-    options.find((region) => region.tenantId === recommended) ??
+    options.find((region) => region.tenantId === chosen) ??
+    recommended ??
     options[0];
-  const destinationTenant = regionFromSearchParams(regionTable, search);
-  const destination = options.find(
-    (region) => region.tenantId === destinationTenant,
-  );
-  const details = params.step === "details" && destination !== undefined;
+
   const signup = useMutation({
-    mutationFn: (
-      values: Pick<RequestSignupRequest, "display_name" | "email_address">,
-    ) =>
-      hubAPI.requestSignup(
-        { ...values, preferred_language: language, resident_country: country },
-        key.current(),
-        destination?.tenantId ?? "",
-      ),
-    onSuccess: () => key.rotate(),
+    mutationFn: ({ values, tenantId }: Submission) => {
+      // The header's language when sent is the language of the email.
+      const request = normalizeRequestSignupRequest({
+        ...values,
+        preferred_language: language,
+      });
+      const payload = JSON.stringify([request, tenantId]);
+      if (lastPayload.current !== null && lastPayload.current !== payload) {
+        key.rotate();
+      }
+      lastPayload.current = payload;
+      return hubAPI.requestSignup(request, key.current(), tenantId);
+    },
+    onSuccess: (_, submission) => {
+      key.rotate();
+      lastPayload.current = null;
+      setResent(sent !== undefined);
+      setSent(submission);
+    },
+    onError: (error) => {
+      if (sent !== undefined) return;
+      if (isProblem(error, SignupUnavailableError.type)) setChoosing(true);
+      if (!isProblem(error, SignupDomainNotAllowedError.type)) return;
+      form.setFields([
+        {
+          name: "email_address",
+          errors: [t("errors.signupDomainNotAllowed")],
+        },
+      ]);
+      emailInput.current?.focus();
+    },
   });
-  function continueSignup() {
-    if (!selected) return;
-    const query = new URLSearchParams({ region: selected.tenantId });
-    navigate(`/signup/${country}/${language}/details?${query}`);
-  }
+
+  useEffect(() => {
+    if (!editingEmail) return;
+    emailInput.current?.focus({ cursor: "all" });
+    setEditingEmail(false);
+  }, [editingEmail]);
+
+  const refusedEmail = isProblem(
+    signup.error,
+    SignupDomainNotAllowedError.type,
+  );
+
   return (
     <Card className="auth-card">
       <title>{t("signup.documentTitle")}</title>
-      <Space orientation="vertical" size="large" className="full-width">
-        <div>
-          <Typography.Title level={1}>{t("signup.title")}</Typography.Title>
-          <Typography.Text type="secondary">
-            {t(details ? "signup.description" : "signup.regionDescription")}
-          </Typography.Text>
-        </div>
-        {signup.isSuccess ? (
-          <>
-            <Alert type="success" showIcon title={t("signup.checkEmail")} />
-            <Link to="/login">{t("common.backToSignin")}</Link>
-          </>
-        ) : details ? (
-          <>
-            <Alert
-              type="info"
-              showIcon
-              title={t("signup.hosting", {
-                region: countryName(
-                  destination.hostingCountry,
-                  preferences.language,
-                ),
-                tenant: destination.tenantId,
-              })}
-            />
-            <Typography.Text>
-              {t("signup.residence", {
-                country: countryName(country, preferences.language),
-              })}
+      {sent === undefined ? null : (
+        <CheckEmail
+          email={sent.values.email_address.trim()}
+          region={regionNameOf(t, sent.tenantId, language)}
+          resending={signup.isPending}
+          resent={resent && !signup.isPending && !signup.isError}
+          error={signup.error}
+          onResend={() => signup.mutate(sent)}
+          onDifferentEmail={() => {
+            setSent(undefined);
+            setResent(false);
+            signup.reset();
+            setEditingEmail(true);
+          }}
+        />
+      )}
+      {/* Kept mounted so "Use a different email" finds what was typed. */}
+      <div hidden={sent !== undefined}>
+        <Flex vertical gap="middle">
+          <div>
+            <Typography.Title level={1} style={{ marginTop: 0 }}>
+              {t("signup.title")}
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              {t("signup.description")}
             </Typography.Text>
-            <APIErrorAlert error={signup.error} />
-            <Form<Pick<RequestSignupRequest, "display_name" | "email_address">>
-              layout="vertical"
-              onFinish={(values) => signup.mutate(values)}
+          </div>
+          <Form<SignupValues>
+            form={form}
+            layout="vertical"
+            scrollToFirstError={{ focus: true }}
+            onFinish={(values) => {
+              if (selected === undefined || signup.isPending) return;
+              signup.mutate({ values, tenantId: selected.tenantId });
+            }}
+          >
+            <FieldLabel
+              htmlFor={nameID}
+              label={t("signup.name")}
+              help={t("signup.nameHelp")}
+            />
+            <Form.Item
+              name="display_name"
+              required
+              rules={[
+                {
+                  validator: async (_, value: string | undefined) => {
+                    if (!isDisplayName((value ?? "").trim())) {
+                      throw new Error(t("validation.displayName"));
+                    }
+                  },
+                },
+              ]}
             >
-              <Form.Item
-                name="display_name"
-                label={t("fields.displayName")}
-                rules={[
-                  {
-                    required: true,
-                    max: 200,
-                    message: t("validation.displayName"),
+              <Input id={nameID} autoComplete="name" />
+            </Form.Item>
+            <FieldLabel
+              htmlFor={emailID}
+              label={t("signup.email")}
+              help={t("signup.emailHelp")}
+            />
+            <Form.Item
+              name="email_address"
+              required
+              validateTrigger="onSubmit"
+              rules={[
+                {
+                  validator: async (_, value: string | undefined) => {
+                    if (!isEmailAddress((value ?? "").trim())) {
+                      throw new Error(t("validation.email"));
+                    }
                   },
-                ]}
-              >
-                <Input autoComplete="name" maxLength={200} />
-              </Form.Item>
-              <Form.Item
-                name="email_address"
-                label={t("fields.email")}
-                rules={[
-                  {
-                    required: true,
-                    type: "email",
-                    message: t("validation.email"),
+                },
+              ]}
+            >
+              <Input
+                id={emailID}
+                ref={emailInput}
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                onChange={() => {
+                  // A refusal is about the address that was sent.
+                  form.setFields([{ name: "email_address", errors: [] }]);
+                }}
+              />
+            </Form.Item>
+            <FieldLabel
+              htmlFor={countryID}
+              label={t("signup.country")}
+              help={t("signup.countryHelp")}
+            />
+            <Form.Item
+              name="resident_country"
+              required
+              rules={[
+                {
+                  validator: async (_, value: string | undefined) => {
+                    if (value === undefined) {
+                      throw new Error(t("validation.country"));
+                    }
+                    if (eligibleRegions(value).length === 0) {
+                      throw new Error(t("signup.noRegions"));
+                    }
                   },
-                ]}
-              >
-                <Input autoComplete="email" />
-              </Form.Item>
+                },
+              ]}
+            >
+              <Select
+                id={countryID}
+                showSearch={{ optionFilterProp: "label" }}
+                placeholder={t("signup.countryPlaceholder")}
+                options={countryOptions(language)}
+                onChange={() => {
+                  setChosen(undefined);
+                  setChoosing(false);
+                }}
+              />
+            </Form.Item>
+            <Space orientation="vertical" size="middle" className="full-width">
+              {selected === undefined ? null : (
+                <RegionChoice
+                  options={options}
+                  selected={selected}
+                  recommended={recommended}
+                  choosing={choosing}
+                  disabled={signup.isPending}
+                  onChangeRequested={() => setChoosing(true)}
+                  onSelect={setChosen}
+                />
+              )}
+              {refusedEmail ? null : <APIErrorAlert error={signup.error} />}
               <Button
                 type="primary"
                 htmlType="submit"
+                size="large"
                 block
                 loading={signup.isPending}
               >
                 {t("signup.action")}
               </Button>
-            </Form>
-            <Button
-              disabled={signup.isPending}
-              onClick={() => {
-                signup.reset();
-                key.rotate();
-                navigate(`/signup/${country}/${language}`);
-              }}
-            >
-              {t("signup.changeRegion")}
-            </Button>
-          </>
-        ) : (
-          <Form layout="vertical" onFinish={continueSignup}>
-            <Form.Item label={t("fields.residentCountry")} required>
-              <Select
-                aria-label={t("fields.residentCountry")}
-                showSearch={{ optionFilterProp: "label" }}
-                value={country || undefined}
-                options={countries}
-                onChange={(value: string) => {
-                  setCountry(value);
-                  setSelectedTenant(undefined);
-                }}
-              />
-            </Form.Item>
-            <Form.Item label={t("fields.language")} required>
-              <Select
-                aria-label={`* ${t("fields.language")}`}
-                value={language}
-                options={frontendLocaleOptions(preferences.supportedLocales)}
-                onChange={(value: FrontendLocale) => {
-                  setLanguage(value);
-                  preferences.setLanguage(value);
-                }}
-              />
-            </Form.Item>
-            {isCountryCode(country) && options.length === 0 && (
-              <Alert type="info" title={t("signup.noRegions")} />
-            )}
-            {options.length > 0 && (
-              <Form.Item label={t("signup.regionLabel")} required>
-                <Select
-                  aria-label={t("signup.regionLabel")}
-                  value={selected?.tenantId}
-                  options={options.map((region) => ({
-                    value: region.tenantId,
-                    label: t(
-                      region.tenantId === recommended
-                        ? "signup.recommendedRegion"
-                        : "signup.regionOption",
-                      {
-                        region: countryName(
-                          region.hostingCountry,
-                          preferences.language,
-                        ),
-                        tenant: region.tenantId,
-                      },
-                    ),
-                  }))}
-                  onChange={setSelectedTenant}
-                />
-              </Form.Item>
-            )}
-            <Button type="primary" htmlType="submit" block disabled={!selected}>
-              {selected
-                ? t("signup.continueRegion", {
-                    region: countryName(
-                      selected.hostingCountry,
-                      preferences.language,
-                    ),
-                    tenant: selected.tenantId,
-                  })
-                : t("common.continue")}
-            </Button>
+            </Space>
           </Form>
-        )}
-        {!signup.isSuccess && (
-          <>
-            <Typography.Text>
-              {t("signup.haveAccount")}{" "}
-              <Link to="/login">{t("signup.signin")}</Link>
-            </Typography.Text>
-            <Typography.Text>
-              <Link to="/terms">{t("signup.terms")}</Link>
-            </Typography.Text>
-          </>
-        )}
-      </Space>
+          <Link to="/terms">{t("signup.terms")}</Link>
+          <Typography.Text>
+            {t("signup.haveAccount")}{" "}
+            <Link to="/login">{t("signup.signin")}</Link>
+          </Typography.Text>
+        </Flex>
+      </div>
     </Card>
   );
 }

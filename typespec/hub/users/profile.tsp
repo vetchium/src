@@ -30,7 +30,7 @@ model MyInfoResponse {
   /** Private to the user (PROF-JOB-004). */
   looking_for_job: boolean;
 
-  /** Whether the user dismissed the Home "Your job search" card. */
+  /** Whether the user hid the setup on Home. */
   job_search_prompt_dismissed: boolean;
 }
 
@@ -163,8 +163,8 @@ interface ProfileOperations {
     | Vetchium.Problem.HubAuthenticationRequiredErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 
-  /** Hides the Home "Your job search" card; dismissing again keeps the first
-   * time (PROF-JOB-002). */
+  /** Hides the setup on Home; dismissing again keeps the first time
+   * (PROF-JOB-002). */
   @route("/dismiss-job-search-prompt")
   @post
   @useAuth(BearerAuth)

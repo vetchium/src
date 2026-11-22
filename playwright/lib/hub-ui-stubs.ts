@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import type { SignupDetailsResponse } from "typespec/hub/auth/signup";
 import { ProfileNotFoundError } from "typespec/problem/hub/profile";
 
 /**
@@ -21,6 +22,18 @@ export async function stubShellReads(page: Page): Promise<void> {
       status: 404,
       contentType: "application/problem+json",
       json: ProfileNotFoundError,
+    }),
+  );
+}
+
+/** Serves what a fresh emailed signup link resolves to. */
+export async function stubSignupDetails(
+  page: Page,
+  emailAddress = "person@example.com",
+) {
+  await page.route("**/api/hub/get-signup-details", (route) =>
+    route.fulfill({
+      json: { email_address: emailAddress } satisfies SignupDetailsResponse,
     }),
   );
 }

@@ -161,7 +161,7 @@ func TestTenantFixturesAreValid(t *testing.T) {
 			}
 			if !showsCard || !dismissed {
 				t.Errorf(
-					"%s needs a user Home shows the job-search card to and one who dismissed it",
+					"%s needs a user Home shows setup to and one who hid it",
 					path,
 				)
 			}

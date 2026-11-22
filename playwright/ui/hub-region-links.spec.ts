@@ -36,7 +36,7 @@ for (const { path, message } of [
       const hosts = recordRegionalAPIHosts(page);
       await page.goto(`${HUB_PORTAL}${path}?${link.query}`);
       await expect(page.getByRole("alert")).toContainText(message);
-      await expect(page.getByLabel("New password")).toHaveCount(0);
+      await expect(page.locator('input[type="password"]')).toHaveCount(0);
       expect(hosts).toEqual([]);
     });
   }

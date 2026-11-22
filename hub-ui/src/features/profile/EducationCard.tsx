@@ -6,7 +6,6 @@ import {
   Card,
   Flex,
   Form,
-  Input,
   Modal,
   Popconfirm,
   Space,
@@ -14,26 +13,22 @@ import {
   Timeline,
   Typography,
 } from "antd";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  isProfessionalDomain,
-  normalizeProfessionalDomain,
-} from "typespec/common/domain";
-import {
-  type EducationalQualification,
-  isProfileTitle,
-  normalizeSaveEducationalQualificationRequest,
-  type ProfileMonth,
-  type PublicProfile,
-  type SaveEducationalQualificationRequest,
-  validateSaveEducationalQualificationRequest,
+import type {
+  EducationalQualification,
+  ProfileMonth,
+  PublicProfile,
 } from "typespec/hub/profile/public";
 import { hubAPI } from "../../api/hub";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { usePreferences } from "../../app/PreferencesContext";
 import { APIErrorAlert } from "../../components/common/APIErrorAlert";
-import { MonthSelect } from "./MonthSelect";
+import {
+  EducationForm,
+  type EducationFormValues,
+  useSaveEducation,
+} from "./EducationForm";
 import { myInfoQueryKey, usePublicProfileQuery } from "./queries";
 
 const educationLimit = 30;
@@ -71,30 +66,6 @@ function compareEducation(
   return 0;
 }
 
-interface EducationFormValues {
-  institution_domain: string;
-  degree: string;
-  title: string;
-  supporting_text: string;
-  start_month?: ProfileMonth;
-  end_month?: ProfileMonth;
-}
-
-function toRequest(
-  id: string | undefined,
-  values: EducationFormValues,
-): SaveEducationalQualificationRequest {
-  return normalizeSaveEducationalQualificationRequest({
-    id,
-    institution_domain: values.institution_domain,
-    degree: values.degree,
-    title: values.title || null,
-    supporting_text: values.supporting_text || null,
-    start_month: values.start_month ?? null,
-    end_month: values.end_month ?? null,
-  });
-}
-
 function EducationModal({
   address,
   entry,
@@ -108,35 +79,16 @@ function EducationModal({
 }) {
   const { t } = useTranslation();
   const { message } = App.useApp();
-  const queryClient = useQueryClient();
   const [form] = Form.useForm<EducationFormValues>();
-  const key = useIdempotencyKey();
-  const lastPayload = useRef<string | null>(null);
-  const save = useMutation({
-    mutationFn: (request: SaveEducationalQualificationRequest) => {
-      const payload = JSON.stringify(request);
-      if (lastPayload.current !== null && lastPayload.current !== payload) {
-        key.rotate();
-      }
-      lastPayload.current = payload;
-      return hubAPI.saveEducation(request, key.current());
-    },
-    onSuccess: async () => {
-      key.rotate();
-      lastPayload.current = null;
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: myInfoQueryKey }),
-        queryClient.invalidateQueries({
-          queryKey: ["hub", "profile", address],
-        }),
-      ]);
-      void message.success(
+  const save = useSaveEducation(address, () => {
+    void message.success(
+      t(
         entry === undefined
-          ? t("profileEducation.added")
-          : t("profileEducation.updated"),
-      );
-      onClose();
-    },
+          ? "profileEducation.added"
+          : "profileEducation.updated",
+      ),
+    );
+    onClose();
   });
 
   return (
@@ -158,137 +110,11 @@ function EducationModal({
       onCancel={onClose}
       onOk={() => form.submit()}
     >
-      <Form<EducationFormValues>
+      <EducationForm
         form={form}
-        layout="vertical"
-        preserve={false}
-        initialValues={{
-          institution_domain: entry?.institution_domain ?? "",
-          degree: entry?.degree ?? "",
-          title: entry?.title ?? "",
-          supporting_text: entry?.supporting_text ?? "",
-          start_month: entry?.start_month,
-          end_month: entry?.end_month,
-        }}
-        onFinish={(values) => {
-          const request = toRequest(entry?.id, values);
-          const invalid = validateSaveEducationalQualificationRequest(request);
-          if (invalid.length > 0) {
-            form.setFields(
-              invalid.map((name) => ({
-                name: name as keyof EducationFormValues,
-                errors: [t(`profileEducation.validation.${name}`)],
-              })),
-            );
-            return;
-          }
-          save.mutate(request);
-        }}
-      >
-        <Form.Item
-          name="institution_domain"
-          label={t("profileEducation.fields.institutionDomain")}
-          rules={[
-            {
-              validator: async (_, value: string) => {
-                if (
-                  !isProfessionalDomain(
-                    normalizeProfessionalDomain(value ?? ""),
-                  )
-                ) {
-                  throw new Error(
-                    t("profileEducation.validation.institution_domain"),
-                  );
-                }
-              },
-            },
-          ]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
-          name="degree"
-          label={t("profileEducation.fields.degree")}
-          rules={[
-            {
-              validator: async (_, value: string) => {
-                if (!isProfileTitle(value ?? "")) {
-                  throw new Error(t("profileEducation.validation.degree"));
-                }
-              },
-            },
-          ]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
-          name="title"
-          label={t("profileEducation.fields.title")}
-          rules={[
-            {
-              validator: async (_, value: string) => {
-                if (value && !isProfileTitle(value)) {
-                  throw new Error(t("profileEducation.validation.title"));
-                }
-              },
-            },
-          ]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
-          name="supporting_text"
-          label={t("profileEducation.fields.supportingText")}
-          rules={[
-            {
-              validator: async (_, value: string) => {
-                if ([...(value ?? "")].length > 249) {
-                  throw new Error(
-                    t("profileEducation.validation.supporting_text"),
-                  );
-                }
-              },
-            },
-          ]}
-        >
-          <Input.TextArea rows={2} />
-        </Form.Item>
-        <Form.Item
-          name="start_month"
-          label={t("profileEducation.fields.startMonth")}
-        >
-          <MonthSelect
-            allowClear
-            ariaLabel={t("profileEducation.fields.startMonth")}
-          />
-        </Form.Item>
-        <Form.Item
-          name="end_month"
-          label={t("profileEducation.fields.endMonth")}
-          dependencies={["start_month"]}
-          rules={[
-            {
-              validator: async (_, value: ProfileMonth | undefined) => {
-                const start = form.getFieldValue("start_month") as
-                  | ProfileMonth
-                  | undefined;
-                if (
-                  value !== undefined &&
-                  start !== undefined &&
-                  value < start
-                ) {
-                  throw new Error(t("profileEducation.validation.end_month"));
-                }
-              },
-            },
-          ]}
-        >
-          <MonthSelect
-            allowClear
-            ariaLabel={t("profileEducation.fields.endMonth")}
-          />
-        </Form.Item>
-      </Form>
+        entry={entry}
+        onSave={(request) => save.mutate(request)}
+      />
       <APIErrorAlert error={save.error} />
     </Modal>
   );

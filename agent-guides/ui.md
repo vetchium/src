@@ -107,13 +107,16 @@ design (layout, saving, states, copy) is in [`ux.md`](ux.md).
   CORS. Adding a region means rebuilding both portals.
 - Hub and Orgs read no runtime config; the fallback locale is build-time
   `en-US`.
-- The region is chosen before any personal data: sign-in and forgot-password
-  show `RegionPicker` first; Hub signup offers eligible regions for the chosen
-  country, and Orgs signup lists eligible regions directly. Sign-in starts
-  empty, ignores remembered and link regions, and
-  requires an explicit choice before submission. Forgot-password preselects
-  the remembered region, else the browser-country recommendation, else the
-  table default.
+- No personal data leaves the browser before submit, and then only to the
+  chosen region: sign-in and forgot-password show `RegionPicker` first; Hub
+  signup fills the region from the chosen country and lets it be changed
+  ([`hub-signup.md`](hub-signup.md)), and Orgs signup lists eligible regions
+  directly. Sign-in starts empty, ignores remembered and link regions, and
+  requires an explicit choice before submission; the one exception is the
+  sign-in that ends Hub signup, at the emailed link's region. Hub shows a
+  region by its hosting country, adding the tenant id only when two regions
+  share one. Forgot-password preselects the remembered region, else the
+  browser-country recommendation, else the table default.
 - Sign-in failures name invalid credentials or a possibly wrong region together;
   never identify or suggest the account's home region.
 - A session token belongs to the region that issued it; the stored and

@@ -36,6 +36,23 @@ func (r RequestSignupRequest) Validate() []string {
 	return fields
 }
 
+type GetSignupDetailsRequest struct {
+	SignupToken HubSignupToken `json:"signup_token"`
+}
+
+func (r *GetSignupDetailsRequest) Normalize() {}
+
+func (r GetSignupDetailsRequest) Validate() []string {
+	if !common.IsOpaqueToken(string(r.SignupToken)) {
+		return []string{"signup_token"}
+	}
+	return []string{}
+}
+
+type SignupDetailsResponse struct {
+	EmailAddress common.EmailAddress `json:"email_address"`
+}
+
 type CompleteSignupRequest struct {
 	SignupToken HubSignupToken     `json:"signup_token"`
 	Password    common.NewPassword `json:"password"`

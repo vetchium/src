@@ -1,151 +1,126 @@
-import {
-  HeartOutlined,
-  IdcardOutlined,
-  SafetyOutlined,
-  SearchOutlined,
-} from "@ant-design/icons";
-import { Card, Col, Input, Row, Space, Typography } from "antd";
-import { useState } from "react";
+import { App, Button, Flex, Spin, Typography } from "antd";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
-import { FreeTier } from "typespec/hub/subscriptions/plans";
-import { useMyApplicationCountsQuery } from "../features/applications/queries";
-import { JobSearchPromptCard } from "../features/profile/JobSearchPromptCard";
-import { ProfileProgressCard } from "../features/profile/ProfileProgressCard";
-import { useMyInfoQuery } from "../features/profile/queries";
-import { useMySubscriptionQuery } from "../features/subscriptions/queries";
+import type { PublicProfile } from "typespec/hub/profile/public";
+import type { MyInfoResponse } from "typespec/hub/users/profile";
+import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { ApplicationsBanner } from "../features/home/ApplicationsBanner";
+import { EverydayHome } from "../features/home/EverydayHome";
+import { HomeSetup } from "../features/home/HomeSetup";
+import { OpeningSearchBox } from "../features/home/OpeningSearchBox";
+import { completedSteps } from "../features/home/setupSteps";
+import {
+  useMyInfoQuery,
+  usePublicProfileQuery,
+} from "../features/profile/queries";
 
-/** Starts an Opening search; the search page applies every other filter. */
-function OpeningSearchCard() {
+function HomeContent({
+  me,
+  profile,
+}: {
+  me: MyInfoResponse;
+  profile: PublicProfile;
+}) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [invalid, setInvalid] = useState(false);
+  const { message } = App.useApp();
+  // Latched, so completing the last item, such as a first language, does not
+  // take the step away before the person continues.
+  const [unfinished, setUnfinished] = useState(() =>
+    Object.values(completedSteps(me, profile)).includes(false),
+  );
+  const setup = unfinished && !me.job_search_prompt_dismissed;
+  const title = useRef<HTMLHeadingElement>(null);
+  const wasSetup = useRef(setup);
+  useEffect(() => {
+    if (wasSetup.current && !setup) title.current?.focus();
+    wasSetup.current = setup;
+  }, [setup]);
+
   return (
-    <Card
-      title={
-        <Space>
-          <SearchOutlined />
-          {t("home.searchTitle")}
-        </Space>
-      }
-    >
-      <Space orientation="vertical" className="full-width">
-        <Input.Search
-          aria-label={t("home.searchLabel")}
-          placeholder={t("openingSearch.keywordPlaceholder")}
-          enterButton={t("openingSearch.search")}
-          status={invalid ? "error" : undefined}
-          onChange={() => setInvalid(false)}
-          onSearch={(value) => {
-            const keyword = value.trim();
-            const size = [...keyword].length;
-            if (size === 1 || size > 200) {
-              setInvalid(true);
-              return;
-            }
-            navigate(
-              size === 0
-                ? "/openings"
-                : `/openings?${new URLSearchParams({ q: keyword })}`,
-            );
+    <>
+      <div>
+        <Typography.Title
+          ref={title}
+          tabIndex={-1}
+          level={1}
+          style={{
+            marginTop: 0,
+            marginBottom: 4,
+            outline: "none",
+            overflowWrap: "anywhere",
           }}
-        />
-        {invalid && (
-          <Typography.Text type="danger">
-            {t("openingSearch.keywordLength")}
+        >
+          {t(setup ? "setup.welcome" : "home.title", {
+            name: me.display_name,
+          })}
+        </Typography.Title>
+        {setup ? (
+          <Typography.Text type="secondary">
+            {t("setup.description")}
           </Typography.Text>
-        )}
-      </Space>
-    </Card>
+        ) : null}
+      </div>
+      <ApplicationsBanner />
+      {setup ? (
+        <>
+          <HomeSetup
+            me={me}
+            profile={profile}
+            onFinish={() => {
+              void message.success({
+                key: "setup",
+                content: t("setup.finished"),
+              });
+              setUnfinished(false);
+            }}
+          />
+          <Flex align="baseline" gap="middle" wrap>
+            <Typography.Text type="secondary">
+              {t("home.justLooking")}
+            </Typography.Text>
+            <div style={{ flex: "1 1 280px", maxWidth: 520 }}>
+              <OpeningSearchBox />
+            </div>
+          </Flex>
+        </>
+      ) : (
+        <EverydayHome me={me} profile={profile} />
+      )}
+    </>
   );
 }
 
 export function HomePage() {
   const { t } = useTranslation();
   const { data: me } = useMyInfoQuery();
-  const subscription = useMySubscriptionQuery();
-  const applicationCounts = useMyApplicationCountsQuery();
-  const answerNeeded = applicationCounts.data?.awaiting_answer ?? 0;
+  const profile = usePublicProfileQuery(me?.handle ?? "", me !== undefined);
   if (me === undefined) return null;
-  // A failed subscription read must not invite a paying user to pay again.
-  const showSupport =
-    subscription.isSuccess && subscription.data.plan_oid === FreeTier;
-  const showSecurity = !me.totp_enabled;
-  const showApplications = answerNeeded > 0;
-  const hasAside = showSupport || showSecurity || showApplications;
-  const showJobSearchPrompt =
-    me.ideal_job === undefined && !me.job_search_prompt_dismissed;
 
   return (
-    <Space orientation="vertical" size="large" className="full-width">
+    <Flex vertical gap="large" className="full-width">
       <title>{t("home.documentTitle")}</title>
-      <Typography.Title level={1}>
-        {t("home.title", { name: me.display_name })}
-      </Typography.Title>
-      <OpeningSearchCard />
-      {showJobSearchPrompt ? (
-        <JobSearchPromptCard lookingForJob={me.looking_for_job} />
-      ) : null}
-      <Row gutter={[24, 24]} align="stretch">
-        <Col xs={24} lg={hasAside ? 14 : 24}>
-          <ProfileProgressCard handle={me.handle} />
-        </Col>
-        {hasAside ? (
-          <Col xs={24} lg={10}>
-            <Space orientation="vertical" size="large" className="full-width">
-              {showApplications ? (
-                <Card
-                  title={
-                    <Space>
-                      <IdcardOutlined />
-                      {t("home.applicationsTitle")}
-                    </Space>
-                  }
-                >
-                  <Typography.Paragraph>
-                    {t("home.applicationsBody", { count: answerNeeded })}
-                  </Typography.Paragraph>
-                  <Link to="/applications?awaiting=1">
-                    {t("home.applicationsAction")}
-                  </Link>
-                </Card>
-              ) : null}
-              {showSupport ? (
-                <Card
-                  title={
-                    <Space>
-                      <HeartOutlined />
-                      {t("home.supportTitle")}
-                    </Space>
-                  }
-                >
-                  <Typography.Paragraph>
-                    {t("home.supportBody")}
-                  </Typography.Paragraph>
-                  <Link to="/plan">{t("home.supportAction")}</Link>
-                </Card>
-              ) : null}
-              {showSecurity ? (
-                <Card
-                  title={
-                    <Space>
-                      <SafetyOutlined />
-                      {t("home.securityTitle")}
-                    </Space>
-                  }
-                >
-                  <Typography.Paragraph>
-                    {t("home.securityBody")}
-                  </Typography.Paragraph>
-                  <Link to="/settings/security">
-                    {t("home.securityAction")}
-                  </Link>
-                </Card>
-              ) : null}
-            </Space>
-          </Col>
-        ) : null}
-      </Row>
-    </Space>
+      {profile.data !== undefined ? (
+        // Keyed so another account starts from its own setup state.
+        <HomeContent key={me.handle} me={me} profile={profile.data} />
+      ) : profile.isError ? (
+        <>
+          {/* Only after a failure: which greeting fits needs the profile. */}
+          <Typography.Title level={1} style={{ margin: 0 }}>
+            {t("home.title", { name: me.display_name })}
+          </Typography.Title>
+          <ApplicationsBanner />
+          <APIErrorAlert error={profile.error} />
+          <Button
+            style={{ alignSelf: "flex-start" }}
+            onClick={() => void profile.refetch()}
+          >
+            {t("common.retry")}
+          </Button>
+          <OpeningSearchBox size="large" />
+        </>
+      ) : (
+        <Spin aria-label={t("home.profileLoading")} />
+      )}
+    </Flex>
   );
 }

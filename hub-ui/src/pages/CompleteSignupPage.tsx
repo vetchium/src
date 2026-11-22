@@ -1,26 +1,36 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   findRegion,
   regionFromSearchParams,
 } from "@vetchium/portal-ui/region-selection";
-import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
-import { useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { Link, useSearchParams } from "react-router";
+import { Alert, Button, Card, Flex, Form, Input, Spin, Typography } from "antd";
+import { useEffect, useId, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { isNewPassword } from "typespec/common/authentication";
-import { isHubAccountHomedElsewhereProblem } from "typespec/problem/hub/signup";
-import { APIError } from "../api/client";
+import { validateGetSignupDetailsRequest } from "typespec/hub/auth/signup";
+import { IdempotencyKeyConflictError } from "typespec/problem/common";
+import {
+  InvalidSignupTokenError,
+  isHubAccountHomedElsewhereProblem,
+  SignupDomainNotAllowedError,
+  SignupUnavailableError,
+} from "typespec/problem/hub/signup";
+import { APIError, isProblem } from "../api/client";
 import { hubAPI } from "../api/hub";
 import { useIdempotencyKey } from "../api/idempotency";
 import { usePendingOperations } from "../app/PendingOperationContext";
 import { usePreferences } from "../app/PreferencesContext";
 import { regionStore, regionTable } from "../app/regions";
+import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { FieldLabel } from "../components/common/FieldLabel";
+import { regionName } from "../features/regions/names";
 import { countryName } from "../i18n/countries";
 
-interface PasswordValues {
+interface AccountValues {
+  emailAddress: string;
   password: string;
-  confirm_password: string;
 }
 
 function HomedElsewhere({ error }: { error: unknown }) {
@@ -55,50 +65,143 @@ function HomedElsewhere({ error }: { error: unknown }) {
 
 export function CompleteSignupPage() {
   const { t } = useTranslation();
+  const { language } = usePreferences();
+  const auth = useAuth();
+  const navigate = useNavigate();
   const [search] = useSearchParams();
   const token = search.get("token") ?? "";
-  const region = regionFromSearchParams(regionTable, search);
+  const region =
+    findRegion(regionTable, regionFromSearchParams(regionTable, search)) ??
+    null;
   const key = useIdempotencyKey(`hub-complete-signup:${token}`);
   const { hold } = usePendingOperations();
-  const complete = useMutation({
-    mutationFn: async (values: PasswordValues) => {
+  const passwordID = useId();
+  // The link is spent once the account exists: from then on only sign in.
+  const [created, setCreated] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+
+  const linkComplete =
+    region !== null &&
+    validateGetSignupDetailsRequest({ signup_token: token }).length === 0;
+  // Reading again once completion starts would find the link spent.
+  const details = useQuery({
+    queryKey: ["hub", "signup-details", region?.tenantId, token],
+    queryFn: () =>
+      hubAPI.getSignupDetails({ signup_token: token }, region?.tenantId ?? ""),
+    enabled: linkComplete && !created,
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnReconnect: false,
+  });
+
+  const finish = useMutation({
+    mutationFn: async (values: AccountValues) => {
+      if (region === null) return null;
+      const { tenantId } = region;
       const release = hold();
       try {
-        return await hubAPI.completeSignup(
-          { signup_token: token, password: values.password },
-          key.current(),
-          region ?? "",
+        if (!created) {
+          const result = await hubAPI.completeSignup(
+            { signup_token: token, password: values.password },
+            key.current(),
+            tenantId,
+          );
+          if (!("handle" in result)) {
+            setWaiting(true);
+            return null;
+          }
+          key.rotate();
+          regionStore.remember(tenantId);
+          setCreated(true);
+        }
+        setWaiting(false);
+        const attempt = auth.beginAttempt();
+        const response = await hubAPI.login(
+          {
+            email_address: values.emailAddress,
+            password: values.password,
+            remember_me: false,
+          },
+          tenantId,
         );
+        return { response, attempt, tenantId };
       } finally {
         release();
       }
     },
+    onError: () => setWaiting(false),
     onSuccess: (result) => {
-      if (!("handle" in result)) return;
-      key.rotate();
-      if (region !== null) regionStore.remember(region);
+      if (result === null) return;
+      const { response, attempt, tenantId } = result;
+      const metadata = { remembered: false, tenantId };
+      if (response.authentication_state === "totp_required") {
+        if (auth.beginChallenge(response, metadata, attempt)) {
+          navigate("/login/two-factor", { replace: true });
+        }
+      } else if (auth.completeAuthentication(response, metadata, { attempt })) {
+        navigate("/", { replace: true });
+      }
     },
   });
 
-  const awaitingRecovery =
-    complete.isSuccess && "operation_id" in complete.data;
+  const { isSuccess, mutate, variables } = finish;
   useEffect(() => {
-    if (!awaitingRecovery || complete.variables === undefined) return;
-    const timer = window.setTimeout(
-      () => complete.mutate(complete.variables),
-      2000,
-    );
+    if (!waiting || !isSuccess || variables === undefined) return;
+    const timer = window.setTimeout(() => mutate(variables), 2000);
     return () => window.clearTimeout(timer);
-  }, [awaitingRecovery, complete]);
+  }, [waiting, isSuccess, mutate, variables]);
+
+  const homedElsewhere = isHubAccountHomedElsewhereProblem(
+    finish.error instanceof APIError ? finish.error.problem : undefined,
+  );
+  const emailAddress = variables?.emailAddress ?? details.data?.email_address;
+  const error = finish.error ?? details.error;
+  const spent = !created && isProblem(error, InvalidSignupTokenError.type);
+  const signupRefused =
+    !created &&
+    (isProblem(finish.error, SignupDomainNotAllowedError.type) ||
+      isProblem(finish.error, SignupUnavailableError.type));
 
   return (
     <Card className="auth-card">
       <title>{t("completeSignup.documentTitle")}</title>
-      <Space orientation="vertical" size="large" className="full-width">
-        <Typography.Title level={1}>
-          {t("completeSignup.title")}
-        </Typography.Title>
-        {token.length === 0 || region === null ? (
+      <Flex vertical gap="middle">
+        <div>
+          <Typography.Title level={1} style={{ marginTop: 0 }}>
+            {t(
+              spent || !linkComplete
+                ? "completeSignup.deadLinkTitle"
+                : "completeSignup.title",
+            )}
+          </Typography.Title>
+          {!linkComplete ||
+          region === null ||
+          emailAddress === undefined ||
+          spent ||
+          homedElsewhere ? null : (
+            <Flex vertical gap={4}>
+              <Typography.Text style={{ overflowWrap: "anywhere" }}>
+                {created ? (
+                  <strong>{emailAddress}</strong>
+                ) : (
+                  <Trans
+                    i18nKey="completeSignup.creatingFor"
+                    values={{ email: emailAddress }}
+                    components={{ strong: <strong /> }}
+                  />
+                )}
+              </Typography.Text>
+              {created ? null : (
+                <Typography.Text type="secondary">
+                  {t("completeSignup.description", {
+                    region: regionName(t, region, language),
+                  })}
+                </Typography.Text>
+              )}
+            </Flex>
+          )}
+        </div>
+        {!linkComplete ? (
           // A truncated link must say so. A form whose submit
           // button is disabled explains nothing.
           <Alert
@@ -106,83 +209,113 @@ export function CompleteSignupPage() {
             showIcon
             title={t("completeSignup.missingToken")}
           />
-        ) : awaitingRecovery ? (
-          <Alert type="info" showIcon title={t("completeSignup.pending")} />
-        ) : complete.isSuccess && "handle" in complete.data ? (
+        ) : homedElsewhere ? (
+          <HomedElsewhere error={finish.error} />
+        ) : spent ? (
           <>
-            <Alert
-              type="success"
-              showIcon
-              title={t("completeSignup.success", {
-                handle: complete.data.handle,
-              })}
-            />
-            <Link to="/login">{t("common.continueToSignin")}</Link>
+            <APIErrorAlert error={error} />
+            <Link to="/login">{t("common.backToSignin")}</Link>
+            <Link to="/signup">{t("completeSignup.startAgain")}</Link>
           </>
-        ) : complete.isError &&
-          isHubAccountHomedElsewhereProblem(
-            complete.error instanceof APIError
-              ? complete.error.problem
-              : undefined,
-          ) ? (
-          <HomedElsewhere error={complete.error} />
+        ) : emailAddress === undefined ? (
+          details.isError ? (
+            <>
+              <APIErrorAlert error={details.error} />
+              <Button
+                loading={details.isFetching}
+                onClick={() => void details.refetch()}
+              >
+                {t("common.retry")}
+              </Button>
+            </>
+          ) : (
+            <Spin aria-label={t("completeSignup.loading")} />
+          )
         ) : (
           <>
-            <APIErrorAlert error={complete.error} />
-            {complete.isError && (
-              <Link to="/signup">{t("signup.changeRegion")}</Link>
+            {waiting ? (
+              <Alert type="info" showIcon title={t("completeSignup.pending")} />
+            ) : null}
+            {created ? (
+              <Alert
+                type="success"
+                showIcon
+                title={t("completeSignup.created")}
+              />
+            ) : null}
+            {!created &&
+            isProblem(finish.error, IdempotencyKeyConflictError.type) ? (
+              // The generic advice, to reload, cannot help: a reload replays
+              // the same key.
+              <Alert
+                type="error"
+                showIcon
+                title={t("completeSignup.passwordChanged")}
+              />
+            ) : (
+              <APIErrorAlert error={finish.error} />
             )}
-            <Form<PasswordValues>
-              layout="vertical"
-              onFinish={(values) => complete.mutate(values)}
-            >
-              <Form.Item
-                name="password"
-                label={t("fields.newPassword")}
-                rules={[
-                  { required: true, message: t("validation.required") },
-                  {
-                    validator: (_, value) =>
-                      isNewPassword(value ?? "")
-                        ? Promise.resolve()
-                        : Promise.reject(
-                            new Error(t("validation.newPassword")),
-                          ),
-                  },
-                ]}
+            {signupRefused ? (
+              <Link to="/signup">{t("completeSignup.startAgain")}</Link>
+            ) : null}
+            <div hidden={waiting}>
+              <Form<Pick<AccountValues, "password">>
+                layout="vertical"
+                scrollToFirstError={{ focus: true }}
+                onFinish={(values) => {
+                  if (!finish.isPending) {
+                    finish.mutate({ emailAddress, password: values.password });
+                  }
+                }}
               >
-                <Input.Password autoComplete="new-password" />
-              </Form.Item>
-              <Form.Item
-                name="confirm_password"
-                label={t("fields.confirmPassword")}
-                dependencies={["password"]}
-                rules={[
-                  { required: true, message: t("validation.required") },
-                  ({ getFieldValue }) => ({
-                    validator: (_, value) =>
-                      value === getFieldValue("password")
-                        ? Promise.resolve()
-                        : Promise.reject(
-                            new Error(t("validation.passwordMatch")),
-                          ),
-                  }),
-                ]}
-              >
-                <Input.Password autoComplete="new-password" />
-              </Form.Item>
-              <Button
-                type="primary"
-                htmlType="submit"
-                block
-                loading={complete.isPending}
-              >
-                {t("completeSignup.action")}
-              </Button>
-            </Form>
+                {/* Tells password managers which account to save. */}
+                <input
+                  type="email"
+                  autoComplete="username"
+                  value={emailAddress}
+                  readOnly
+                  hidden
+                />
+                <FieldLabel htmlFor={passwordID} label={t("fields.password")} />
+                <Form.Item
+                  name="password"
+                  required
+                  validateTrigger="onSubmit"
+                  extra={created ? undefined : t("completeSignup.passwordRule")}
+                  rules={[
+                    {
+                      validator: async (_, value: string | undefined) => {
+                        if (!isNewPassword(value ?? "")) {
+                          throw new Error(t("validation.newPassword"));
+                        }
+                      },
+                    },
+                  ]}
+                >
+                  <Input.Password
+                    id={passwordID}
+                    autoFocus
+                    readOnly={created}
+                    autoComplete="new-password"
+                  />
+                </Form.Item>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  size="large"
+                  block
+                  loading={finish.isPending}
+                >
+                  {t(created ? "login.action" : "completeSignup.action")}
+                </Button>
+              </Form>
+            </div>
+            {created ? (
+              <Link to="/login">{t("common.continueToSignin")}</Link>
+            ) : null}
           </>
         )}
-      </Space>
+      </Flex>
     </Card>
   );
 }

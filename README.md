@@ -112,8 +112,8 @@ agency's Home and its Contacts Requests tab, and the agency declined user
 `ashley.williams@`, `brian.oconnor@`, and `natasha.brooks@usa1.test`.
 
 Seeded Hub users have an ideal job, except users 5 and 7 of each region's
-fixture: user 5 dismissed the Home "Your job search" card and user 7 still
-sees it (`meiling.ong@` and `jiahao.koh@sgp.test`). The published seeded
+fixture: user 5 hid the Home setup and user 7 still sees it
+(`meiling.ong@` and `jiahao.koh@sgp.test`). The published seeded
 Openings vary arrangement, remote eligibility, employment type, salary,
 experience, and education, so every Opening search filter and the ideal-job
 match sort return results in every region.

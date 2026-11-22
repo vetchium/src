@@ -222,6 +222,27 @@ WHERE token_hash = sqlc.arg(token_hash)
   AND consumed_at IS NULL
   AND expires_at > now();
 
+-- name: GetHubSignupDetails :one
+-- An unresolved completion has consumed the request, and deactivated it from
+-- local_created on, yet a reload must still be able to replay it.
+SELECT request.email_address
+FROM vetchium.hub_signup_requests AS request
+WHERE request.token_hash = sqlc.arg(token_hash)
+  AND (
+      (
+          request.active
+          AND request.consumed_at IS NULL
+          AND request.expires_at > now()
+      )
+      OR EXISTS (
+          SELECT 1
+          FROM vetchium.hub_signup_completions AS completion
+          WHERE completion.token_hash = request.token_hash
+            AND completion.state NOT IN ('completed', 'failed')
+            AND completion.expires_at > now()
+      )
+  );
+
 -- name: GetHubSignupCompletionByTokenHash :one
 SELECT
     operation_id,

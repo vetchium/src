@@ -60,8 +60,9 @@ export const de = {
   },
   region: {
     label: "Region",
-    help: "Ihr Konto befindet sich in genau einer Region. Wählen Sie die Region, in der Sie es erstellt haben.",
-    option: "{{country}} ({{tenantId}})",
+    help: "Die Region, in der Sie sich registriert haben.",
+    option: "{{country}}",
+    sharedOption: "{{country}} ({{tenantId}})",
   },
   login: {
     documentTitle: "Anmelden | Vetchium",
@@ -88,35 +89,56 @@ export const de = {
     restart: "Anmeldung neu starten",
   },
   signup: {
-    regionDescription:
-      "Wählen Sie Ihr Wohnsitzland und die Region für Ihr Konto. Sie können weltweit nach Stellen suchen.",
-    regionLabel: "Kontoregion",
-    continueRegion: "In {{region}} ({{tenant}}) fortfahren",
-    changeRegion: "Land oder Region ändern",
-    noRegions: "Für dieses Land ist derzeit keine Registrierung verfügbar.",
-    recommendedRegion: "{{region}} ({{tenant}}) — empfohlen",
-    regionOption: "{{region}} ({{tenant}})",
-    hosting: "Ihr Konto wird in {{region}} ({{tenant}}) gespeichert.",
-    residence: "Aktuelles Wohnsitzland: {{country}}",
     documentTitle: "Konto erstellen | Vetchium",
-    title: "Erstellen Sie Ihr Konto",
+    title: "Konto erstellen",
     description:
-      "Wählen Sie Sprache und Wohnsitzland. Der Registrierungslink wird in der gewählten Sprache gesendet.",
-    action: "Registrierungslink senden",
-    checkEmail:
-      "Prüfen Sie Ihren Posteingang. Wenn die Adresse berechtigt ist, wird der Registrierungslink gesendet.",
+      "Kostenlos. Danach senden wir Ihnen einen Link, um Ihr Passwort festzulegen.",
+    name: "Ihr Name",
+    nameHelp:
+      "In Ihrem Profil sichtbar. Ihr dauerhafter Link beginnt mit den ersten 8 Buchstaben (A–Z) oder Ziffern daraus.",
+    email: "E-Mail",
+    emailHelp:
+      "Für Anmeldung und Benachrichtigungen. Nie in Ihrem Profil sichtbar.",
+    country: "Wohnsitzland",
+    countryHelp:
+      "In Ihrem Profil sichtbar. Sie können sich trotzdem weltweit bewerben.",
+    countryPlaceholder: "Land auswählen",
+    regionLabel: "Kontoregion",
+    regionHelp:
+      "Hier wird Ihr Konto gespeichert. Sie wählen sie bei der Anmeldung und können sie später nicht ändern.",
+    change: "Ändern",
+    changeRegionLabel: "Kontoregion ändern",
+    recommendedRegion: "{{region}} (empfohlen)",
+    noRegions: "In diesem Land ist noch keine Registrierung möglich.",
+    action: "Link per E-Mail senden",
+    sentTitle: "E-Mails prüfen",
+    sentBody:
+      "Wenn <strong>{{email}}</strong> verwendet werden kann, ist ein Link zum Abschluss der Registrierung unterwegs.",
+    accountRegion: "Kontoregion: {{region}}",
+    resend: "Erneut senden",
+    resent: "Erneut gesendet. Nur der neueste Link funktioniert.",
+    differentEmail: "Andere E-Mail verwenden",
     haveAccount: "Sie haben bereits ein Konto?",
     signin: "Anmelden",
     terms: "Allgemeine Geschäftsbedingungen",
   },
   completeSignup: {
     documentTitle: "Registrierung abschließen | Vetchium",
+    title: "Passwort festlegen",
+    deadLinkTitle: "Dieser Link funktioniert nicht",
+    description: "Kontoregion: {{region}}. Sie werden direkt angemeldet.",
     missingToken: "Dieser Registrierungslink ist unvollständig.",
-    title: "Passwort wählen",
-    action: "Registrierung abschließen",
+    creatingFor: "Konto wird erstellt für <strong>{{email}}</strong>",
+    loading: "Registrierungslink wird geladen",
+    passwordRule:
+      "Mindestens 15 Zeichen. Ein paar zufällige Wörter eignen sich gut.",
+    action: "Konto erstellen",
     pending:
       "Ihr Konto wird fertiggestellt. Diese Seite prüft den Fortschritt weiter.",
-    success: "Ihr Konto ist bereit. Ihr Handle lautet {{handle}}.",
+    created: "Ihr Konto ist bereit.",
+    passwordChanged:
+      "Die Kontoerstellung wurde bereits mit einem anderen Passwort begonnen. Geben Sie dieses Passwort ein, um fortzufahren.",
+    startAgain: "Registrierung neu beginnen",
     homedElsewhere: {
       title: "Sie haben bereits ein Vetchium-Konto in {{region}}",
       description:
@@ -144,7 +166,6 @@ export const de = {
   common: {
     back: "Zurück",
     backToSignin: "Zurück zur Anmeldung",
-    continue: "Weiter",
     continueToSignin: "Weiter zur Anmeldung",
     cancel: "Abbrechen",
     confirm: "Bestätigen",
@@ -153,11 +174,18 @@ export const de = {
     loadError: "Diese Informationen konnten nicht geladen werden.",
     retry: "Erneut versuchen",
     save: "Speichern",
+    about: "Info zu {{field}}",
+    optional: "(optional)",
+    monthAndYear: "Monat und Jahr",
+    unsavedTitle: "Ohne Speichern verlassen?",
+    unsavedContent: "Ihre Eingaben gehen verloren.",
+    unsavedLeave: "Verlassen",
+    unsavedStay: "Weiter bearbeiten",
   },
   validation: {
     required: "Dieses Feld ist erforderlich.",
     email: "Geben Sie eine gültige E-Mail-Adresse ein.",
-    displayName: "Geben Sie einen Anzeigenamen mit höchstens 200 Zeichen ein.",
+    displayName: "Geben Sie Ihren Namen mit höchstens 200 Zeichen ein.",
     country: "Wählen Sie Ihr Wohnsitzland.",
     newPassword:
       "Verwenden Sie 15 bis 128 Zeichen und vermeiden Sie häufige Passwörter.",
@@ -202,9 +230,9 @@ export const de = {
     userDisabled:
       "Dieses Konto wurde deaktiviert. Wenden Sie sich an Ihre Vetchium-Administration.",
     signupDomainNotAllowed:
-      "Dieser Vetchium-Mandant erlaubt keine Registrierung mit dieser E-Mail-Domain.",
+      "Mit dieser E-Mail-Domain ist keine Registrierung möglich. Versuchen Sie eine andere Adresse.",
     invalidSignupToken:
-      "Dieser Registrierungslink ist ungültig oder abgelaufen.",
+      "Dieser Link ist abgelaufen oder wurde bereits verwendet.",
     invalidResetToken:
       "Dieser Link zum Zurücksetzen ist ungültig oder abgelaufen.",
     incorrectPassword: "Das aktuelle Passwort ist falsch.",
@@ -315,21 +343,24 @@ export const de = {
     limitReached: "Sie haben das Limit von 50 Berufserfahrungen erreicht.",
     present: "Heute",
     dateRange: "{{start}} – {{end}}",
+    more: "Ort und Beschreibung",
+    endPlaceholder: "Ich arbeite noch dort",
+    employerDomainHelp:
+      "Nur die Domain, etwa acme.com. Sie identifiziert das Unternehmen.",
+    employerDomainPlaceholder: "acme.com",
     fields: {
-      employerDomain: "Arbeitgeber-Domain",
+      employerDomain: "Website des Arbeitgebers",
       jobTitle: "Berufsbezeichnung",
-      startMonth: "Startmonat",
-      endMonth: "Endmonat",
+      startMonth: "Beginn",
+      endMonth: "Ende",
       location: "Ort",
       description: "Beschreibung",
     },
     validation: {
-      employer_domain:
-        "Geben Sie eine gültige Arbeitgeber-Domain ein, etwa example.com.",
+      employer_domain: "Geben Sie nur die Domain ein, etwa acme.com.",
       job_title: "Geben Sie eine Berufsbezeichnung mit bis zu 200 Zeichen ein.",
-      start_month:
-        "Wählen Sie einen Startmonat zwischen Januar 1900 und diesem Monat.",
-      end_month: "Wählen Sie einen Endmonat am oder nach dem Startmonat.",
+      start_month: "Wählen Sie, wann Sie begonnen haben.",
+      end_month: "Wählen Sie einen Monat ab dem Beginn.",
       location: "Beschränken Sie den Ort auf 200 Zeichen.",
       description: "Beschränken Sie die Beschreibung auf 2.000 Zeichen.",
     },
@@ -417,24 +448,28 @@ export const de = {
     present: "Heute",
     unknown: "Unbekannt",
     dateRange: "{{start}} – {{end}}",
+    more: "Weitere Angaben",
+    endPlaceholder: "Läuft noch",
+    institutionDomainHelp:
+      "Nur die Domain, etwa example.edu. Sie identifiziert die Einrichtung.",
+    institutionDomainPlaceholder: "example.edu",
     fields: {
-      institutionDomain: "Institutions-Domain",
+      institutionDomain: "Website der Einrichtung",
       degree: "Abschluss",
       title: "Titel",
       supportingText: "Zusätzliche Angaben",
-      startMonth: "Startmonat",
-      endMonth: "Endmonat",
+      startMonth: "Beginn",
+      endMonth: "Ende",
     },
     validation: {
-      institution_domain:
-        "Geben Sie eine gültige Institutions-Domain ein, etwa example.edu.",
+      institution_domain: "Geben Sie nur die Domain ein, etwa example.edu.",
       degree: "Geben Sie einen Abschluss mit bis zu 200 Zeichen ein.",
       title: "Beschränken Sie den Titel auf 200 Zeichen.",
       supporting_text:
         "Beschränken Sie die zusätzlichen Angaben auf 249 Zeichen.",
       start_month:
         "Wählen Sie einen Startmonat zwischen Januar 1900 und diesem Monat.",
-      end_month: "Wählen Sie einen Endmonat am oder nach dem Startmonat.",
+      end_month: "Wählen Sie einen Monat ab dem Beginn.",
     },
   },
   profileLanguages: {
@@ -556,11 +591,10 @@ export const de = {
     saved: "Ihre Einstellung wurde gespeichert.",
     idealJob: "Mein idealer Job",
     idealJobHelp:
-      "Wird bei einer Bewerbung mit Organisationen geteilt; dient zum Finden passender Stellen.",
+      "Nicht in Ihrem Profil. Wird bei Bewerbungen mit Unternehmen geteilt.",
     idealJobTooLong: "Verwenden Sie höchstens 2.000 Zeichen.",
-    lookingForJob: "Suchen Sie derzeit einen Job?",
-    lookingForJobHelp:
-      "Nur Sie können dies sehen. Organisationen, Agenturen und andere Hub-Nutzer sehen es nie.",
+    lookingForJob: "Ich suche gerade einen Job",
+    lookingForJobHelp: "Nur Sie sehen das.",
     saveIdealJob: "Idealen Job speichern",
     discardChanges: "Änderungen verwerfen",
     unsavedChanges: "Nicht gespeicherte Änderungen",
@@ -570,6 +604,8 @@ export const de = {
       "Personalvermittlungen auf Vetchium können Sie bitten, zu einer Stellenausschreibung eine Konversation zu beginnen. Sie sehen Ihre E-Mail-Adresse niemals.",
     agenciesMayRequestHelp2:
       "Wenn Sie dies deaktivieren, erhalten Sie keine neuen Chat-Anfragen von Agenturen. Angenommene Konversationen gehen weiter, und Sie können selbst weiterhin Chat-Anfragen senden.",
+    idealJobPlaceholder:
+      "Zum Beispiel: Backend-Entwicklung für Zahlungen in Go, remote oder in München",
   },
   workEmails: {
     documentTitle: "Berufliche E-Mails | Vetchium",
@@ -758,7 +794,7 @@ export const de = {
     description:
       "Finden Sie Stellen bei Organisationen jeweils einer Region, beginnend mit Ihrer eigenen.",
     keyword: "Suchbegriff",
-    keywordPlaceholder: "Stellentitel oder Name der Organisation",
+    keywordPlaceholder: "Stellentitel oder Unternehmen",
     keywordLength: "Geben Sie 2 bis 200 Zeichen ein.",
     search: "Suchen",
     region: "Region",
@@ -1036,47 +1072,88 @@ export const de = {
     description: "Die angeforderte Seite existiert nicht.",
     action: "Zur Startseite",
   },
-  jobSearchPrompt: {
-    title: "Ihre Jobsuche",
+  setup: {
+    welcome: "Willkommen, {{name}}",
     description:
-      "Beschreiben Sie Ihren idealen Job. Sie können ihn jederzeit unter Präferenzen ändern.",
-    save: "Speichern",
-    notNow: "Nicht jetzt",
-    saved: "Ihre Angaben zur Jobsuche wurden gespeichert.",
-    saveNeedsIdealJob: "Beschreiben Sie Ihren idealen Job, um zu speichern.",
+      "Einmal einrichten. Passende Stellen finden und sich mit dem Profil bewerben.",
+    title: "Einrichten",
+    progress: "{{done}} von {{total}} erledigt",
+    hide: "Einrichtung ausblenden",
+    hidden:
+      "Ausgeblendet. Ergänzen Sie den Rest jederzeit unter Mein Profil und Präferenzen.",
+    finished: "Alles eingerichtet.",
+    stepLabel: "Einrichtungsschritt",
+    stepOption: "{{number}}. {{title}}",
+    stepDone: "{{number}}. {{title}} (erledigt)",
+    onProfile: "In Ihrem Profil",
+    notOnProfile: "Nicht in Ihrem Profil",
+    saveAndContinue: "Speichern und weiter",
+    continue: "Weiter",
+    skip: "Überspringen",
+    saved: "Gespeichert.",
+    unsaved: "Nicht gespeicherte Änderungen",
+    editOnProfile: "In Mein Profil bearbeiten",
+    onlyYou: "(nur Sie sehen das)",
+    idealJobMissing: "Beschreiben Sie zuerst Ihren idealen Job.",
+    biographyMissing: "Schreiben Sie zuerst eine Zeile über sich.",
+    steps: {
+      idealJob: {
+        title: "Idealer Job",
+        heading: "Was ist Ihr idealer Job?",
+        intro: "Damit finden wir passende Stellen.",
+      },
+      work: {
+        title: "Berufserfahrung",
+        heading: "Wo haben Sie gearbeitet?",
+        intro: "Beginnen Sie mit Ihrer aktuellen oder letzten Stelle.",
+      },
+      education: {
+        title: "Ausbildung",
+        heading: "Wo haben Sie gelernt oder studiert?",
+        intro: "Beginnen Sie mit Ihrem neuesten Abschluss.",
+      },
+      languages: {
+        title: "Sprachen",
+        heading: "Welche Sprachen verwenden Sie?",
+        intro: "Fügen Sie die hinzu, in denen Sie arbeiten können.",
+      },
+      about: {
+        title: "Über Sie",
+        heading: "Stellen Sie sich vor",
+        intro: "Zwei oder drei Zeilen genügen.",
+      },
+    },
   },
   home: {
-    applicationsTitle: "Bewerbungen, die Sie brauchen",
-    applicationsBody_one: "{{count}} Bewerbung wartet auf Ihre Antwort.",
-    applicationsBody_other: "{{count}} Bewerbungen warten auf Ihre Antwort.",
-    applicationsAction: "Bewerbungen öffnen",
     documentTitle: "Startseite | Vetchium",
-    title: "Willkommen zurück, {{name}}",
+    title: "Hallo, {{name}}",
+    needsYou: "Zu erledigen",
+    applicationsBody_one: "{{count}} Bewerbung wartet auf Ihre Antwort",
+    applicationsBody_other: "{{count}} Bewerbungen warten auf Ihre Antwort",
+    applicationsAction: "Antworten",
+    searchLabel: "Stellen suchen",
+    justLooking: "Nur mal umsehen?",
+    matchesTitle: "Passend zu Ihrem idealen Job",
+    seeAll: "Alle ansehen",
+    matchesLoading: "Passende Stellen werden geladen",
+    matchesEmpty: "Noch keine passenden Stellen in Ihrer Region.",
+    browseOpenings: "Stellen durchsuchen",
+    matchesNeedIdealJob:
+      "Sagen Sie, was Sie suchen, um passende Stellen zu sehen.",
     profileTitle: "Ihr Profil",
-    profileProgress: "{{done}} von {{total}} Abschnitten vollständig",
-    profileComplete:
-      "Ihr Profil ist vollständig. Halten Sie es mit Ihrer Laufbahn aktuell.",
-    profileIncomplete:
-      "Ein vollständiges Profil hilft Kollegen und Personalverantwortlichen, Ihre Erfahrung einzuordnen.",
+    profileReady: "Bereit für Bewerbungen",
     profileLoading: "Ihr Profil wird geladen",
+    viewProfile: "So sehen es andere",
     checklist: {
-      biography: "Eine kurze Biografie schreiben",
       work: "Berufserfahrung hinzufügen",
       education: "Ausbildung hinzufügen",
-      languages: "Ihre Sprachen hinzufügen",
+      languages: "Sprachen hinzufügen",
+      about: "Sich vorstellen",
     },
-    editProfile: "Mein Profil bearbeiten",
-    viewProfile: "Mein Profil ansehen",
-    supportTitle: "Vetchium unterstützen",
-    supportBody:
-      "Vetchium ist freie Open-Source-Software. Der Silber-Tarif finanziert die Entwicklung und bietet ein Profilbild sowie einen Profil-Alias.",
-    supportAction: "Tarife ansehen",
     securityTitle: "Konto schützen",
-    securityBody:
-      "Aktivieren Sie die Zwei-Faktor-Authentifizierung, damit ein gestohlenes Passwort allein Ihr Konto nicht öffnet.",
-    securityAction: "Zwei-Faktor-Authentifizierung einrichten",
-    searchTitle: "Stellen finden",
-    searchLabel: "Stellen suchen",
+    securityAction: "2FA aktivieren",
+    supportBody: "Vetchium unterstützen und Foto sowie eigenen Link erhalten.",
+    supportAction: "Tarife ansehen",
   },
   plans: {
     endingSoon: "Ihr kostenpflichtiger Zugang endet am {{date}}.",

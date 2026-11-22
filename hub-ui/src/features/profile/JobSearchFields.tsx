@@ -6,6 +6,7 @@ import {
   normalizeSetIdealJobRequest,
   validateSetIdealJobRequest,
 } from "typespec/hub/users/profile";
+import { FieldLabel } from "../../components/common/FieldLabel";
 
 const codePoints = (text: string) => Array.from(text).length;
 
@@ -18,8 +19,55 @@ export function isIdealJobValid(idealJob: string): boolean {
   );
 }
 
-/** The ideal-job textarea and looking-for-a-job switch (PROF-JOB-006,
- * PROF-JOB-007), shared by the Home prompt and Preferences. */
+/** The ideal-job textarea, shared by Home's setup and Preferences. */
+export function IdealJobField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  const { t } = useTranslation();
+  const id = useId();
+  const shownError = isIdealJobValid(value)
+    ? error
+    : t("preferences.idealJobTooLong");
+  return (
+    <>
+      <FieldLabel
+        htmlFor={id}
+        label={t("preferences.idealJob")}
+        help={t("preferences.idealJobHelp")}
+      />
+      <Form.Item
+        validateStatus={shownError === undefined ? undefined : "error"}
+        help={shownError}
+      >
+        {/* The counter sits below the textarea; keep it clear of the error. */}
+        <div style={{ paddingBottom: 20 }}>
+          <Input.TextArea
+            id={id}
+            aria-invalid={shownError !== undefined}
+            placeholder={t("preferences.idealJobPlaceholder")}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            autoSize={{ minRows: 3, maxRows: 10 }}
+            count={{
+              show: true,
+              max: maxIdealJobCodePoints,
+              strategy: codePoints,
+            }}
+          />
+        </div>
+      </Form.Item>
+    </>
+  );
+}
+
+/** The ideal-job textarea and looking-for-a-job switch of Preferences
+ * (PROF-JOB-007). */
 export function JobSearchFields({
   idealJob,
   onIdealJobChange,
@@ -37,33 +85,10 @@ export function JobSearchFields({
   idealJobActions?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const idealJobID = useId();
   const lookingID = useId();
-  const tooLong = !isIdealJobValid(idealJob);
   return (
     <>
-      <Form.Item
-        label={t("preferences.idealJob")}
-        htmlFor={idealJobID}
-        validateStatus={tooLong ? "error" : undefined}
-        help={tooLong ? t("preferences.idealJobTooLong") : undefined}
-        extra={t("preferences.idealJobHelp")}
-      >
-        {/* The counter sits below the textarea; keep it clear of the help. */}
-        <div style={{ paddingBottom: 20 }}>
-          <Input.TextArea
-            id={idealJobID}
-            value={idealJob}
-            onChange={(event) => onIdealJobChange(event.target.value)}
-            autoSize={{ minRows: 3, maxRows: 10 }}
-            count={{
-              show: true,
-              max: maxIdealJobCodePoints,
-              strategy: codePoints,
-            }}
-          />
-        </div>
-      </Form.Item>
+      <IdealJobField value={idealJob} onChange={onIdealJobChange} />
       {idealJobActions}
       <Form.Item
         label={t("preferences.lookingForJob")}

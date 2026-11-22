@@ -8,7 +8,10 @@ import type {
   LoginResponse,
   LoginTOTPRequiredResponse,
 } from "typespec/hub/auth/login";
-import type { CompleteSignupResponse } from "typespec/hub/auth/signup";
+import type {
+  CompleteSignupResponse,
+  SignupDetailsResponse,
+} from "typespec/hub/auth/signup";
 import type {
   ConfirmTOTPEnrollmentResponse,
   StartTOTPEnrollmentResponse,
@@ -121,6 +124,14 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
       401,
       "vetchium-problem-details/hub-invalid-signup-token",
     );
+    const detailsResponse = await hub.post("/get-signup-details", {
+      signup_token: signupToken,
+    });
+    expect(detailsResponse.status(), await detailsResponse.text()).toBe(200);
+    expect(detailsResponse.headers()["cache-control"]).toBe("no-store");
+    expect(await responseJSON<SignupDetailsResponse>(detailsResponse)).toEqual({
+      email_address: emailAddress.toLowerCase(),
+    });
     const completeSignupKey = hubIdempotencyKey();
     const completedResponse = await hub.post(
       "/complete-signup",
@@ -135,6 +146,12 @@ test("Hub signup, sessions, profile, passwords, and TFA work together", async ({
     // Browser APIs identify a Hub user by handle; the DID never leaves the
     // backend.
     expect(Object.keys(completed)).toEqual(["handle"]);
+    // A used link is no longer a credential, so it stops naming the address.
+    await expectProblem(
+      await hub.post("/get-signup-details", { signup_token: signupToken }),
+      401,
+      "vetchium-problem-details/hub-invalid-signup-token",
+    );
     expect(completed.handle).toMatch(/^adalovel-[0-9a-hjkmnp-tv-z]{11}$/);
     const completedDID = hubUserDIDForHandle(completed.handle);
     expect(completedDID).toMatch(
@@ -768,6 +785,7 @@ test("Hub authentication endpoints reject malformed and unauthenticated requests
     for (const [path, idempotent] of [
       ["/request-signup", true],
       ["/login", false],
+      ["/get-signup-details", false],
       ["/complete-signup", true],
       ["/request-password-reset", true],
       ["/complete-password-reset", true],
@@ -785,6 +803,7 @@ test("Hub authentication endpoints reject malformed and unauthenticated requests
 
     const malformedAnonymousRequests = [
       ["/login", false],
+      ["/get-signup-details", false],
       ["/complete-signup", true],
       ["/request-password-reset", true],
       ["/complete-password-reset", true],
@@ -803,6 +822,17 @@ test("Hub authentication endpoints reject malformed and unauthenticated requests
       );
     }
 
+    const unknownLink = await hub.post("/get-signup-details", {
+      signup_token: "x".repeat(43),
+    });
+    expect(unknownLink.headers()["www-authenticate"]).toBe(
+      'VetchiumSignup realm="hub"',
+    );
+    await expectProblem(
+      unknownLink,
+      401,
+      "vetchium-problem-details/hub-invalid-signup-token",
+    );
     await expectProblem(
       await hub.post(
         "/complete-password-reset",

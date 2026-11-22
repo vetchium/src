@@ -29,6 +29,9 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		s, middleware.RecentAuthenticationWindow,
 	)
 	mux.HandleFunc("POST /api/hub/request-signup", hubauth.RequestSignup(s))
+	mux.HandleFunc(
+		"POST /api/hub/get-signup-details", hubauth.GetSignupDetails(s),
+	)
 	mux.HandleFunc("POST /api/hub/complete-signup", hubauth.CompleteSignup(s))
 	mux.HandleFunc("POST /api/hub/login", hubauth.Login(s))
 	mux.HandleFunc("POST /api/hub/login/tfa", hubauth.VerifyTFA(s))

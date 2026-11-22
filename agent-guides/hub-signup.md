@@ -6,8 +6,12 @@ which owns the directory commands, digest key, and claim protocol.
 
 ## Signup ownership
 
-- A visitor chooses resident country, language, and an eligible region before
-  entering personal data. A recommendation never forces placement.
+- Signup is one form at `/signup`: display name, email, resident country, and
+  the region. The country selects its recommended region (the table default
+  when none is), or the first eligible one when that is not eligible, shown as
+  a summary with Change; a recommendation never forces placement. The preferred
+  language is the header's language at submit; never ask for it again.
+- Nothing typed leaves the browser, or enters a URL, before submit.
 - Send email, display name, and every later signup request only to the chosen
   region; it issues and redeems the verification link, which names it with
   `region=`.
@@ -27,6 +31,13 @@ which owns the directory commands, digest key, and claim protocol.
 - No user row exists unless its completion reaches `local_created`.
 - A policy refusal creates no Hub user. A replay of a completed idempotent
   request keeps its original result rather than applying current policy.
+- `get-signup-details` resolves a link's token to its address while the link
+  is fresh or its completion is unresolved; never for a completed or failed
+  one, because a spent link is no longer a credential. It writes nothing.
+- Completion asks for one new password and shows that address as text, never
+  an input. Once it answers `handle`, sign in with both at the link's region and
+  open Home. A failed sign-in retries sign-in only, never the completion. No
+  request of these steps carries an existing session's token.
 
 ## Global account email at signup
 

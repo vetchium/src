@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
@@ -25,6 +28,7 @@ import (
 
 type hubDBStub struct {
 	sqlc.Querier
+	signupDetails func(context.Context, []byte) (string, error)
 	getUser       func(context.Context, string) (sqlc.GetHubUserForLoginRow, error)
 	createSession func(context.Context, sqlc.CreateHubSessionParams) (
 		sqlc.CreateHubSessionRow, error,
@@ -41,6 +45,12 @@ func (s *hubDBStub) CreateHubSession(
 	ctx context.Context, arg sqlc.CreateHubSessionParams,
 ) (sqlc.CreateHubSessionRow, error) {
 	return s.createSession(ctx, arg)
+}
+
+func (s *hubDBStub) GetHubSignupDetails(
+	ctx context.Context, tokenHash []byte,
+) (string, error) {
+	return s.signupDetails(ctx, tokenHash)
 }
 
 func TestLoginSessionDurations(t *testing.T) {
@@ -154,4 +164,65 @@ func hubTestServer(db sqlc.Querier, now time.Time) *hubruntime.Server {
 func hubTestUUID(last byte) pgtype.UUID {
 	value := [16]byte{6: 0x70, 8: 0x80, 15: last}
 	return pgtype.UUID{Bytes: value, Valid: true}
+}
+
+func TestGetSignupDetails(t *testing.T) {
+	token := strings.Repeat("t", 64)
+	body := `{"signup_token":"` + token + `"}`
+	for _, test := range []struct {
+		name   string
+		body   string
+		err    error
+		status int
+	}{
+		{name: "usable link", body: body, status: http.StatusOK},
+		{
+			name: "spent link", body: body,
+			err: pgx.ErrNoRows, status: http.StatusUnauthorized,
+		},
+		{
+			name: "database failure", body: body,
+			err: errors.New("unavailable"), status: http.StatusInternalServerError,
+		},
+		{
+			name: "invalid token", body: `{"signup_token":"short"}`,
+			status: http.StatusBadRequest,
+		},
+		{name: "invalid JSON", body: `{`, status: http.StatusBadRequest},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			db := &hubDBStub{signupDetails: func(
+				_ context.Context, hash []byte,
+			) (string, error) {
+				if !bytes.Equal(hash, credentials.TokenHash(token)) {
+					t.Fatalf("token hash = %x", hash)
+				}
+				return "person@example.com", test.err
+			}}
+			response := hubJSONRequest(
+				t, GetSignupDetails(hubTestServer(db, time.Now())), test.body,
+			)
+			if response.Code != test.status {
+				t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+			}
+			if test.status != http.StatusOK {
+				if strings.Contains(response.Body.String(), "person@example.com") {
+					t.Fatal("refusal disclosed the address")
+				}
+				if test.status == http.StatusUnauthorized &&
+					response.Header().Get("WWW-Authenticate") != hubauthn.SignupChallenge {
+					t.Fatalf("challenge = %q", response.Header().Get("WWW-Authenticate"))
+				}
+				return
+			}
+			var payload hubauth.SignupDetailsResponse
+			if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+				t.Fatal(err)
+			}
+			if payload.EmailAddress != "person@example.com" ||
+				response.Header().Get("Cache-Control") != "no-store" {
+				t.Fatalf("response = %+v, headers = %v", payload, response.Header())
+			}
+		})
+	}
 }

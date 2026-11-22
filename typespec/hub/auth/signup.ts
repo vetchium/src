@@ -49,6 +49,20 @@ export function validateRequestSignupRequest(
   return fields;
 }
 
+export interface GetSignupDetailsRequest {
+  signup_token: HubSignupToken;
+}
+
+export function validateGetSignupDetailsRequest(
+  request: GetSignupDetailsRequest,
+): string[] {
+  return isOpaqueToken(request.signup_token) ? [] : ["signup_token"];
+}
+
+export interface SignupDetailsResponse {
+  email_address: EmailAddress;
+}
+
 export interface CompleteSignupRequest {
   signup_token: HubSignupToken;
   password: NewPassword;

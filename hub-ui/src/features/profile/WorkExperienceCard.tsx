@@ -6,7 +6,6 @@ import {
   Card,
   Flex,
   Form,
-  Input,
   Modal,
   Popconfirm,
   Space,
@@ -14,27 +13,23 @@ import {
   Timeline,
   Typography,
 } from "antd";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  isProfessionalDomain,
-  normalizeProfessionalDomain,
-} from "typespec/common/domain";
-import {
-  isProfileTitle,
-  normalizeSaveWorkExperienceRequest,
-  type ProfileMonth,
-  type PublicProfile,
-  type SaveWorkExperienceRequest,
-  validateSaveWorkExperienceRequest,
-  type WorkExperience,
+import type {
+  ProfileMonth,
+  PublicProfile,
+  WorkExperience,
 } from "typespec/hub/profile/public";
 import { hubAPI } from "../../api/hub";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { usePreferences } from "../../app/PreferencesContext";
 import { APIErrorAlert } from "../../components/common/APIErrorAlert";
-import { MonthSelect } from "./MonthSelect";
 import { myInfoQueryKey, usePublicProfileQuery } from "./queries";
+import {
+  useSaveWorkExperience,
+  WorkExperienceForm,
+  type WorkExperienceFormValues,
+} from "./WorkExperienceForm";
 
 const workExperienceLimit = 50;
 
@@ -50,30 +45,6 @@ function compareWorkExperience(a: WorkExperience, b: WorkExperience): number {
   return 0;
 }
 
-interface WorkExperienceFormValues {
-  employer_domain: string;
-  job_title: string;
-  start_month?: ProfileMonth;
-  end_month?: ProfileMonth;
-  location: string;
-  description: string;
-}
-
-function toRequest(
-  id: string | undefined,
-  values: WorkExperienceFormValues,
-): SaveWorkExperienceRequest {
-  return normalizeSaveWorkExperienceRequest({
-    id,
-    employer_domain: values.employer_domain,
-    job_title: values.job_title,
-    start_month: values.start_month ?? "",
-    end_month: values.end_month ?? null,
-    location: values.location || null,
-    description: values.description || null,
-  });
-}
-
 function WorkExperienceModal({
   address,
   entry,
@@ -87,33 +58,12 @@ function WorkExperienceModal({
 }) {
   const { t } = useTranslation();
   const { message } = App.useApp();
-  const queryClient = useQueryClient();
   const [form] = Form.useForm<WorkExperienceFormValues>();
-  const key = useIdempotencyKey();
-  const lastPayload = useRef<string | null>(null);
-  const save = useMutation({
-    mutationFn: (request: SaveWorkExperienceRequest) => {
-      const payload = JSON.stringify(request);
-      if (lastPayload.current !== null && lastPayload.current !== payload) {
-        key.rotate();
-      }
-      lastPayload.current = payload;
-      return hubAPI.saveWorkExperience(request, key.current());
-    },
-    onSuccess: async () => {
-      key.rotate();
-      lastPayload.current = null;
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: myInfoQueryKey }),
-        queryClient.invalidateQueries({
-          queryKey: ["hub", "profile", address],
-        }),
-      ]);
-      void message.success(
-        entry === undefined ? t("profileWork.added") : t("profileWork.updated"),
-      );
-      onClose();
-    },
+  const save = useSaveWorkExperience(address, () => {
+    void message.success(
+      t(entry === undefined ? "profileWork.added" : "profileWork.updated"),
+    );
+    onClose();
   });
 
   return (
@@ -133,139 +83,11 @@ function WorkExperienceModal({
       onCancel={onClose}
       onOk={() => form.submit()}
     >
-      <Form<WorkExperienceFormValues>
+      <WorkExperienceForm
         form={form}
-        layout="vertical"
-        preserve={false}
-        initialValues={{
-          employer_domain: entry?.employer_domain ?? "",
-          job_title: entry?.job_title ?? "",
-          start_month: entry?.start_month,
-          end_month: entry?.end_month,
-          location: entry?.location ?? "",
-          description: entry?.description ?? "",
-        }}
-        onFinish={(values) => {
-          const request = toRequest(entry?.id, values);
-          const invalid = validateSaveWorkExperienceRequest(request);
-          if (invalid.length > 0) {
-            form.setFields(
-              invalid.map((name) => ({
-                name: name as keyof WorkExperienceFormValues,
-                errors: [t(`profileWork.validation.${name}`)],
-              })),
-            );
-            return;
-          }
-          save.mutate(request);
-        }}
-      >
-        <Form.Item
-          name="employer_domain"
-          label={t("profileWork.fields.employerDomain")}
-          rules={[
-            {
-              validator: async (_, value: string) => {
-                if (
-                  !isProfessionalDomain(
-                    normalizeProfessionalDomain(value ?? ""),
-                  )
-                ) {
-                  throw new Error(t("profileWork.validation.employer_domain"));
-                }
-              },
-            },
-          ]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
-          name="job_title"
-          label={t("profileWork.fields.jobTitle")}
-          rules={[
-            {
-              validator: async (_, value: string) => {
-                if (!isProfileTitle(value ?? "")) {
-                  throw new Error(t("profileWork.validation.job_title"));
-                }
-              },
-            },
-          ]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
-          name="start_month"
-          label={t("profileWork.fields.startMonth")}
-          rules={[
-            {
-              validator: async (_, value: ProfileMonth | undefined) => {
-                if (value === undefined) {
-                  throw new Error(t("profileWork.validation.start_month"));
-                }
-              },
-            },
-          ]}
-        >
-          <MonthSelect ariaLabel={t("profileWork.fields.startMonth")} />
-        </Form.Item>
-        <Form.Item
-          name="end_month"
-          label={t("profileWork.fields.endMonth")}
-          dependencies={["start_month"]}
-          rules={[
-            {
-              validator: async (_, value: ProfileMonth | undefined) => {
-                const start = form.getFieldValue("start_month") as
-                  | ProfileMonth
-                  | undefined;
-                if (
-                  value !== undefined &&
-                  start !== undefined &&
-                  value < start
-                ) {
-                  throw new Error(t("profileWork.validation.end_month"));
-                }
-              },
-            },
-          ]}
-        >
-          <MonthSelect
-            allowClear
-            ariaLabel={t("profileWork.fields.endMonth")}
-          />
-        </Form.Item>
-        <Form.Item
-          name="location"
-          label={t("profileWork.fields.location")}
-          rules={[
-            {
-              validator: async (_, value: string) => {
-                if ([...(value ?? "")].length > 200) {
-                  throw new Error(t("profileWork.validation.location"));
-                }
-              },
-            },
-          ]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
-          name="description"
-          label={t("profileWork.fields.description")}
-          rules={[
-            {
-              validator: async (_, value: string) => {
-                if ([...(value ?? "")].length > 2000) {
-                  throw new Error(t("profileWork.validation.description"));
-                }
-              },
-            },
-          ]}
-        >
-          <Input.TextArea rows={3} />
-        </Form.Item>
-      </Form>
+        entry={entry}
+        onSave={(request) => save.mutate(request)}
+      />
       <APIErrorAlert error={save.error} />
     </Modal>
   );

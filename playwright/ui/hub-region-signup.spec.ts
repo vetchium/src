@@ -1,5 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
+import type { LoginRequest } from "typespec/hub/auth/login";
 import type { CompleteSignupRequest } from "typespec/hub/auth/signup";
 import {
   type HubAccountHomedElsewhereDetails,
@@ -11,11 +12,14 @@ import {
   seedHubSignupDomain,
 } from "../lib/admin-db.ts";
 import { MAILPIT_ORIGIN } from "../lib/hub-api.ts";
+import { stubSignupDetails } from "../lib/hub-ui-stubs.ts";
 import { emailedLinkToken, HUB_PORTAL } from "../lib/portals.ts";
 import {
   chooseOption,
+  cleanupBrowserIdempotency,
   expect,
   recordRegionalAPIHosts,
+  searchAndChooseOption,
   test,
 } from "../lib/region-ui.ts";
 
@@ -24,13 +28,24 @@ const visibleDropdown = (page: Page) =>
   page.locator(".ant-select-dropdown:not(.ant-select-dropdown-hidden)");
 
 async function chooseResidentCountry(page: Page, country: string) {
-  await page.getByLabel("Resident country").fill(country);
-  await visibleDropdown(page).getByTitle(country, { exact: true }).click();
+  await searchAndChooseOption(
+    page,
+    page.getByRole("combobox", { name: "Country you live in" }),
+    country,
+  );
   await expect(visibleDropdown(page)).toHaveCount(0);
+}
+
+function regionSummary(page: Page) {
+  return page.getByTestId("signup-region");
 }
 
 function accountRegion(page: Page) {
   return page.getByRole("combobox", { name: "Account region" });
+}
+
+function changeRegion(page: Page) {
+  return page.getByRole("button", { name: "Change account region" }).click();
 }
 
 async function expectOfferedRegions(page: Page, labels: string[]) {
@@ -42,47 +57,59 @@ async function expectOfferedRegions(page: Page, labels: string[]) {
   await expect(visibleDropdown(page)).toHaveCount(0);
 }
 
-test("signup offers only the regions whose table admits the resident country", async ({
+test("signup fills the region from the resident country and offers only the regions its table admits", async ({
   page,
 }) => {
+  const hosts = recordRegionalAPIHosts(page);
   await page.goto(`${HUB_PORTAL}/signup`);
+  await expect(regionSummary(page)).toHaveCount(0);
   await expect(accountRegion(page)).toHaveCount(0);
 
   // deu recommends itself for Germany but keeps Hub signup closed in CI.
   await chooseResidentCountry(page, "Germany");
-  await expectOfferedRegions(page, [
-    "India (ind1)",
-    "Singapore (sgp)",
-    "United States (usa1)",
-  ]);
-  await expect(
-    page.getByRole("button", { name: "Continue in India (ind1)" }),
-  ).toBeVisible();
+  await expect(regionSummary(page)).toHaveText("India");
+  await changeRegion(page);
+  await expectOfferedRegions(page, ["India", "Singapore", "United States"]);
+  await chooseOption(page, accountRegion(page), "United States");
 
+  // Another country starts again from its own recommendation.
   await chooseResidentCountry(page, "Singapore");
+  await expect(accountRegion(page)).toHaveCount(0);
+  await expect(regionSummary(page)).toHaveText("Singapore");
+  await changeRegion(page);
   await expectOfferedRegions(page, [
-    "India (ind1)",
-    "Singapore (sgp) — recommended",
-    "United States (usa1)",
+    "India",
+    "Singapore (recommended)",
+    "United States",
   ]);
-  await expect(
-    page.getByRole("button", { name: "Continue in Singapore (sgp)" }),
-  ).toBeVisible();
+
+  // A country without a recommendation gets the table default.
+  await chooseResidentCountry(page, "Brazil");
+  await expect(regionSummary(page)).toHaveText("Singapore");
+  expect(hosts).toEqual([]);
 });
 
-for (const region of ["deu", "nowhere", "SGP"]) {
-  test(`a details link for the ineligible region ${region} returns to the region choice`, async ({
+for (const path of [
+  "DE",
+  "DE/en-US",
+  "DE/en-US/details?region=usa1",
+  "DE/en-US/details?region=nowhere",
+]) {
+  test(`the retired signup step /signup/${path} opens the one form`, async ({
     page,
   }) => {
     const hosts = recordRegionalAPIHosts(page);
-    await page.goto(`${HUB_PORTAL}/signup/DE/en-US/details?region=${region}`);
-    await expect(accountRegion(page)).toBeVisible();
-    await expect(page.getByLabel("Display name")).toHaveCount(0);
+    await page.goto(`${HUB_PORTAL}/signup/${path}`);
+    await expect(page).toHaveURL(`${HUB_PORTAL}/signup`);
+    await expect(page.getByRole("textbox", { name: "Your name" })).toHaveValue(
+      "",
+    );
+    await expect(regionSummary(page)).toHaveCount(0);
     expect(hosts).toEqual([]);
   });
 }
 
-test("a signup is requested from, and completed at, the chosen region", async ({
+test("a signup is requested from, and completed and signed in at, the chosen region", async ({
   context,
   page,
   request,
@@ -90,33 +117,36 @@ test("a signup is requested from, and completed at, the chosen region", async ({
   const domain = `e2e-${randomUUID()}.example.test`;
   const email = `e2e+${randomUUID()}@${domain}`;
   const password = `Str0ng!${randomUUID()}`;
+  const signupKeys: string[] = [];
+  const completionKeys: string[] = [];
+  let token: string | undefined;
   try {
     seedHubSignupDomain(domain, "usa1");
     await page.goto(`${HUB_PORTAL}/signup`);
-    await chooseResidentCountry(page, "Germany");
-    await chooseOption(page, accountRegion(page), "United States (usa1)");
-    await page
-      .getByRole("button", { name: "Continue in United States (usa1)" })
-      .click();
-    await expect(page).toHaveURL(
-      `${HUB_PORTAL}/signup/DE/en-US/details?region=usa1`,
-    );
-    await expect(
-      page.getByText("Your account will be hosted in United States (usa1).", {
-        exact: true,
-      }),
-    ).toBeVisible();
-
     const hosts = recordRegionalAPIHosts(page);
-    await page.getByLabel("Display name").fill("Region Signup");
-    await page.getByLabel("Email address").fill(email);
+    await page
+      .getByRole("textbox", { name: "Your name" })
+      .fill("Region Signup");
+    await page.getByRole("textbox", { name: "Email", exact: true }).fill(email);
+    await chooseResidentCountry(page, "Germany");
+    await changeRegion(page);
+    await chooseOption(page, accountRegion(page), "United States");
+    // Nothing typed is sent, or put in the URL, before submit.
+    expect(hosts).toEqual([]);
+    await expect(page).toHaveURL(`${HUB_PORTAL}/signup`);
+
     const sent = page.waitForRequest("**/api/hub/request-signup");
-    await page.getByRole("button", { name: "Email my signup link" }).click();
-    expect((await sent).url()).toBe(
+    await page.getByRole("button", { name: "Email me a link" }).click();
+    const signupRequest = await sent;
+    signupKeys.push(signupRequest.headers()["idempotency-key"] ?? "");
+    expect(signupRequest.url()).toBe(
       "http://usa1.api.vetchium.localhost/api/hub/request-signup",
     );
     await expect(
-      page.getByText("Check your inbox.", { exact: false }),
+      page.getByRole("heading", { name: "Check your email" }),
+    ).toBeFocused();
+    await expect(
+      page.getByText("Account region: United States", { exact: true }),
     ).toBeVisible();
     expect(new Set(hosts)).toEqual(new Set(["usa1.api.vetchium.localhost"]));
 
@@ -134,30 +164,59 @@ test("a signup is requested from, and completed at, the chosen region", async ({
         { timeout: 15_000 },
       )
       .toMatch(/^[0-9a-f]{64}$/);
-    const token = emailedLinkToken(text, "/complete-signup", "usa1");
+    token = emailedLinkToken(text, "/complete-signup", "usa1");
     expect(text).toContain(
       `${HUB_PORTAL}/complete-signup?region=usa1&token=${token}`,
     );
 
-    // The emailed link alone decides the completion region, whatever the
-    // browser remembered.
+    // The emailed link alone decides the completion and sign-in region,
+    // whatever the browser remembered.
     const link = await context.newPage();
     const linkHosts = recordRegionalAPIHosts(link);
+    link.on("request", (sentRequest) => {
+      if (sentRequest.url().endsWith("/api/hub/complete-signup")) {
+        completionKeys.push(sentRequest.headers()["idempotency-key"] ?? "");
+      }
+    });
     await link.goto(`${HUB_PORTAL}/complete-signup?region=usa1&token=${token}`);
-    await link.getByLabel("New password").fill(password);
-    await link.getByLabel("Confirm password").fill(password);
-    await link.getByRole("button", { name: "Complete signup" }).click();
     await expect(
-      link.getByText("Your account is ready.", { exact: false }),
+      link.getByText(
+        "Account region: United States. You'll be signed in right away.",
+      ),
+    ).toBeVisible();
+    await expect(
+      link.getByText(`Creating account for ${email}`, { exact: true }),
+    ).toBeVisible();
+    await link.getByLabel("Password", { exact: true }).fill(password);
+    const login = link.waitForRequest("**/api/hub/login");
+    await link.getByRole("button", { name: "Create account" }).click();
+    expect((await login).postDataJSON() satisfies LoginRequest).toEqual({
+      email_address: email,
+      password,
+      remember_me: false,
+    });
+    await expect(
+      link.getByRole("heading", { name: "Welcome, Region Signup" }),
     ).toBeVisible({ timeout: 15_000 });
+    await expect(link).toHaveURL(`${HUB_PORTAL}/`);
     expect(new Set(linkHosts)).toEqual(
       new Set(["usa1.api.vetchium.localhost"]),
     );
 
-    const next = await context.newPage();
-    await next.goto(`${HUB_PORTAL}/login`);
-    await expect(next.getByRole("button", { name: "Sign in" })).toBeDisabled();
+    // Signup's own sign-in does not preselect the next sign-in's region.
+    const other = await context.newPage();
+    await other.goto(`${HUB_PORTAL}/login`);
+    await expect(other.getByRole("button", { name: "Sign in" })).toBeDisabled();
   } finally {
+    cleanupBrowserIdempotency("usa1", "hub:request-signup", signupKeys);
+    if (token !== undefined) {
+      const hash = createHash("sha256").update(token).digest("hex");
+      cleanupBrowserIdempotency(
+        "usa1",
+        `hub:complete-signup:${hash}`,
+        completionKeys,
+      );
+    }
     cleanupHubUser(email, "usa1");
     cleanupHubSignupDomain(domain, "usa1");
   }
@@ -172,6 +231,7 @@ for (const home of [
   }) => {
     const token = "b".repeat(64);
     const password = `Str0ng!${randomUUID()}`;
+    await stubSignupDetails(page);
     await page.route("**/api/hub/complete-signup", async (route) => {
       expect(new URL(route.request().url()).host).toBe(
         "sgp.api.vetchium.localhost",
@@ -194,9 +254,8 @@ for (const home of [
     });
 
     await page.goto(`${HUB_PORTAL}/complete-signup?region=sgp&token=${token}`);
-    await page.getByLabel("New password").fill(password);
-    await page.getByLabel("Confirm password").fill(password);
-    await page.getByRole("button", { name: "Complete signup" }).click();
+    await page.getByLabel("Password", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "Create account" }).click();
 
     const notice = page.getByTestId("complete-signup-homed-elsewhere");
     await expect(

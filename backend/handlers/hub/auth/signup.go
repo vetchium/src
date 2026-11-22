@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	hubauth "github.com/vetchium/src/typespec/hub/auth"
@@ -186,6 +188,33 @@ func nilIfEmpty(value string) *string {
 		return nil
 	}
 	return &value
+}
+
+func GetSignupDetails(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request hubauth.GetSignupDetailsRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		emailAddress, err := s.Queries.GetHubSignupDetails(
+			r.Context(), credentials.TokenHash(string(request.SignupToken)),
+		)
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.AuthenticationProblem(
+				r.Context(), w, hubproblem.InvalidSignupTokenError,
+				hubauthn.SignupChallenge,
+			)
+			return
+		}
+		if err != nil {
+			s.InternalError(r.Context(), w, "get Hub signup details", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, hubauth.SignupDetailsResponse{
+			EmailAddress: common.EmailAddress(emailAddress),
+		})
+	}
 }
 
 func CompleteSignup(s *hubruntime.Server) http.HandlerFunc {

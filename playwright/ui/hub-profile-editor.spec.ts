@@ -396,9 +396,11 @@ test("a new work experience normalizes its employer domain before saving", async
   });
   await page.getByRole("button", { name: "Add work experience" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Employer domain").fill("Example.COM.");
+  await dialog
+    .getByRole("textbox", { name: "Employer's website", exact: true })
+    .fill("Example.COM.");
   await dialog.getByLabel("Job title").fill("Engineer");
-  const startMonth = dialog.getByRole("textbox", { name: "Start month" });
+  const startMonth = dialog.getByRole("textbox", { name: "Started" });
   await pickMonth(page, startMonth, 2020, "Jan");
   await dialog.getByRole("button", { name: "Add work experience" }).click();
   await expect(page.getByText("Work experience added.")).toBeVisible();
@@ -416,15 +418,17 @@ test("an end month before the start month is rejected locally without any networ
   });
   await page.getByRole("button", { name: "Add work experience" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Employer domain").fill("example.com");
+  await dialog
+    .getByRole("textbox", { name: "Employer's website", exact: true })
+    .fill("example.com");
   await dialog.getByLabel("Job title").fill("Engineer");
-  const startMonth = dialog.getByRole("textbox", { name: "Start month" });
+  const startMonth = dialog.getByRole("textbox", { name: "Started" });
   await pickMonth(page, startMonth, 2020, "Jan");
-  const endMonth = dialog.getByRole("textbox", { name: "End month" });
+  const endMonth = dialog.getByRole("textbox", { name: "Ended" });
   await pickMonth(page, endMonth, 2019, "Jan");
   await dialog.getByRole("button", { name: "Add work experience" }).click();
   await expect(
-    page.getByText("Choose an end month on or after the start month."),
+    page.getByText("Choose a month on or after the start."),
   ).toBeVisible();
   expect(writes).toBe(0);
 });

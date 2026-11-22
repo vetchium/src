@@ -36,8 +36,10 @@ import type {
 import type {
   CompleteSignupRequest,
   CompleteSignupResponse,
+  GetSignupDetailsRequest,
   RequestSignupRequest,
   SignupCompletionPendingResponse,
+  SignupDetailsResponse,
 } from "typespec/hub/auth/signup";
 import type {
   ConfirmTOTPEnrollmentRequest,
@@ -146,6 +148,11 @@ export const hubAPI = {
     apiRequest<void>(`${base}/request-signup`, {
       body,
       idempotencyKey,
+      tenantId,
+    }),
+  getSignupDetails: (body: GetSignupDetailsRequest, tenantId: string) =>
+    apiRequest<SignupDetailsResponse>(`${base}/get-signup-details`, {
+      body,
       tenantId,
     }),
   completeSignup: (

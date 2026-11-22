@@ -47,7 +47,7 @@ async function signIn(page: Page, user: HubTestUser) {
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(
-    page.getByRole("heading", { name: /Welcome back/ }),
+    page.getByRole("heading", { name: /^(Welcome|Hello), / }),
   ).toBeVisible();
 }
 
@@ -322,7 +322,7 @@ test("the apply page lists the ideal job the Org will see, and the application s
     await idealJobItem.getByRole("link", { name: "Edit my ideal job" }).click();
     await expect(page).toHaveURL(/\/settings\/preferences$/);
     await page
-      .getByLabel("My ideal job")
+      .getByRole("textbox", { name: "My ideal job" })
       .fill("Reliable services\nin a small team");
     await page.getByRole("button", { name: "Save ideal job" }).click();
     await expect(
@@ -640,7 +640,7 @@ test("an interview is accepted or another time is requested", async ({
     }).toPass({ timeout: 30_000 });
     await page.goto(`${HUB_PORTAL}/`);
     await expect(
-      page.getByText("1 application is waiting for your answer."),
+      page.getByText("1 application is waiting for your answer"),
     ).toBeVisible();
 
     await page.goto(applicationURL(world, application));

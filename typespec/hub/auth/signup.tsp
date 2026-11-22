@@ -25,6 +25,15 @@ model RequestSignupRequest {
   resident_country: CountryCode;
 }
 
+model GetSignupDetailsRequest {
+  signup_token: HubSignupToken;
+}
+
+model SignupDetailsResponse {
+  /** The address the link was sent to, which completion gives the account. */
+  email_address: EmailAddress;
+}
+
 model CompleteSignupRequest {
   signup_token: HubSignupToken;
   password: Vetchium.Authentication.NewPassword;
@@ -66,6 +75,23 @@ interface SignupOperations {
     | Vetchium.Problem.HubSignupDomainNotAllowedErrorResponse
     | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.HubSignupUnavailableErrorResponse
+    | Vetchium.Problem.RateLimitExceededErrorResponse
+    | Vetchium.Problem.InternalServerErrorResponse;
+
+  /** Read the address an emailed token was sent to, without consuming it. The
+   * token answers until it expires or is replaced, or, once a completion owns
+   * it, until that completion resolves. */
+  @route("/get-signup-details")
+  @post
+  getSignupDetails(@body request: GetSignupDetailsRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: SignupDetailsResponse;
+      }
+    | Vetchium.Problem.InvalidJSONErrorResponse
+    | Vetchium.Problem.ValidationFailedErrorResponse
+    | Vetchium.Problem.InvalidHubSignupTokenErrorResponse
     | Vetchium.Problem.RateLimitExceededErrorResponse
     | Vetchium.Problem.InternalServerErrorResponse;
 

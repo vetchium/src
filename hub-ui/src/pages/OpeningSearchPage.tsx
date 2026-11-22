@@ -58,7 +58,8 @@ import {
   searchStateFromParams,
 } from "../features/openings/searchParams";
 import { useMyInfoQuery } from "../features/profile/queries";
-import { countryName, countryOptions } from "../i18n/countries";
+import { regionNameOf } from "../features/regions/names";
+import { countryOptions } from "../i18n/countries";
 
 const workArrangements: readonly OpeningWorkArrangement[] = [
   "on_site",
@@ -159,16 +160,7 @@ function OpeningSearch({ sessionRegion }: { sessionRegion: string }) {
   );
   const tags = useOpeningTags();
   const countries = countryOptions(locale);
-  const regionLabel = (tenantId: string) => {
-    const known = findRegion(regionTable, tenantId);
-    return t("region.option", {
-      country:
-        known === undefined
-          ? tenantId
-          : countryName(known.hostingCountry, locale),
-      tenantId,
-    });
-  };
+  const regionLabel = (tenantId: string) => regionNameOf(t, tenantId, locale);
   const filtered = Object.keys(filters).some((field) => field !== "sort");
   const hiddenCount = moreFiltersCount(filters);
 

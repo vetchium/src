@@ -3,11 +3,12 @@ import {
   useRegionSelection,
 } from "@vetchium/portal-ui/region-picker";
 import { regionStore, regionTable } from "../../app/regions";
+import { regionOptionKey } from "./names";
 
 const translations = {
   label: "region.label",
   help: "region.help",
-  option: "region.option",
+  option: regionOptionKey,
 } as const;
 
 export function useSelectedRegion(initial?: string | null) {

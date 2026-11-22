@@ -1,6 +1,6 @@
 import { Spin } from "antd";
 import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router";
+import { Navigate, Route, Routes } from "react-router";
 import { AppShell } from "../components/common/AppShell";
 import { ProtectedRoute } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
@@ -147,13 +147,14 @@ export function App() {
           }
         />
         <Route
-          path="signup/:residentCountry?/:language?/:step?"
+          path="signup"
           element={
             <Page>
               <SignupPage />
             </Page>
           }
         />
+        <Route path="signup/*" element={<Navigate replace to="/signup" />} />
         <Route
           path="complete-signup"
           element={

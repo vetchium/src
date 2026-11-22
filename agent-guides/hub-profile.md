@@ -233,17 +233,27 @@ in [`hub-signup.md`](hub-signup.md).
   It leaves the owner's account only in an application snapshot (HP-APP-002)
   and, for an `ideal_job_match` search of another region, to that region's
   peer (OPN-SRCH-014).
-- **PROF-JOB-006** hub-ui Home shows a "Your job search" card while
-  `ideal_job` is absent and `job_search_prompt_dismissed` is false: a "My
-  ideal job" textarea with a code-point counter, an "Are you currently looking
-  for a job?" switch, Save (enabled once the textarea holds text; saves both
-  fields), and "Not now" (`dismiss-job-search-prompt`). Saving an ideal job
-  or dismissing hides the card on every device. Signup completion is
-  unchanged.
+- **PROF-JOB-006** hub-ui Home has two states. Setup shows while
+  `job_search_prompt_dismissed` is false and any of five steps is incomplete,
+  in this order: ideal job, work experience, education, languages, about
+  (`biography`). Otherwise Home is everyday.
+  - Setup: an "n of 5 done" `Progress`, one step at a time filled in on Home
+    with the profile editor's own forms, clickable `Steps` (a `Select` below
+    `lg`) saying which steps are on the profile, "Save and continue", and
+    Skip. It starts at the first incomplete step; saving or skipping moves to
+    the next one, wrapping. "I'm looking for a job now" saves with or without
+    an ideal job. Skip stores nothing. "Hide setup"
+    (`dismiss-job-search-prompt`) ends setup on every device. Show no plan or
+    two-factor promotion during setup.
+  - Everyday: applications waiting on the user, Opening search (OPN-SRCH-011),
+    the first three `ideal_job_match` results of the home region (or a link to
+    add an ideal job), what the profile lacks with each item linking to its
+    editor, and then the two-factor and free-tier support prompts.
 - **PROF-JOB-007** `/settings/preferences` edits both fields in its Job search
-  card, beside preferred job countries. Helper text: ideal job "Shared with
-  Orgs when you apply; used to find matching Openings."; looking for a job
-  "Only you can see this. Orgs, agencies and other Hub users never do."
+  card, beside preferred job countries: the ideal job with its own Save, the
+  switch at once. Helper text, as on Home: ideal job "Not on your profile.
+  Shared with companies when you apply."; looking for a job "Only you see
+  this."
 - **PROF-JOB-008** Ship every string in every `hub-ui` locale.
 
 ## Federated reads and commands

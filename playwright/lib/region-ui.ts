@@ -24,14 +24,23 @@ import {
   type SignedUpOrg,
   signupOrg,
 } from "./orgs-api.ts";
+import { HUB_PORTAL } from "./portals.ts";
 
-/** How the portals' English region picker names each CI region. */
-export const REGION_LABELS = {
-  deu: "Germany (deu)",
-  ind1: "India (ind1)",
-  sgp: "Singapore (sgp)",
-  usa1: "United States (usa1)",
+const REGION_COUNTRIES = {
+  deu: "Germany",
+  ind1: "India",
+  sgp: "Singapore",
+  usa1: "United States",
 } as const satisfies Record<TestTenant, string>;
+
+/** How the portal `page` shows names a CI region in English: Hub by its
+ * hosting country, Orgs with the tenant id beside it. */
+function regionLabel(page: Page, tenant: TestTenant): string {
+  const country = REGION_COUNTRIES[tenant];
+  return new URL(page.url()).origin === HUB_PORTAL
+    ? country
+    : `${country} (${tenant})`;
+}
 
 export function regionPicker(page: Page) {
   return page.getByRole("combobox", { name: "Region" });
@@ -65,7 +74,7 @@ export async function searchAndChooseOption(
 }
 
 export function chooseRegion(page: Page, tenant: TestTenant): Promise<void> {
-  return chooseOption(page, regionPicker(page), REGION_LABELS[tenant]);
+  return chooseOption(page, regionPicker(page), regionLabel(page, tenant));
 }
 
 /** antd renders the selected option as the title of the combobox's
@@ -76,7 +85,7 @@ export async function expectSelectedRegion(
 ): Promise<void> {
   await expect(regionPicker(page).locator("..")).toHaveAttribute(
     "title",
-    REGION_LABELS[tenant],
+    regionLabel(page, tenant),
   );
 }
 

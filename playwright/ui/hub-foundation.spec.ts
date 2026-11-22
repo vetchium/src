@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { stubShellReads } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL, rememberRegion } from "../lib/portals.ts";
-import { chooseRegion } from "../lib/region-ui.ts";
+import { chooseRegion, searchAndChooseOption } from "../lib/region-ui.ts";
 
 const sessionKey = "vetchium.hub.session";
 const sessionToken = "s".repeat(64);
@@ -19,7 +19,7 @@ function myInfo(sessionAuthenticatedAt = new Date().toISOString()) {
     recovery_codes_remaining: 0,
     session_authenticated_at: sessionAuthenticatedAt,
     looking_for_job: false,
-    // A returning user who already answered the Home job search card.
+    // A returning user who hid the setup on Home.
     job_search_prompt_dismissed: true,
   };
 }
@@ -191,10 +191,10 @@ test("a visitor with a stored session lands on a personal home page", async ({
 
   await expect(page).toHaveURL(`${HUB_PORTAL}/`);
   await expect(
-    page.getByRole("heading", { name: "Welcome back, Example Person" }),
+    page.getByRole("heading", { name: "Hello, Example Person" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Edit my profile" }),
+    page.getByRole("link", { name: "View as others see it" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "See plans" })).toBeVisible();
   await expect(page.getByRole("menuitem")).toHaveCount(9);
@@ -215,7 +215,7 @@ test("a session stored by an older portal keeps working and drops the retired DI
   });
   await page.goto(HUB_PORTAL);
   await expect(
-    page.getByRole("heading", { name: "Welcome back, Example Person" }),
+    page.getByRole("heading", { name: "Hello, Example Person" }),
   ).toBeVisible();
 
   await page.getByRole("combobox", { name: "Select language" }).click();
@@ -257,7 +257,7 @@ test("an authenticated language change reaches the server and updates the sessio
   expect(request.method()).toBe("POST");
   expect(request.postDataJSON()).toEqual({ preferred_language: "de-DE" });
   await expect(
-    page.getByRole("heading", { name: "Willkommen zurück" }),
+    page.getByRole("heading", { name: "Hallo, Example Person" }),
   ).toBeVisible();
   await expect
     .poll(async () => {
@@ -302,7 +302,7 @@ test("a rejected authenticated language change keeps the current language", asyn
     page.getByText("The language could not be changed. Please try again."),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Welcome back" }),
+    page.getByRole("heading", { name: "Hello, Example Person" }),
   ).toBeVisible();
   const storedSession = await page.evaluate(
     (key) => sessionStorage.getItem(key),
@@ -421,29 +421,15 @@ test("the single home entry remains usable on a narrow viewport", async ({
   ).toBeVisible();
 });
 
-test("signup offers only supported languages and ISO resident countries", async ({
-  page,
-}) => {
+test("signup offers ISO resident countries", async ({ page }) => {
   await page.goto(`${HUB_PORTAL}/signup`);
   await expect(
     page.getByRole("heading", { name: "Create your account" }),
   ).toBeVisible();
-  const language = page.getByRole("combobox", {
-    name: "* Language",
-    exact: true,
+  await expect(page.locator("body")).not.toContainText("Hub");
+  const residentCountry = page.getByRole("combobox", {
+    name: "Country you live in",
   });
-  await expect(
-    page
-      .getByRole("main")
-      .getByText("English (United States)", { exact: true }),
-  ).toBeVisible();
-  await language.click();
-  await expect(page.getByText("தமிழ்", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText("Deutsch (Deutschland)", { exact: true }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  const residentCountry = page.getByLabel("Resident country");
   await residentCountry.fill("Singapore");
   await expect(
     page.locator(".ant-select-item-option-content", {
@@ -463,7 +449,7 @@ test("signup localizes CLDR country names", async ({ page }) => {
     localStorage.setItem("vetchium.language", "de-DE"),
   );
   await page.goto(`${HUB_PORTAL}/signup`);
-  const residentCountry = page.getByLabel("Wohnsitzland");
+  const residentCountry = page.getByRole("combobox", { name: "Wohnsitzland" });
   await residentCountry.fill("Singapur");
   await expect(
     page.locator(".ant-select-item-option-content", {
@@ -504,7 +490,7 @@ test("password sign in stores the returned session and opens the home page", asy
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(`${HUB_PORTAL}/`);
   await expect(
-    page.getByRole("heading", { name: "Welcome back" }),
+    page.getByRole("heading", { name: "Hello, Example Person" }),
   ).toBeVisible();
   expect(
     await page.evaluate((key) => sessionStorage.getItem(key), sessionKey),
@@ -584,7 +570,7 @@ test("unknown routes show a useful not-found page", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Go to home" })).toBeVisible();
 });
 
-test("signup defaults to the current interface language", async ({ page }) => {
+test("signup sends the current interface language", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("vetchium.language", "ta");
     Object.defineProperty(navigator, "languages", {
@@ -592,10 +578,21 @@ test("signup defaults to the current interface language", async ({ page }) => {
       get: () => ["de-AT"],
     });
   });
+  await page.route("**/api/hub/request-signup", (route) =>
+    route.fulfill({ status: 202 }),
+  );
   await page.goto(`${HUB_PORTAL}/signup`);
-  await expect(
-    page.getByRole("main").getByText("தமிழ்", { exact: true }),
-  ).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "உங்கள் பெயர்", exact: true })
+    .fill("Example Person");
+  await page
+    .getByRole("textbox", { name: "மின்னஞ்சல்", exact: true })
+    .fill("person@example.com");
+  const country = page.getByRole("combobox", { name: "வசிக்கும் நாடு" });
+  await searchAndChooseOption(page, country, "சிங்கப்பூர்");
+  const sent = page.waitForRequest("**/api/hub/request-signup");
+  await page.getByRole("button", { name: "இணைப்பை மின்னஞ்சலில் அனுப்பு" }).click();
+  expect((await sent).postDataJSON().preferred_language).toBe("ta");
 });
 
 test("a first visit matches the browser's BCP 47 locale", async ({ page }) => {
@@ -607,10 +604,10 @@ test("a first visit matches the browser's BCP 47 locale", async ({ page }) => {
   });
   await page.goto(`${HUB_PORTAL}/signup`);
   await expect(
-    page.getByRole("heading", { name: "Erstellen Sie Ihr Konto" }),
+    page.getByRole("heading", { name: "Konto erstellen" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("main").getByText("Deutsch (Deutschland)", {
+    page.getByRole("banner").getByText("Deutsch (Deutschland)", {
       exact: true,
     }),
   ).toBeVisible();

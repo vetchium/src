@@ -13,7 +13,7 @@ async function signIn(page: Page, user: { email: string; password: string }) {
   await chooseRegion(page, "sgp");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(
-    page.getByRole("heading", { name: /Welcome back/ }),
+    page.getByRole("heading", { name: /^(Welcome|Hello), / }),
   ).toBeVisible();
 }
 

@@ -20,6 +20,9 @@ function myInfo(preferredLanguage = "en-US") {
     totp_enabled: false,
     recovery_codes_remaining: 0,
     session_authenticated_at: new Date().toISOString(),
+    looking_for_job: false,
+    // Past the setup on Home, which shows no plan or two-factor promotion.
+    job_search_prompt_dismissed: true,
   };
 }
 
@@ -656,7 +659,7 @@ async function gotoHomePage(
   await provideMySubscription(page, options.subscription ?? freeSubscription());
   await page.goto(HUB_PORTAL);
   await expect(
-    page.getByRole("heading", { name: "Welcome back, Example Person" }),
+    page.getByRole("heading", { name: "Hello, Example Person" }),
   ).toBeVisible();
 }
 
@@ -665,7 +668,7 @@ test("the home page invites a free-tier user to support Vetchium", async ({
 }) => {
   await gotoHomePage(page);
   await expect(
-    page.getByText("Vetchium is free and open-source software.", {
+    page.getByText("Support Vetchium and get a photo and custom link.", {
       exact: false,
     }),
   ).toBeVisible();
@@ -678,7 +681,7 @@ test("the home page shows no plan invitation on a paid plan", async ({
 }) => {
   await gotoHomePage(page, { subscription: silverSubscription() });
   await expect(
-    page.getByRole("link", { name: "Edit my profile" }),
+    page.getByRole("link", { name: "View as others see it" }),
   ).toBeVisible();
   await expect(page.getByText("Support Vetchium")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "See plans" })).toHaveCount(0);
@@ -689,7 +692,7 @@ test("the home page shows no plan invitation or error when the subscription fail
 }) => {
   await gotoHomePage(page, { subscription: "error" });
   await expect(
-    page.getByRole("link", { name: "Edit my profile" }),
+    page.getByRole("link", { name: "View as others see it" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "See plans" })).toHaveCount(0);
   await expect(
@@ -697,20 +700,21 @@ test("the home page shows no plan invitation or error when the subscription fail
   ).toHaveCount(0);
 });
 
-test("the home page lists the profile sections still to fill in", async ({
+test("the home page links each profile item still to fill in to its editor", async ({
   page,
 }) => {
   await gotoHomePage(page);
-  await expect(page.getByText("0 of 4 sections complete")).toBeVisible();
   for (const item of [
-    "Write a short biography",
-    "Add your work experience",
-    "Add your education",
-    "Add the languages you use",
+    "Add work experience",
+    "Add education",
+    "Add languages",
+    "Introduce yourself",
   ]) {
-    await expect(page.getByText(item, { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: item, exact: true }),
+    ).toHaveAttribute("href", "/settings/profile");
   }
-  await page.getByRole("link", { name: "Edit my profile" }).click();
+  await page.getByRole("link", { name: "Introduce yourself" }).click();
   await expect(page).toHaveURL(`${HUB_PORTAL}/settings/profile`);
 });
 
@@ -739,13 +743,10 @@ test("the home page confirms a complete profile without a checklist", async ({
       language_abilities: [{ language_tag: "en", ability: "speaking" }],
     },
   });
-  await expect(page.getByText("4 of 4 sections complete")).toBeVisible();
+  await expect(page.getByText("Ready to apply")).toBeVisible();
+  await expect(page.getByText("Introduce yourself")).toHaveCount(0);
   await expect(
-    page.getByText("Your profile is complete.", { exact: false }),
-  ).toBeVisible();
-  await expect(page.getByText("Write a short biography")).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "View my profile" }),
+    page.getByRole("link", { name: "View as others see it" }),
   ).toHaveAttribute("href", `/u/${handle}`);
 });
 
@@ -753,9 +754,7 @@ test("the home page suggests two-factor authentication only while it is off", as
   page,
 }) => {
   await gotoHomePage(page);
-  await page
-    .getByRole("link", { name: "Set up two-factor authentication" })
-    .click();
+  await page.getByRole("link", { name: "Turn on 2FA" }).click();
   await expect(page).toHaveURL(`${HUB_PORTAL}/settings/security`);
 });
 
@@ -767,7 +766,7 @@ test("the home page omits the two-factor suggestion once it is on", async ({
     totpEnabled: true,
   });
   await expect(
-    page.getByRole("link", { name: "Edit my profile" }),
+    page.getByRole("link", { name: "View as others see it" }),
   ).toBeVisible();
   await expect(page.getByText("Protect your account")).toHaveCount(0);
 });

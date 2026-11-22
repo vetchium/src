@@ -25,6 +25,7 @@ export function MonthSelect({
   allowClear,
   disabled,
   ariaLabel,
+  placeholder,
 }: {
   id?: string;
   value?: ProfileMonth;
@@ -32,12 +33,14 @@ export function MonthSelect({
   allowClear?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
+  placeholder?: string;
 }) {
   return (
     <DatePicker
       id={id}
       aria-label={ariaLabel}
       picker="month"
+      placeholder={placeholder}
       className="full-width"
       value={toDayjs(value)}
       allowClear={allowClear}
