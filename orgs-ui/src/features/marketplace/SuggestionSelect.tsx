@@ -1,4 +1,5 @@
-import { Select } from "antd";
+import { matchingSuggestions } from "@vetchium/portal-ui/suggestions";
+import { Select, Spin } from "antd";
 import { useRef, useState } from "react";
 import type { Capability } from "typespec/orgs/marketplace/capabilities";
 import type { OpeningSuggestion } from "typespec/orgs/marketplace/contacts/contacts";
@@ -18,6 +19,13 @@ interface PickerProps {
   style?: React.CSSProperties;
 }
 
+interface Suggestion {
+  value: string;
+  label: string;
+  /** What the API's search matches in it. */
+  texts: readonly string[];
+}
+
 /**
  * Picks one of the Org's clients by name or domain, asking the API as the
  * user types, so it works with thousands of clients. The value is the
@@ -27,7 +35,8 @@ export function ClientPicker({
   capability,
   ...props
 }: PickerProps & { capability?: Capability }) {
-  const [query, setQuery] = useTypedQuery();
+  const search = useTypedQuery();
+  const [query] = search;
   const [open, setOpen] = useState(false);
   const suggestions = useClientSuggestionsQuery(
     {
@@ -39,20 +48,15 @@ export function ClientPicker({
   const options = (suggestions.data?.clients ?? []).map((client) => ({
     value: client.domain,
     label: `${client.display_name} (${client.domain})`,
+    texts: [client.display_name, client.domain],
   }));
-  if (
-    props.value !== undefined &&
-    !options.some((option) => option.value === props.value)
-  ) {
-    options.unshift({ value: props.value, label: props.value });
-  }
   return (
     <SuggestionSelect
       {...props}
       options={options}
-      loading={suggestions.isFetching}
+      fetching={suggestions.isFetching}
       onOpenChange={setOpen}
-      onSearch={setQuery}
+      search={search}
     />
   );
 }
@@ -62,7 +66,8 @@ export function ClientPicker({
  * user types.
  */
 export function JobOwnerPicker(props: PickerProps) {
-  const [query, setQuery] = useTypedQuery();
+  const search = useTypedQuery();
+  const [query] = search;
   const [open, setOpen] = useState(false);
   const suggestions = useJobOwnerSuggestionsQuery(
     query === undefined ? {} : { query },
@@ -71,20 +76,15 @@ export function JobOwnerPicker(props: PickerProps) {
   const options = (suggestions.data?.owners ?? []).map((email) => ({
     value: email,
     label: email,
+    texts: [email],
   }));
-  if (
-    props.value !== undefined &&
-    !options.some((option) => option.value === props.value)
-  ) {
-    options.unshift({ value: props.value, label: props.value });
-  }
   return (
     <SuggestionSelect
       {...props}
       options={options}
-      loading={suggestions.isFetching}
+      fetching={suggestions.isFetching}
       onOpenChange={setOpen}
-      onSearch={setQuery}
+      search={search}
     />
   );
 }
@@ -107,7 +107,8 @@ export function openingFromKey(
  * asking the API as the user types. The value is `openingKey`.
  */
 export function JobPicker(props: PickerProps) {
-  const [query, setQuery] = useTypedQuery();
+  const search = useTypedQuery();
+  const [query] = search;
   const [open, setOpen] = useState(false);
   const jobs = useJobsQuery(
     {
@@ -123,26 +124,15 @@ export function JobPicker(props: PickerProps) {
       opening_number: job.opening.number,
     }),
     label: `${job.opening.title} (${job.client.display_name || job.client.domain})`,
+    texts: [job.opening.title, String(job.opening.number)],
   }));
-  // A later search may not list the chosen Job; keep its label shown.
-  const seen = useRef(new Map<string, string>());
-  for (const option of options) seen.current.set(option.value, option.label);
-  if (
-    props.value !== undefined &&
-    !options.some((option) => option.value === props.value)
-  ) {
-    options.unshift({
-      value: props.value,
-      label: seen.current.get(props.value) ?? props.value,
-    });
-  }
   return (
     <SuggestionSelect
       {...props}
       options={options}
-      loading={jobs.isFetching}
+      fetching={jobs.isFetching}
       onOpenChange={setOpen}
-      onSearch={setQuery}
+      search={search}
     />
   );
 }
@@ -155,15 +145,33 @@ function SuggestionSelect({
   notFound,
   style,
   options,
-  loading,
+  fetching,
   onOpenChange,
-  onSearch,
+  search,
 }: PickerProps & {
-  options: { value: string; label: string }[];
-  loading: boolean;
+  options: Suggestion[];
+  fetching: boolean;
   onOpenChange: (open: boolean) => void;
-  onSearch: (value: string) => void;
+  search: ReturnType<typeof useTypedQuery>;
 }) {
+  const [, setQuery, typed, settling] = search;
+  const loading = fetching || settling;
+  // A later search may not list the one chosen; keep its label shown.
+  const seen = useRef(new Map<string, string>());
+  for (const option of options) seen.current.set(option.value, option.label);
+  const shown = matchingSuggestions(
+    options,
+    typed,
+    (option) => option.texts,
+  ).map((option) => ({ value: option.value, label: option.label }));
+  // Only while nothing is typed: first in the list, Enter would pick it.
+  if (
+    value !== undefined &&
+    typed.trim() === "" &&
+    !shown.some((option) => option.value === value)
+  ) {
+    shown.unshift({ value, label: seen.current.get(value) ?? value });
+  }
   return (
     <Select<string>
       allowClear
@@ -171,11 +179,13 @@ function SuggestionSelect({
       onChange={(next) => onChange(next ?? undefined)}
       placeholder={placeholder}
       aria-label={ariaLabel}
-      options={options}
+      // Picking a suggestion clears the typed text without a search event.
+      onSelect={() => setQuery("")}
+      options={shown}
       loading={loading}
-      notFoundContent={loading ? undefined : notFound}
+      notFoundContent={loading ? <Spin size="small" /> : notFound}
       onOpenChange={onOpenChange}
-      showSearch={{ filterOption: false, onSearch }}
+      showSearch={{ filterOption: false, onSearch: setQuery }}
       popupMatchSelectWidth={false}
       style={{ minWidth: 220, ...style }}
     />

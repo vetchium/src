@@ -1,6 +1,7 @@
 import { FilterOutlined, GlobalOutlined } from "@ant-design/icons";
 import { OpeningTagSelect } from "@vetchium/portal-ui/opening-tags";
 import { findRegion } from "@vetchium/portal-ui/region-selection";
+import { matchingSuggestions } from "@vetchium/portal-ui/suggestions";
 import {
   Alert,
   Badge,
@@ -567,11 +568,17 @@ function OrgPicker({
   const seen = useRef(new Map<string, string>());
   for (const org of [...(known ?? []), ...(suggestions.data?.orgs ?? [])])
     seen.current.set(org.domain, label(org));
-  const options = (suggestions.data?.orgs ?? []).map((org) => ({
-    value: org.domain,
-    label: label(org),
-  }));
-  if (value !== undefined && !options.some((option) => option.value === value))
+  const options = matchingSuggestions(
+    suggestions.data?.orgs ?? [],
+    typed,
+    (org) => [org.display_name, org.domain],
+  ).map((org) => ({ value: org.domain, label: label(org) }));
+  // Only while nothing is typed: first in the list, Enter would pick it.
+  if (
+    value !== undefined &&
+    typed.trim() === "" &&
+    !options.some((option) => option.value === value)
+  )
     options.unshift({ value, label: seen.current.get(value) ?? value });
   const typedSize = [...typed.trim()].length;
   return (
@@ -579,6 +586,7 @@ function OrgPicker({
       id={id}
       allowClear
       value={value}
+      onSelect={() => setTyped("")}
       onChange={(next?: string) => {
         setTyped("");
         onChange(next || undefined);
@@ -587,13 +595,15 @@ function OrgPicker({
       options={options}
       loading={suggestions.isFetching || !settled}
       notFoundContent={
-        typedSize < 2
-          ? t("openingSearch.orgTypeMore")
-          : suggestions.isFetching || !settled
-            ? undefined
-            : suggestions.isError
-              ? t("openingSearch.orgsUnavailable")
-              : t("openingSearch.orgNoneFound")
+        typedSize < 2 ? (
+          t("openingSearch.orgTypeMore")
+        ) : suggestions.isFetching || !settled ? (
+          <Spin size="small" />
+        ) : suggestions.isError ? (
+          t("openingSearch.orgsUnavailable")
+        ) : (
+          t("openingSearch.orgNoneFound")
+        )
       }
       showSearch={{ filterOption: false, onSearch: setTyped }}
       popupMatchSelectWidth={false}

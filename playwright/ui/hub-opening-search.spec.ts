@@ -607,6 +607,48 @@ test("a new ideal job saved in Preferences reranks a match search the page alrea
   await expect(titles(page, word)).toHaveText([`${word} ${second} lead`]);
 });
 
+for (const answered of [false, true]) {
+  const when = answered ? "after" : "before";
+  test(`Enter picks the Organization typed in full ${when} the search answers`, async ({
+    hubUser,
+    page,
+  }) => {
+    const orgs = [
+      { display_name: "Acme Alpha", domain: "acme-alpha.test", country: "SG" },
+      { display_name: "Acme", domain: "acme-zeta.test", country: "SG" },
+    ];
+    await page.route("**/api/hub/suggest-opening-orgs", async (route) => {
+      const { query } = route.request().postDataJSON() as { query: string };
+      if (query === "ac" || answered) await route.fulfill({ json: { orgs } });
+    });
+    await signIn(page, await hubUser("sgp"));
+    await page.goto(`${HUB_PORTAL}/openings`);
+    await page.getByRole("button", { name: "More filters" }).click();
+    const picker = page.getByRole("combobox", { name: "Organization" });
+    await picker.fill("ac");
+    const options = page.locator(
+      ".ant-select-dropdown:visible .ant-select-item-option-content",
+    );
+    await expect(options).toHaveCount(2);
+    const searched = answered
+      ? page.waitForRequest(
+          (sent) =>
+            sent.url().endsWith("/suggest-opening-orgs") &&
+            sent.postDataJSON().query === "Acme",
+        )
+      : undefined;
+    await picker.fill("Acme");
+    if (searched) {
+      await (await searched).response();
+      await expect(options).toHaveCount(2);
+    }
+    await picker.press("Enter");
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("org"))
+      .toBe("acme-zeta.test");
+  });
+}
+
 test("a hub-ideal-job-missing answer links to Preferences", async ({
   hubUser,
   page,

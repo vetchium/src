@@ -35,6 +35,7 @@
     "./session": "./src/session.ts",
     "./shell": "./src/shell.tsx",
     "./styles.css": "./src/styles.css",
+    "./suggestions": "./src/suggestions.ts",
     "./thambi": "./src/thambi.tsx",
     "./unsaved-changes": "./src/unsaved-changes.ts"
   },

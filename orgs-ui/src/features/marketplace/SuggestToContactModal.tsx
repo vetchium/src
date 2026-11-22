@@ -1,5 +1,6 @@
 import { MessageOutlined, SendOutlined } from "@ant-design/icons";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { matchingSuggestions } from "@vetchium/portal-ui/suggestions";
 import {
   Alert,
   App,
@@ -10,6 +11,7 @@ import {
   Form,
   Modal,
   Select,
+  Spin,
   Typography,
 } from "antd";
 import { useMemo, useState } from "react";
@@ -61,8 +63,7 @@ export function SuggestToContactModal({
   // The most recent page answers short text by name or handle; longer text
   // also searches every Contact's name on the server, so a Contact beyond
   // that page is still found.
-  const [query, setQuery, typed] = useTypedQuery();
-  const needle = typed.trim().toLowerCase();
+  const [query, setQuery, typed, settling] = useTypedQuery();
   const nameQuery =
     query !== undefined && isContactNameQuery(query) ? query : undefined;
   const recentQuery = useContactsQuery({}, open);
@@ -71,19 +72,20 @@ export function SuggestToContactModal({
     open && nameQuery !== undefined,
   );
   const contacts = useMemo(() => {
-    const recent = (recentQuery.data?.items ?? []).filter(
-      (c) =>
-        c.display_name.toLowerCase().includes(needle) ||
-        c.handle.toLowerCase().includes(needle),
-    );
+    const recent = recentQuery.data?.items ?? [];
     const named = nameQuery === undefined ? [] : (namedQuery.data?.items ?? []);
     const all = [
       ...named,
       ...recent,
-      ...(selectedContact ? [selectedContact] : []),
+      ...(selectedContact && typed.trim() === "" ? [selectedContact] : []),
     ];
-    return [...new Map(all.map((c) => [c.handle, c])).values()];
-  }, [recentQuery.data, namedQuery.data, nameQuery, needle, selectedContact]);
+    return matchingSuggestions(
+      [...new Map(all.map((c) => [c.handle, c])).values()],
+      typed,
+      (c) => [c.display_name, c.handle],
+    );
+  }, [recentQuery.data, namedQuery.data, nameQuery, typed, selectedContact]);
+  const searching = settling || recentQuery.isFetching || namedQuery.isFetching;
   const mayWrite = selectedContact?.status === "in_conversation";
   const sendMessage = useSendMessageMutation(selectedHandle ?? "");
 
@@ -124,6 +126,15 @@ export function SuggestToContactModal({
       };
     });
   }, [contacts, alreadySuggestedHandles, t]);
+
+  // Enter skips a disabled option, so it would pick whoever follows the
+  // Contact typed in full.
+  const needle = typed.trim().toLowerCase();
+  const typedUnavailable =
+    contactOptions[0]?.disabled === true &&
+    [contacts[0]?.display_name, contacts[0]?.handle].some(
+      (text) => text?.toLowerCase() === needle,
+    );
 
   const firstName = selectedContact
     ? selectedContact.display_name.split(/\s+/)[0]
@@ -231,13 +242,15 @@ export function SuggestToContactModal({
           >
             <Select
               showSearch={{ filterOption: false, onSearch: setQuery }}
-              loading={recentQuery.isFetching || namedQuery.isFetching}
+              loading={searching}
+              notFoundContent={searching ? <Spin size="small" /> : undefined}
+              onSelect={() => setQuery("")}
+              defaultActiveFirstOption={!typedUnavailable}
               placeholder={t("marketplace.jobs.selectContactPlaceholder")}
               aria-label={t("marketplace.jobs.contactFieldLabel")}
               value={selectedHandle}
               onChange={(handle: string) => {
                 setSelectedContact(contacts.find((c) => c.handle === handle));
-                setQuery("");
               }}
               options={contactOptions}
               style={{ width: "100%" }}

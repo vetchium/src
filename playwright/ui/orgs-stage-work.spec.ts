@@ -86,6 +86,45 @@ async function candidateAt(
   return (await candidateFor(world, opening, stage, name)).number;
 }
 
+test("Enter adds the interviewer typed in full over a preferred address containing it", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner, world) => {
+    // The recruiter is preferred, and their address contains the colleague's.
+    const colleague = await addOrgMember(
+      api,
+      owner,
+      org.domain,
+      org.emailAddress.slice(1),
+    );
+    const { opening, stages } = await publishedOpening(api, owner, org, {
+      stages: [...pipeline],
+    });
+    const n = opening.opening_number;
+    const application = await candidateAt(world, n, stageOf(stages, 2));
+    await signIn(page, org);
+    await page.goto(applicationURL(n, application));
+    await page.getByRole("button", { name: "Schedule interview" }).click();
+    const dialog = page.getByRole("dialog", { name: "Schedule an interview" });
+    const interviewers = dialog.getByRole("combobox", { name: "Interviewers" });
+    const answered = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/suggest-org-users") &&
+        response.request().postDataJSON().query === colleague.emailAddress,
+    );
+    await interviewers.fill(colleague.emailAddress);
+    await (await answered).finished();
+    await interviewers.press("Enter");
+    await expect(
+      dialog.getByTitle(colleague.emailAddress, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByTitle(org.emailAddress, { exact: true }),
+    ).toHaveCount(0);
+  });
+});
+
 test("an interview is scheduled, changed, run, and given feedback by its interviewers", async ({
   page,
   request,
