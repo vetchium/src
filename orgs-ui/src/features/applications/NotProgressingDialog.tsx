@@ -1,6 +1,7 @@
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, App, Modal, Typography } from "antd";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isDefiniteRefusal } from "../../api/client";
 import { applicationErrorMessage } from "./errors";
@@ -28,7 +29,7 @@ export function NotProgressingDialog({
   const key = useIdempotencyKey(
     `not-progressing:${openingNumber}:${application.application_number}`,
   );
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
   const name = applicantName(t, application);
 
   const submit = async () => {
@@ -47,7 +48,7 @@ export function NotProgressingDialog({
       void message.success(t("applications.notProgressing.done", { name }));
       onClose();
     } catch (cause) {
-      setError(applicationErrorMessage(t, cause));
+      setError(localized((t) => applicationErrorMessage(t, cause)));
       if (isDefiniteRefusal(cause)) key.rotate();
     }
   };

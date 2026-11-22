@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
@@ -60,7 +61,9 @@ export function ReauthenticatePage() {
           <Form.Item
             name="password"
             label={t("fields.password")}
-            rules={[{ required: true, message: t("validation.required") }]}
+            rules={[
+              { required: true, message: localized("validation.required") },
+            ]}
           >
             <Input.Password autoFocus autoComplete="current-password" />
           </Form.Item>

@@ -1,6 +1,7 @@
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, App, Button, Drawer, Flex, Form, Input, Tag } from "antd";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PipelineTemplate } from "typespec/orgs/hiring/pipelines";
 import { isDefiniteRefusal } from "../../api/client";
@@ -39,8 +40,8 @@ export function TemplateDrawer({ template, open, onClose }: Props) {
   }));
   const [name, setName] = useState(initial.name);
   const [rows, setRows] = useState(initial.rows);
-  const [nameError, setNameError] = useState<string>();
-  const [error, setError] = useState<string>();
+  const [nameError, setNameError] = useState<ReactNode>();
+  const [error, setError] = useState<ReactNode>();
   const pending = create.isPending || update.isPending;
   const dirty = name !== initial.name || !sameRows(rows, initial.rows);
   const nameValid = name.trim().length >= 1 && [...name.trim()].length <= 100;
@@ -92,12 +93,16 @@ export function TemplateDrawer({ template, open, onClose }: Props) {
     } catch (cause) {
       const problem = pipelineProblem(cause);
       if (problem.kind === "name-taken")
-        setNameError(t("pipeline.template.nameTaken"));
+        setNameError(localized("pipeline.template.nameTaken"));
       else if (problem.kind === "template-limit")
-        setError(t("pipeline.template.limit", { limit: problem.limit }));
+        setError(
+          localized((t) =>
+            t("pipeline.template.limit", { limit: problem.limit }),
+          ),
+        );
       else if (problem.kind === "template-not-found")
-        setError(t("pipeline.template.gone"));
-      else setError(problemMessage(t, cause));
+        setError(localized("pipeline.template.gone"));
+      else setError(localized((t) => problemMessage(t, cause)));
       if (isDefiniteRefusal(cause)) key.rotate();
     }
   };

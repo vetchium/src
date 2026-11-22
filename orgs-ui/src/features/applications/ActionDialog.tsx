@@ -1,4 +1,5 @@
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, App, Modal } from "antd";
 import { type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -52,7 +53,7 @@ export function ActionDialog({
   const key = useIdempotencyKey(keyName);
   const sent = useRef<string | undefined>(undefined);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
 
   const run = async () => {
     if (!valid || pending) return;
@@ -68,7 +69,7 @@ export function ActionDialog({
       void message.success(doneMessage);
       onClose();
     } catch (cause) {
-      setError(applicationErrorMessage(t, cause));
+      setError(localized((t) => applicationErrorMessage(t, cause)));
       onRefused?.(cause);
       if (isDefiniteRefusal(cause)) key.rotate();
       setPending(false);

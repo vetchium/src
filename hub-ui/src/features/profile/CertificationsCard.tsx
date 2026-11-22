@@ -1,5 +1,6 @@
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { fieldErrors, localized } from "@vetchium/portal-ui/localized";
 import {
   App,
   Button,
@@ -133,7 +134,9 @@ function CertificationModal({
             form.setFields(
               invalid.map((name) => ({
                 name: name as keyof CertificationFormValues,
-                errors: [t(`profileCertifications.validation.${name}`)],
+                errors: fieldErrors(
+                  localized(`profileCertifications.validation.${name}`),
+                ),
               })),
             );
             return;
@@ -148,7 +151,7 @@ function CertificationModal({
             {
               validator: async (_, value: string) => {
                 if (!isProfileTitle(value ?? "")) {
-                  throw new Error(t("profileCertifications.validation.title"));
+                  throw localized("profileCertifications.validation.title");
                 }
               },
             },
@@ -163,8 +166,8 @@ function CertificationModal({
             {
               validator: async (_, value: string) => {
                 if (!isCredentialURL((value ?? "").trim())) {
-                  throw new Error(
-                    t("profileCertifications.validation.credential_url"),
+                  throw localized(
+                    "profileCertifications.validation.credential_url",
                   );
                 }
               },

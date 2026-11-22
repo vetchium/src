@@ -6,6 +6,7 @@ import {
 } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   App,
@@ -346,7 +347,7 @@ function AddEmailModal({
                 if (
                   validateAddProfessionalEmailRequest(normalized).length > 0
                 ) {
-                  throw new Error(t("profileEmails.addressInvalid"));
+                  throw localized("profileEmails.addressInvalid");
                 }
               },
             },

@@ -26,6 +26,20 @@ test("public theme and language choices survive a reload", async ({ page }) => {
   ).toHaveAttribute("aria-checked", "true");
 });
 
+test("sign-in field errors follow the language", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByText("This field is required.")).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Select language" }).click();
+  await page.getByRole("option", { name: "தமிழ்" }).click();
+  await expect(page.getByText("இந்தப் புலம் தேவை.")).toBeVisible();
+  await expect(
+    page.getByText("சரியான மின்னஞ்சல் முகவரியை உள்ளிடவும்."),
+  ).toBeVisible();
+  await expect(page.getByText("This field is required.")).toHaveCount(0);
+});
+
 test("login replaces the local language and authenticated changes reach the server", async ({
   adminAPI,
   createAdmin,

@@ -20,6 +20,7 @@ import type { IdempotencyKey } from "typespec/common/idempotency";
 import { useDateTimeFormat } from "./date-time";
 import { APIErrorAlert } from "./errors";
 import { useIdempotencyKey } from "./idempotency";
+import { localized } from "./localized";
 import { usePendingOperations } from "./pending-operations";
 
 interface ChangePasswordTranslations {
@@ -95,14 +96,12 @@ export function ChangePasswordCard({
             name="new_password"
             label={t(translations.newPassword)}
             rules={[
-              { required: true, message: t(translations.required) },
+              { required: true, message: localized(translations.required) },
               {
                 validator: (_, value: string | undefined) =>
                   value === undefined || value === "" || validPassword(value)
                     ? Promise.resolve()
-                    : Promise.reject(
-                        new Error(t(translations.invalidPassword)),
-                      ),
+                    : Promise.reject(localized(translations.invalidPassword)),
               },
             ]}
           >
@@ -113,14 +112,12 @@ export function ChangePasswordCard({
             label={t(translations.confirmPassword)}
             dependencies={["new_password"]}
             rules={[
-              { required: true, message: t(translations.required) },
+              { required: true, message: localized(translations.required) },
               ({ getFieldValue }) => ({
                 validator: (_, value: string | undefined) =>
                   value === undefined || value === getFieldValue("new_password")
                     ? Promise.resolve()
-                    : Promise.reject(
-                        new Error(t(translations.passwordMismatch)),
-                      ),
+                    : Promise.reject(localized(translations.passwordMismatch)),
               }),
             ]}
           >
@@ -448,10 +445,10 @@ export function TwoFactorCard({
                 name="totp_code"
                 label={t(translations.totpCode)}
                 rules={[
-                  { required: true, message: t(translations.required) },
+                  { required: true, message: localized(translations.required) },
                   {
                     pattern: /^\d{6}$/,
-                    message: t(translations.totpValidation),
+                    message: localized(translations.totpValidation),
                   },
                 ]}
               >

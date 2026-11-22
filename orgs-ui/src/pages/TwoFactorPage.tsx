@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { safeReturnTo } from "@vetchium/portal-ui/navigation";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
 import { App, Button, Card, Flex, Form, Input, Radio, Typography } from "antd";
@@ -155,7 +156,7 @@ export function TwoFactorPage() {
                 : t("fields.recoveryCode")
             }
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               {
                 validator: (_: unknown, value: string | undefined) =>
                   value === undefined ||
@@ -165,12 +166,10 @@ export function TwoFactorPage() {
                     : isTOTPRecoveryCode(value.trim()))
                     ? Promise.resolve()
                     : Promise.reject(
-                        new Error(
-                          t(
-                            method === "totp"
-                              ? "validation.totpCode"
-                              : "validation.recoveryCode",
-                          ),
+                        localized(
+                          method === "totp"
+                            ? "validation.totpCode"
+                            : "validation.recoveryCode",
                         ),
                       ),
               },

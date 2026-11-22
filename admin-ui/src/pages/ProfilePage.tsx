@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import { App, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -61,12 +62,12 @@ export function ProfilePage() {
             label={t("fields.name")}
             extra={t("profile.nameHint")}
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               {
                 validator: (_: unknown, value: string | undefined) =>
                   value === undefined || value === "" || isDisplayName(value)
                     ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.displayName"))),
+                    : Promise.reject(localized("validation.displayName")),
               },
             ]}
           >

@@ -1,5 +1,6 @@
 import { QrcodeOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   App,
   Button,
@@ -229,7 +230,7 @@ function IntroductionForm({
           {
             validator: async (_, value: string) => {
               if (!isDisplayName(value ?? "")) {
-                throw new Error(t("profile.displayNameInvalid"));
+                throw localized("profile.displayNameInvalid");
               }
             },
           },
@@ -244,7 +245,7 @@ function IntroductionForm({
           {
             validator: async (_, value: string) => {
               if ([...(value ?? "")].length > 2000) {
-                throw new Error(t("profile.biographyTooLong"));
+                throw localized("profile.biographyTooLong");
               }
             },
           },

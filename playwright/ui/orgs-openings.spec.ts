@@ -368,6 +368,81 @@ test("a failed save focuses a hidden field even when a frame comes before the re
   });
 });
 
+test("the editor's kept errors follow a language change without losing its edits", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const created = await api.createOpening(owner, {
+      content: {
+        ...completeContent,
+        questions: [
+          {
+            text: "Notice period in days?",
+            type: "number",
+            required: true,
+            min: 0,
+            max: 90,
+          },
+        ],
+      },
+      team_member_emails: [],
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    await openEditorStep(page, "Application questions");
+    await page.getByRole("button", { name: /1\. Notice period/ }).click();
+    await page.getByRole("spinbutton", { name: "Smallest answer" }).fill("100");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      page.getByText("Must be at least the smallest answer."),
+    ).toBeVisible();
+
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Select language" }),
+      "Deutsch (Deutschland)",
+    );
+    await expect(
+      page.getByText("Muss mindestens der kleinsten Antwort entsprechen."),
+    ).toBeVisible();
+    const smallest = page.getByRole("spinbutton", { name: "Kleinste Antwort" });
+    await expect(smallest).toHaveValue("100");
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Sprache auswählen" }),
+      "English (United States)",
+    );
+    await page.getByRole("spinbutton", { name: "Smallest answer" }).fill("0");
+
+    // A refusal's field error and alert carry the refused address.
+    await openEditorStep(page, "Hiring team and notes");
+    const unknown = `unknown@${org.domain}`;
+    await page.getByRole("combobox", { name: "Hiring manager" }).fill(unknown);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    const english = `These addresses are not active members of this organization: ${unknown}.`;
+    await expect(page.getByText(english)).toHaveCount(2);
+
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Select language" }),
+      "Deutsch (Deutschland)",
+    );
+    await expect(
+      page.getByText(
+        `Diese Adressen gehören keinen aktiven Mitgliedern dieser Organisation: ${unknown}.`,
+      ),
+    ).toHaveCount(2);
+    await expect(page.getByText(english)).toHaveCount(0);
+    await expect(
+      page.getByRole("combobox", {
+        name: "Einstellungsverantwortliche Person",
+      }),
+    ).toHaveValue(unknown);
+  });
+});
+
 test("invalid team addresses and a full quota get specific messages", async ({
   page,
   request,

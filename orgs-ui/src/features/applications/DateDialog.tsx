@@ -1,6 +1,7 @@
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, App, Form, Input, Modal, Typography } from "antd";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import { isCalendarDate } from "typespec/orgs/applications/applications";
@@ -49,7 +50,7 @@ export function DateDialog({ action, detail, openingNumber, onClose }: Props) {
           ? today
           : undefined;
   const [value, setValue] = useState(initial ?? "");
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
   const pending =
     recordJoined.isPending ||
     recordSeparated.isPending ||
@@ -94,7 +95,7 @@ export function DateDialog({ action, detail, openingNumber, onClose }: Props) {
       void message.success(t("applications.dates.saved"));
       onClose();
     } catch (cause) {
-      setError(applicationErrorMessage(t, cause));
+      setError(localized((t) => applicationErrorMessage(t, cause)));
       if (isDefiniteRefusal(cause)) key.rotate();
     }
   };

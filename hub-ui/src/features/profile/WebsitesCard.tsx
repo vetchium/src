@@ -1,5 +1,6 @@
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { fieldErrors, localized } from "@vetchium/portal-ui/localized";
 import {
   App,
   Button,
@@ -114,7 +115,9 @@ function WebsiteModal({
             form.setFields([
               {
                 name: "url",
-                errors: [t("profileWebsites.validation.url")],
+                errors: fieldErrors(
+                  localized("profileWebsites.validation.url"),
+                ),
               },
             ]);
             return;
@@ -123,7 +126,9 @@ function WebsiteModal({
             form.setFields([
               {
                 name: "url",
-                errors: [t("profileWebsites.validation.duplicate")],
+                errors: fieldErrors(
+                  localized("profileWebsites.validation.duplicate"),
+                ),
               },
             ]);
             return;
@@ -139,7 +144,7 @@ function WebsiteModal({
             {
               validator: async (_, value: string) => {
                 if (!isWebsiteURL(normalizeWebsiteURL(value ?? ""))) {
-                  throw new Error(t("profileWebsites.validation.url"));
+                  throw localized("profileWebsites.validation.url");
                 }
               },
             },

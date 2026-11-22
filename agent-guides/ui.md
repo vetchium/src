@@ -14,6 +14,9 @@ design (layout, saving, states, copy) is in [`ux.md`](ux.md).
   placeholders, validation, empty and loading states, alt text, and
   accessibility labels; brand names and numbers too. No literal text in TSX.
   Built-in component text comes from Ant Design locales.
+- Never store a `t()` result: it keeps its language. A `Form` rule's message, a
+  validator's rejection, and an error kept in state take `localized` from
+  `@vetchium/portal-ui/localized`; `form.setFields` takes `fieldErrors` of it.
 
 ## Ant Design
 

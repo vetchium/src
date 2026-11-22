@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
 import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
 import {
@@ -149,16 +150,14 @@ export function AcceptInvitationPage() {
                 name="new_password"
                 label={t("fields.newPassword")}
                 rules={[
-                  { required: true, message: t("validation.required") },
+                  { required: true, message: localized("validation.required") },
                   {
                     validator: (_, value: string | undefined) =>
                       value === undefined ||
                       value === "" ||
                       isNewPassword(value)
                         ? Promise.resolve()
-                        : Promise.reject(
-                            new Error(t("validation.newPassword")),
-                          ),
+                        : Promise.reject(localized("validation.newPassword")),
                   },
                 ]}
               >
@@ -169,16 +168,14 @@ export function AcceptInvitationPage() {
                 label={t("fields.confirmPassword")}
                 dependencies={["new_password"]}
                 rules={[
-                  { required: true, message: t("validation.required") },
+                  { required: true, message: localized("validation.required") },
                   ({ getFieldValue }) => ({
                     validator: (_, value: string | undefined) =>
                       value === undefined ||
                       value === "" ||
                       value === getFieldValue("new_password")
                         ? Promise.resolve()
-                        : Promise.reject(
-                            new Error(t("validation.passwordMatch")),
-                          ),
+                        : Promise.reject(localized("validation.passwordMatch")),
                   }),
                 ]}
               >

@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -35,7 +36,11 @@ export function ForgotPasswordPage() {
             name="email_address"
             label={t("fields.email")}
             rules={[
-              { required: true, type: "email", message: t("validation.email") },
+              {
+                required: true,
+                type: "email",
+                message: localized("validation.email"),
+              },
             ]}
           >
             <Input autoComplete="email" />

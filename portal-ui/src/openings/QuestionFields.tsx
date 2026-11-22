@@ -9,6 +9,7 @@ import {
   theme,
 } from "antd";
 import type { Rule } from "antd/es/form";
+import { createContext, useContext } from "react";
 import {
   type ApplicationQuestion,
   QuestionLongText,
@@ -47,6 +48,20 @@ const ruleTypes: Readonly<
   [QuestionMultipleChoice]: "array",
 };
 
+const LabelsContext = createContext<QuestionFieldsLabels | undefined>(
+  undefined,
+);
+
+/** An error in the labels of the language shown, not of the one validated. */
+function LabelError({
+  text,
+}: {
+  text: (labels: QuestionFieldsLabels) => string;
+}) {
+  const labels = useContext(LabelsContext);
+  return labels && text(labels);
+}
+
 interface Props {
   questions: readonly ApplicationQuestion[];
   labels: QuestionFieldsLabels;
@@ -62,110 +77,117 @@ interface Props {
 export function QuestionFields({ questions, labels, invalid = [] }: Props) {
   const { token } = theme.useToken();
   return (
-    <ConfigProvider
-      theme={{
-        components: {
-          Form: {
-            itemMarginBottom: token.marginMD,
-            verticalLabelPadding: `0 0 ${token.paddingXXS}px`,
-          },
-        },
-      }}
-    >
-      {questions.map((question, index) => {
-        const id = question.id ?? `new-${index}`;
-        const rules: Rule[] = question.required
-          ? [
-              {
-                required: true,
-                type: ruleTypes[question.type] ?? "string",
-                whitespace: question.type !== QuestionMultipleChoice,
-                message: labels.required,
-              },
-            ]
-          : [];
-        const { min, max } = question;
-        const bounds = labels.bounds(min, max);
-        if (question.type === QuestionNumber)
-          rules.push({
-            validator: async (_, value: number | null | undefined) => {
-              if (value === undefined || value === null) return;
-              if (
-                !Number.isSafeInteger(value) ||
-                (min !== undefined && value < min) ||
-                (max !== undefined && value > max)
-              )
-                throw new Error(
-                  bounds === undefined
-                    ? labels.wholeNumber
-                    : labels.outOfRange(bounds),
-                );
+    <LabelsContext value={labels}>
+      <ConfigProvider
+        theme={{
+          components: {
+            Form: {
+              itemMarginBottom: token.marginMD,
+              verticalLabelPadding: `0 0 ${token.paddingXXS}px`,
             },
-          });
-        const refused = invalid.includes(id);
-        return (
-          <Form.Item
-            key={id}
-            name={["answers", id]}
-            label={
-              <span>
-                <Typography.Text type="secondary">
-                  {index + 1}.{" "}
-                </Typography.Text>
-                {question.text}
-              </span>
-            }
-            required={question.required}
-            rules={rules}
-            {...(question.type === QuestionNumber &&
-              bounds !== undefined && { extra: bounds })}
-            {...(question.type === QuestionMultipleChoice && {
-              extra: labels.chooseAny,
-            })}
-            {...(refused && {
-              validateStatus: "error" as const,
-              help: labels.changed,
-            })}
-          >
-            {question.type === QuestionShortText ? (
-              <Input maxLength={maxShortTextAnswer} showCount />
-            ) : question.type === QuestionLongText ? (
-              <Input.TextArea
-                autoSize={{ minRows: 3, maxRows: 10 }}
-                maxLength={maxLongTextAnswer}
-                showCount
-              />
-            ) : question.type === QuestionNumber ? (
-              <InputNumber
-                {...(min !== undefined && { min })}
-                {...(max !== undefined && { max })}
-                precision={0}
-                step={1}
-              />
-            ) : question.type === QuestionYesNo ? (
-              <Radio.Group
-                aria-label={question.text}
-                optionType="button"
-                options={[
-                  { value: true, label: labels.yes },
-                  { value: false, label: labels.no },
-                ]}
-              />
-            ) : question.type === QuestionSingleChoice ? (
-              <Radio.Group
-                aria-label={question.text}
-                options={question.options ?? []}
-              />
-            ) : question.type === QuestionMultipleChoice ? (
-              <Checkbox.Group
-                role="group"
-                aria-label={question.text}
-                options={question.options ?? []}
-              />
-            ) : null}
-          </Form.Item>
-        );
-      })}
-    </ConfigProvider>
+          },
+        }}
+      >
+        {questions.map((question, index) => {
+          const id = question.id ?? `new-${index}`;
+          const rules: Rule[] = question.required
+            ? [
+                {
+                  required: true,
+                  type: ruleTypes[question.type] ?? "string",
+                  whitespace: question.type !== QuestionMultipleChoice,
+                  message: <LabelError text={(current) => current.required} />,
+                },
+              ]
+            : [];
+          const { min, max } = question;
+          const bounds = labels.bounds(min, max);
+          if (question.type === QuestionNumber)
+            rules.push({
+              validator: async (_, value: number | null | undefined) => {
+                if (value === undefined || value === null) return;
+                if (
+                  !Number.isSafeInteger(value) ||
+                  (min !== undefined && value < min) ||
+                  (max !== undefined && value > max)
+                )
+                  throw (
+                    <LabelError
+                      text={(current) => {
+                        const range = current.bounds(min, max);
+                        return range === undefined
+                          ? current.wholeNumber
+                          : current.outOfRange(range);
+                      }}
+                    />
+                  );
+              },
+            });
+          const refused = invalid.includes(id);
+          return (
+            <Form.Item
+              key={id}
+              name={["answers", id]}
+              label={
+                <span>
+                  <Typography.Text type="secondary">
+                    {index + 1}.{" "}
+                  </Typography.Text>
+                  {question.text}
+                </span>
+              }
+              required={question.required}
+              rules={rules}
+              {...(question.type === QuestionNumber &&
+                bounds !== undefined && { extra: bounds })}
+              {...(question.type === QuestionMultipleChoice && {
+                extra: labels.chooseAny,
+              })}
+              {...(refused && {
+                validateStatus: "error" as const,
+                help: labels.changed,
+              })}
+            >
+              {question.type === QuestionShortText ? (
+                <Input maxLength={maxShortTextAnswer} showCount />
+              ) : question.type === QuestionLongText ? (
+                <Input.TextArea
+                  autoSize={{ minRows: 3, maxRows: 10 }}
+                  maxLength={maxLongTextAnswer}
+                  showCount
+                />
+              ) : question.type === QuestionNumber ? (
+                <InputNumber
+                  {...(min !== undefined && { min })}
+                  {...(max !== undefined && { max })}
+                  precision={0}
+                  step={1}
+                />
+              ) : question.type === QuestionYesNo ? (
+                <Radio.Group
+                  aria-label={question.text}
+                  optionType="button"
+                  options={[
+                    { value: true, label: labels.yes },
+                    { value: false, label: labels.no },
+                  ]}
+                />
+              ) : question.type === QuestionSingleChoice ? (
+                <Radio.Group
+                  aria-label={question.text}
+                  options={question.options ?? []}
+                />
+              ) : question.type === QuestionMultipleChoice ? (
+                <Checkbox.Group
+                  role="group"
+                  aria-label={question.text}
+                  options={question.options ?? []}
+                />
+              ) : null}
+            </Form.Item>
+          );
+        })}
+      </ConfigProvider>
+    </LabelsContext>
   );
 }

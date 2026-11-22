@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   App,
@@ -415,7 +416,7 @@ export function EmailAddressCard({
               label={t("emailChange.newAddress")}
               extra={t("emailChange.effects")}
               rules={[
-                { required: true, message: t("validation.required") },
+                { required: true, message: localized("validation.required") },
                 {
                   validator: async (_, value: string | undefined) => {
                     if (value === undefined || value === "") return;
@@ -424,13 +425,13 @@ export function EmailAddressCard({
                         new_email_address: value,
                       }).length > 0
                     ) {
-                      throw new Error(t("validation.email"));
+                      throw localized("validation.email");
                     }
                     if (
                       normalizeEmailAddress(value) ===
                       normalizeEmailAddress(currentAddress)
                     ) {
-                      throw new Error(t("emailChange.sameAddress"));
+                      throw localized("emailChange.sameAddress");
                     }
                   },
                 },

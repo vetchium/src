@@ -1,6 +1,7 @@
 import { EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   App,
@@ -381,12 +382,12 @@ export function HubSignupDomainsPage() {
             label={t("fields.domain")}
             extra={t("hubSignupDomains.form.domainHint")}
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               {
                 validator: (_, value: unknown) =>
                   typeof value === "string" && isDomainName(value)
                     ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.domain"))),
+                    : Promise.reject(localized("validation.domain")),
               },
             ]}
           >
@@ -398,7 +399,9 @@ export function HubSignupDomainsPage() {
           <Form.Item
             name="state"
             label={t("fields.state")}
-            rules={[{ required: true, message: t("validation.required") }]}
+            rules={[
+              { required: true, message: localized("validation.required") },
+            ]}
           >
             <Select
               options={[
@@ -414,14 +417,12 @@ export function HubSignupDomainsPage() {
               extra={t("hubSignupDomains.form.disabledCommentHint")}
               preserve={false}
               rules={[
-                { required: true, message: t("validation.required") },
+                { required: true, message: localized("validation.required") },
                 {
                   validator: (_, value: unknown) =>
                     typeof value === "string" && isDisableComment(value)
                       ? Promise.resolve()
-                      : Promise.reject(
-                          new Error(t("validation.disableComment")),
-                        ),
+                      : Promise.reject(localized("validation.disableComment")),
                 },
               ]}
             >

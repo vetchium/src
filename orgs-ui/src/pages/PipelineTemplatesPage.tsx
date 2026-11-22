@@ -1,6 +1,7 @@
 import { PlusOutlined } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   App,
@@ -14,7 +15,7 @@ import {
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PipelineTemplate } from "typespec/orgs/hiring/pipelines";
 import { maxPipelineTemplates } from "typespec/orgs/hiring/pipelines";
@@ -39,7 +40,7 @@ export function PipelineTemplatesPage() {
   const removeKey = useIdempotencyKey("pipeline-template-delete");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Editing>();
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
   const templates = query.data ?? [];
   const needle = search.trim().toLocaleLowerCase();
   const shown = templates.filter((template) =>
@@ -67,8 +68,8 @@ export function PipelineTemplatesPage() {
           );
         } catch (cause) {
           if (pipelineProblem(cause).kind === "template-not-found")
-            setError(t("pipeline.template.gone"));
-          else setError(problemMessage(t, cause));
+            setError(localized("pipeline.template.gone"));
+          else setError(localized((t) => problemMessage(t, cause)));
           if (isDefiniteRefusal(cause)) removeKey.rotate();
         }
       },

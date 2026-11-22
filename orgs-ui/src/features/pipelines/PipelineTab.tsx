@@ -1,7 +1,8 @@
 import { ArrowRightOutlined } from "@ant-design/icons";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, App, Button, Card, Divider, Flex, Tag, Typography } from "antd";
-import { Fragment, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isDefiniteRefusal } from "../../api/client";
 import { problemMessage } from "../../components/common/APIErrorAlert";
@@ -43,7 +44,7 @@ export function PipelineTab({ openingNumber, editable }: Props) {
   const key = useIdempotencyKey(`opening-pipeline:${openingNumber}`);
   // Undefined while the user has no edits, so the rows follow the server.
   const [draft, setDraft] = useState<StageRow[]>();
-  const [error, setError] = useState<{ message: string; inUse?: boolean }>();
+  const [error, setError] = useState<{ message: ReactNode; inUse?: boolean }>();
   const pipeline = query.data;
   const serverRows = pipeline ? rowsFromStages(pipeline.stages) : [];
   const rows = draft ?? serverRows;
@@ -89,18 +90,18 @@ export function PipelineTab({ openingNumber, editable }: Props) {
     } catch (cause) {
       const failure = pipelineProblem(cause);
       if (failure.kind === "stage-in-use") {
-        setError({ message: t("pipeline.errors.inUse"), inUse: true });
+        setError({ message: localized("pipeline.errors.inUse"), inUse: true });
       } else if (failure.kind === "version-conflict") {
         void query.refetch();
-        setError({ message: t("pipeline.errors.versionConflict") });
+        setError({ message: localized("pipeline.errors.versionConflict") });
       } else if (failure.kind === "opening-unavailable") {
         void query.refetch();
-        setError({ message: t("pipeline.errors.unavailable") });
+        setError({ message: localized("pipeline.errors.unavailable") });
       } else if (failure.kind === "unknown-stage") {
         void query.refetch();
-        setError({ message: t("pipeline.errors.unknownStage") });
+        setError({ message: localized("pipeline.errors.unknownStage") });
       } else {
-        setError({ message: problemMessage(t, cause) });
+        setError({ message: localized((t) => problemMessage(t, cause)) });
       }
       if (isDefiniteRefusal(cause)) key.rotate();
     }

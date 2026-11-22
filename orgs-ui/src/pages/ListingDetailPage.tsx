@@ -1,4 +1,5 @@
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   App,
@@ -15,7 +16,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import { Link, useNavigate, useParams } from "react-router";
@@ -76,7 +77,7 @@ export function ListingDetailPage() {
   const [message, setMessage] = useState("");
   const [reference, setReference] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
 
   const countryNames = new Intl.DisplayNames([i18n.language], {
     type: "region",
@@ -156,15 +157,15 @@ export function ListingDetailPage() {
     } catch (err) {
       const problem = marketplaceProblem(err);
       if (problem.kind === "engagement-self") {
-        setError(t("marketplace.errors.engagementSelf"));
+        setError(localized("marketplace.errors.engagementSelf"));
       } else if (problem.kind === "engagement-exists") {
-        setError(t("marketplace.errors.engagementExists"));
+        setError(localized("marketplace.errors.engagementExists"));
       } else if (problem.kind === "listing-not-available") {
-        setError(t("marketplace.errors.listingNotAvailable"));
+        setError(localized("marketplace.errors.listingNotAvailable"));
       } else if (problem.kind === "tenant-unavailable") {
-        setError(t("marketplace.errors.tenantUnavailable"));
+        setError(localized("marketplace.errors.tenantUnavailable"));
       } else {
-        setError(t("marketplace.errors.genericProposeFailed"));
+        setError(localized("marketplace.errors.genericProposeFailed"));
       }
     } finally {
       setSubmitting(false);

@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, Button, Card, Flex, Form, Input, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
@@ -70,14 +71,14 @@ export function ForgotPasswordPage() {
                 name="domain"
                 label={t("fields.domain")}
                 rules={[
-                  { required: true, message: t("validation.required") },
+                  { required: true, message: localized("validation.required") },
                   {
                     validator: (_, value: string | undefined) =>
                       value === undefined ||
                       value === "" ||
                       isOrgDomain(normalizeOrgDomain(value))
                         ? Promise.resolve()
-                        : Promise.reject(new Error(t("validation.domain"))),
+                        : Promise.reject(localized("validation.domain")),
                   },
                 ]}
               >
@@ -94,7 +95,7 @@ export function ForgotPasswordPage() {
                   {
                     required: true,
                     type: "email",
-                    message: t("validation.email"),
+                    message: localized("validation.email"),
                   },
                 ]}
               >

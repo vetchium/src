@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Button, Card, Form, Input, Radio, Space, Typography } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -114,9 +115,14 @@ export function TwoFactorPage() {
                 : t("fields.recoveryCode")
             }
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               ...(method === "totp"
-                ? [{ pattern: /^\d{6}$/, message: t("validation.totp") }]
+                ? [
+                    {
+                      pattern: /^\d{6}$/,
+                      message: localized("validation.totp"),
+                    },
+                  ]
                 : [
                     {
                       validator: (
@@ -128,7 +134,7 @@ export function TwoFactorPage() {
                         isTOTPRecoveryCode(value)
                           ? Promise.resolve()
                           : Promise.reject(
-                              new Error(t("validation.recoveryCode")),
+                              localized("validation.recoveryCode"),
                             ),
                     },
                   ]),

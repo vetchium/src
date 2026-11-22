@@ -1,5 +1,6 @@
 import { PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { fieldErrors, localized } from "@vetchium/portal-ui/localized";
 import { Button, Col, Form, type FormInstance, Input, Row } from "antd";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -117,7 +118,9 @@ export function EducationForm({
           form.setFields(
             invalid.map((name) => ({
               name: name as keyof EducationFormValues,
-              errors: [t(`profileEducation.validation.${name}`)],
+              errors: fieldErrors(
+                localized(`profileEducation.validation.${name}`),
+              ),
             })),
           );
           return;
@@ -135,7 +138,7 @@ export function EducationForm({
               {
                 validator: async (_, value: string) => {
                   if (!isProfileTitle(value ?? "")) {
-                    throw new Error(t("profileEducation.validation.degree"));
+                    throw localized("profileEducation.validation.degree");
                   }
                 },
               },
@@ -161,8 +164,8 @@ export function EducationForm({
                       normalizeProfessionalDomain(value ?? ""),
                     )
                   ) {
-                    throw new Error(
-                      t("profileEducation.validation.institution_domain"),
+                    throw localized(
+                      "profileEducation.validation.institution_domain",
                     );
                   }
                 },
@@ -209,7 +212,7 @@ export function EducationForm({
                     start !== undefined &&
                     value < start
                   ) {
-                    throw new Error(t("profileEducation.validation.end_month"));
+                    throw localized("profileEducation.validation.end_month");
                   }
                 },
               },
@@ -241,7 +244,7 @@ export function EducationForm({
             {
               validator: async (_, value: string) => {
                 if (value && !isProfileTitle(value)) {
-                  throw new Error(t("profileEducation.validation.title"));
+                  throw localized("profileEducation.validation.title");
                 }
               },
             },
@@ -260,8 +263,8 @@ export function EducationForm({
             {
               validator: async (_, value: string) => {
                 if ([...(value ?? "")].length > 249) {
-                  throw new Error(
-                    t("profileEducation.validation.supporting_text"),
+                  throw localized(
+                    "profileEducation.validation.supporting_text",
                   );
                 }
               },

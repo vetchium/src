@@ -6,6 +6,7 @@ import {
 } from "@ant-design/icons";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { OpeningView } from "@vetchium/portal-ui/openings";
 import { SidePanel } from "@vetchium/portal-ui/shell";
 import {
@@ -88,8 +89,9 @@ const candidatesTab = "candidates";
 const providersTab = "providers";
 
 interface PageError {
-  title: string;
-  items?: string[];
+  title: ReactNode;
+  /** The publication fields to list. */
+  fields?: readonly string[];
 }
 
 function ItemList({ items }: { items: readonly string[] }) {
@@ -109,11 +111,16 @@ function ErrorAlert({
   error: PageError;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Alert
       type="error"
       title={error.title}
-      description={error.items && <ItemList items={error.items} />}
+      description={
+        error.fields && (
+          <ItemList items={publicationFieldLabels(t, error.fields)} />
+        )
+      }
       closable
       onClose={onClose}
     />
@@ -192,27 +199,31 @@ export function OpeningDetailPage() {
     const problem = openingProblem(cause);
     if (problem.kind === "version-conflict") {
       void query.refetch();
-      setError({ title: t("openings.errors.versionConflict") });
+      setError({ title: localized("openings.errors.versionConflict") });
     } else if (problem.kind === "quota-exceeded") {
       setError({
-        title: t("openings.errors.quota", {
-          quota: problem.quota,
-          count: problem.count,
-        }),
+        title: localized((t) =>
+          t("openings.errors.quota", {
+            quota: problem.quota,
+            count: problem.count,
+          }),
+        ),
       });
     } else if (problem.kind === "incomplete") {
       setError({
-        title: t("openings.errors.incomplete"),
-        items: publicationFieldLabels(t, problem.fields),
+        title: localized("openings.errors.incomplete"),
+        fields: problem.fields,
       });
     } else if (problem.kind === "hiring-team-invalid") {
       setError({
-        title: t("openings.errors.invalidTeam", {
-          addresses: problem.emailAddresses.join(", "),
-        }),
+        title: localized((t) =>
+          t("openings.errors.invalidTeam", {
+            addresses: problem.emailAddresses.join(", "),
+          }),
+        ),
       });
     } else {
-      setError({ title: problemMessage(t, cause) });
+      setError({ title: localized((t) => problemMessage(t, cause)) });
     }
     if (isDefiniteRefusal(cause)) rotate();
   };

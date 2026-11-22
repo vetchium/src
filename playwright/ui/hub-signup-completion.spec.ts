@@ -8,11 +8,17 @@ import { IdempotencyKeyConflictError } from "typespec/problem/common";
 import { InvalidSignupTokenError } from "typespec/problem/hub/signup";
 import { stubShellReads, stubSignupDetails } from "../lib/hub-ui-stubs.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
+import { chooseOption } from "../lib/region-ui.ts";
 
 const password = "Str0ng!Passphrase2026";
 const token = "a".repeat(64);
 const handle = "examp000-00000000001";
 const address = "person@example.com";
+
+const newPasswordError = {
+  de: "Verwenden Sie 15 bis 128 Zeichen und vermeiden Sie häufige Passwörter.",
+  ta: "15 முதல் 128 எழுத்துகளைப் பயன்படுத்தி பொதுவான கடவுச்சொற்களைத் தவிர்க்கவும்.",
+};
 
 const passwordField = (page: Page) =>
   page.getByLabel("Password", { exact: true });
@@ -88,6 +94,42 @@ test.beforeEach(({ page }) => stubSignupDetails(page));
  * the homed-elsewhere response is a coordinator-driven edge case that is far
  * cheaper to exercise this way than through a second real tenant signup.
  */
+test("the password error follows the language without validating again", async ({
+  page,
+}) => {
+  await stubSignupDetails(page);
+  await open(page);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(
+    page.getByText(
+      "Use 15 to 128 characters and avoid commonly used passwords.",
+    ),
+  ).toBeVisible();
+  await passwordField(page).fill("too short");
+  await page.getByRole("button", { name: "Create account" }).click();
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.startsWith("/api/"))
+      requests.push(request.url());
+  });
+
+  await chooseOption(
+    page,
+    page.getByRole("combobox", { name: "Select language" }),
+    "Deutsch (Deutschland)",
+  );
+  await expect(page.getByText(newPasswordError.de)).toBeVisible();
+  const german = page.getByRole("combobox", { name: "Sprache auswählen" });
+  await expect(german).toBeFocused();
+  await chooseOption(page, german, "தமிழ்");
+  await expect(page.getByText(newPasswordError.ta)).toBeVisible();
+  await expect(page.getByText(newPasswordError.de)).toHaveCount(0);
+  await expect(page.getByLabel("கடவுச்சொல்", { exact: true })).toHaveValue(
+    "too short",
+  );
+  expect(requests).toEqual([]);
+});
+
 test("a signup completed elsewhere sends the user to their home region instead of a password form", async ({
   page,
 }) => {

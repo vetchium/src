@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   Button,
@@ -155,14 +156,18 @@ export function AuditLogsPage() {
             <Form.Item
               name="start_at"
               label={t("auditLogs.start")}
-              rules={[{ required: true, message: t("validation.required") }]}
+              rules={[
+                { required: true, message: localized("validation.required") },
+              ]}
             >
               <Input type="datetime-local" step="1" />
             </Form.Item>
             <Form.Item
               name="end_at"
               label={t("auditLogs.end")}
-              rules={[{ required: true, message: t("validation.required") }]}
+              rules={[
+                { required: true, message: localized("validation.required") },
+              ]}
             >
               <Input type="datetime-local" step="1" />
             </Form.Item>

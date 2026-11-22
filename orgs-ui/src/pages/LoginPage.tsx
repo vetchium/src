@@ -1,5 +1,6 @@
 import { GoogleOutlined } from "@ant-design/icons";
 import { useMutation } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import { safeReturnTo } from "@vetchium/portal-ui/navigation";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
 import { useExplicitRegionSelection } from "@vetchium/portal-ui/region-picker";
@@ -184,14 +185,14 @@ export function LoginPage() {
             label={t("fields.domain")}
             extra={t("login.domainHelp")}
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               {
                 validator: (_, value: string | undefined) =>
                   value === undefined ||
                   value === "" ||
                   isOrgDomain(normalizeOrgDomain(value))
                     ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.domain"))),
+                    : Promise.reject(localized("validation.domain")),
               },
             ]}
           >
@@ -205,7 +206,11 @@ export function LoginPage() {
             name="email_address"
             label={t("fields.email")}
             rules={[
-              { required: true, type: "email", message: t("validation.email") },
+              {
+                required: true,
+                type: "email",
+                message: localized("validation.email"),
+              },
             ]}
           >
             <Input autoComplete="username" inputMode="email" />
@@ -213,7 +218,9 @@ export function LoginPage() {
           <Form.Item
             name="password"
             label={t("fields.password")}
-            rules={[{ required: true, message: t("validation.required") }]}
+            rules={[
+              { required: true, message: localized("validation.required") },
+            ]}
           >
             <Input.Password autoComplete="current-password" />
           </Form.Item>

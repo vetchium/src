@@ -1,5 +1,6 @@
 import { PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { fieldErrors, localized } from "@vetchium/portal-ui/localized";
 import { Button, Col, Form, type FormInstance, Input, Row } from "antd";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -118,7 +119,7 @@ export function WorkExperienceForm({
           form.setFields(
             invalid.map((name) => ({
               name: name as keyof WorkExperienceFormValues,
-              errors: [t(`profileWork.validation.${name}`)],
+              errors: fieldErrors(localized(`profileWork.validation.${name}`)),
             })),
           );
           return;
@@ -136,7 +137,7 @@ export function WorkExperienceForm({
               {
                 validator: async (_, value: string) => {
                   if (!isProfileTitle(value ?? "")) {
-                    throw new Error(t("profileWork.validation.job_title"));
+                    throw localized("profileWork.validation.job_title");
                   }
                 },
               },
@@ -162,9 +163,7 @@ export function WorkExperienceForm({
                       normalizeProfessionalDomain(value ?? ""),
                     )
                   ) {
-                    throw new Error(
-                      t("profileWork.validation.employer_domain"),
-                    );
+                    throw localized("profileWork.validation.employer_domain");
                   }
                 },
               },
@@ -187,7 +186,7 @@ export function WorkExperienceForm({
               {
                 validator: async (_, value: ProfileMonth | undefined) => {
                   if (value === undefined) {
-                    throw new Error(t("profileWork.validation.start_month"));
+                    throw localized("profileWork.validation.start_month");
                   }
                 },
               },
@@ -215,7 +214,7 @@ export function WorkExperienceForm({
                     start !== undefined &&
                     value < start
                   ) {
-                    throw new Error(t("profileWork.validation.end_month"));
+                    throw localized("profileWork.validation.end_month");
                   }
                 },
               },
@@ -247,7 +246,7 @@ export function WorkExperienceForm({
             {
               validator: async (_, value: string) => {
                 if ([...(value ?? "")].length > 200) {
-                  throw new Error(t("profileWork.validation.location"));
+                  throw localized("profileWork.validation.location");
                 }
               },
             },
@@ -262,7 +261,7 @@ export function WorkExperienceForm({
             {
               validator: async (_, value: string) => {
                 if ([...(value ?? "")].length > 2000) {
-                  throw new Error(t("profileWork.validation.description"));
+                  throw localized("profileWork.validation.description");
                 }
               },
             },

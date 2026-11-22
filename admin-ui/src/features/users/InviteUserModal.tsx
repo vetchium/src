@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { localized } from "@vetchium/portal-ui/localized";
 import { App, Form, Input, Modal } from "antd";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -123,14 +124,14 @@ export function InviteUserModal({ open, onClose }: InviteUserModalProps) {
           name="email_address"
           label={t("fields.email")}
           rules={[
-            { required: true, message: t("validation.required") },
+            { required: true, message: localized("validation.required") },
             {
               validator: (_, value: string | undefined) =>
                 value === undefined ||
                 value === "" ||
                 validateInviteUserRequest({ email_address: value }).length === 0
                   ? Promise.resolve()
-                  : Promise.reject(new Error(t("validation.email"))),
+                  : Promise.reject(localized("validation.email")),
             },
           ]}
         >

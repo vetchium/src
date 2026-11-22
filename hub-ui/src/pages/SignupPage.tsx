@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { fieldErrors, localized } from "@vetchium/portal-ui/localized";
 import {
   Button,
   Card,
@@ -96,7 +97,7 @@ export function SignupPage() {
       form.setFields([
         {
           name: "email_address",
-          errors: [t("errors.signupDomainNotAllowed")],
+          errors: fieldErrors(localized("errors.signupDomainNotAllowed")),
         },
       ]);
       emailInput.current?.focus();
@@ -165,7 +166,7 @@ export function SignupPage() {
                 {
                   validator: async (_, value: string | undefined) => {
                     if (!isDisplayName((value ?? "").trim())) {
-                      throw new Error(t("validation.displayName"));
+                      throw localized("validation.displayName");
                     }
                   },
                 },
@@ -186,7 +187,7 @@ export function SignupPage() {
                 {
                   validator: async (_, value: string | undefined) => {
                     if (!isEmailAddress((value ?? "").trim())) {
-                      throw new Error(t("validation.email"));
+                      throw localized("validation.email");
                     }
                   },
                 },
@@ -217,10 +218,10 @@ export function SignupPage() {
                 {
                   validator: async (_, value: string | undefined) => {
                     if (value === undefined) {
-                      throw new Error(t("validation.country"));
+                      throw localized("validation.country");
                     }
                     if (eligibleRegions(value).length === 0) {
-                      throw new Error(t("signup.noRegions"));
+                      throw localized("signup.noRegions");
                     }
                   },
                 },

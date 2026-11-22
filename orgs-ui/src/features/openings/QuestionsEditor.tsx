@@ -1,4 +1,5 @@
 import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   Button,
@@ -173,7 +174,9 @@ export function QuestionsEditor({
                           {
                             required: true,
                             whitespace: true,
-                            message: t("openings.questions.textRequired"),
+                            message: localized(
+                              "openings.questions.textRequired",
+                            ),
                           },
                         ]}
                       >
@@ -254,8 +257,8 @@ export function QuestionsEditor({
                                       value >= min
                                       ? Promise.resolve()
                                       : Promise.reject(
-                                          new Error(
-                                            t("openings.questions.maxBelowMin"),
+                                          localized(
+                                            "openings.questions.maxBelowMin",
                                           ),
                                         );
                                   },
@@ -334,7 +337,7 @@ function OptionsEditor({
                   {
                     required: true,
                     whitespace: true,
-                    message: t("openings.questions.optionRequired"),
+                    message: localized("openings.questions.optionRequired"),
                   },
                   ({ getFieldValue }) => ({
                     validator: (_, value?: string) => {
@@ -348,7 +351,7 @@ function OptionsEditor({
                         ).length > 1;
                       return repeated
                         ? Promise.reject(
-                            new Error(t("openings.questions.optionRepeated")),
+                            localized("openings.questions.optionRepeated"),
                           )
                         : Promise.resolve();
                     },

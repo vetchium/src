@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   Button,
@@ -129,7 +130,7 @@ export function SignupRequestForm({
           label={t("fields.domain")}
           extra={t("signup.domainHelp")}
           rules={[
-            { required: true, message: t("validation.required") },
+            { required: true, message: localized("validation.required") },
             {
               validator: (_, value: string | undefined) => {
                 if (value === undefined || value === "") {
@@ -137,12 +138,10 @@ export function SignupRequestForm({
                 }
                 if (admittedDomain(value) !== null) return Promise.resolve();
                 return Promise.reject(
-                  new Error(
-                    t(
-                      isOrgDomain(normalizeOrgDomain(value))
-                        ? "validation.specialUseDomain"
-                        : "validation.domain",
-                    ),
+                  localized(
+                    isOrgDomain(normalizeOrgDomain(value))
+                      ? "validation.specialUseDomain"
+                      : "validation.domain",
                   ),
                 );
               },
@@ -163,16 +162,14 @@ export function SignupRequestForm({
               noStyle
               dependencies={["domain"]}
               rules={[
-                { required: true, message: t("validation.required") },
+                { required: true, message: localized("validation.required") },
                 ({ getFieldValue }) => ({
                   validator: (_, value: string | undefined) => {
                     if (value === undefined || value === "") {
                       return Promise.resolve();
                     }
                     if (value.includes("@")) {
-                      return Promise.reject(
-                        new Error(t("validation.localPart")),
-                      );
+                      return Promise.reject(localized("validation.localPart"));
                     }
                     // Dependency revalidation runs before this component
                     // re-renders, so read the domain from the form.
@@ -185,7 +182,7 @@ export function SignupRequestForm({
                       request({ domain: current, local_part: value }),
                     );
                     return fields.includes("email_address")
-                      ? Promise.reject(new Error(t("validation.email")))
+                      ? Promise.reject(localized("validation.email"))
                       : Promise.resolve();
                   },
                 }),

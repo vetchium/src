@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
@@ -106,12 +107,12 @@ function CompleteSetupOperation({ token }: { token: string }) {
             label={t("fields.name")}
             extra={t("profile.nameHint")}
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               {
                 validator: (_: unknown, value: string | undefined) =>
                   value === undefined || value === "" || isDisplayName(value)
                     ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.displayName"))),
+                    : Promise.reject(localized("validation.displayName")),
               },
             ]}
           >
@@ -121,12 +122,12 @@ function CompleteSetupOperation({ token }: { token: string }) {
             name="password"
             label={t("fields.password")}
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               {
                 validator: (_: unknown, value: string | undefined) =>
                   value === undefined || value === "" || isNewPassword(value)
                     ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.newPassword"))),
+                    : Promise.reject(localized("validation.newPassword")),
               },
             ]}
           >
@@ -137,12 +138,12 @@ function CompleteSetupOperation({ token }: { token: string }) {
             label={t("fields.confirmPassword")}
             dependencies={["password"]}
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               ({ getFieldValue }) => ({
                 validator: (_, value: string) =>
                   value === getFieldValue("password")
                     ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.passwordMatch"))),
+                    : Promise.reject(localized("validation.passwordMatch")),
               }),
             ]}
           >

@@ -1,6 +1,7 @@
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, App, Button, Card, Flex, Select, Typography } from "antd";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import { maxInterviewsPerStage } from "typespec/orgs/applications/applications";
@@ -58,7 +59,7 @@ export function ApplicationActions({
   );
   const [dialog, setDialog] = useState<Dialog>();
   const [target, setTarget] = useState<string>();
-  const [moveError, setMoveError] = useState<string>();
+  const [moveError, setMoveError] = useState<ReactNode>();
   const state = detail.state;
 
   const currentIndex = stages.findIndex(
@@ -123,7 +124,7 @@ export function ApplicationActions({
       setTarget(undefined);
       void message.success(t("applications.actions.moved"));
     } catch (cause) {
-      setMoveError(applicationErrorMessage(t, cause));
+      setMoveError(localized((t) => applicationErrorMessage(t, cause)));
       if (isDefiniteRefusal(cause)) moveKey.rotate();
     }
   };

@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { useHoldNavigation } from "@vetchium/portal-ui/pending-operations";
 import { regionFromSearchParams } from "@vetchium/portal-ui/region-selection";
 import {
@@ -17,7 +18,7 @@ import {
   Spin,
   Typography,
 } from "antd";
-import { useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { isNewPassword } from "typespec/common/authentication";
@@ -68,12 +69,15 @@ const terminalProblems = new Set<string>([
   DomainAlreadyOwnedError.type,
 ]);
 
-function predicateRule(valid: (value: string) => boolean, message: string) {
+function predicateRule(
+  valid: (value: string) => boolean,
+  message: ReactElement,
+) {
   return {
     validator: (_: unknown, value: string | undefined) =>
       value === undefined || value === "" || valid(value)
         ? Promise.resolve()
-        : Promise.reject(new Error(message)),
+        : Promise.reject(message),
   };
 }
 
@@ -280,8 +284,14 @@ export function CompleteSignupPage() {
                   label={t("fields.orgDisplayName")}
                   extra={t("completeSignup.displayNameHelp")}
                   rules={[
-                    { required: true, message: t("validation.required") },
-                    predicateRule(isDisplayName, t("validation.displayName")),
+                    {
+                      required: true,
+                      message: localized("validation.required"),
+                    },
+                    predicateRule(
+                      isDisplayName,
+                      localized("validation.displayName"),
+                    ),
                   ]}
                 >
                   <Input autoComplete="organization" maxLength={200} />
@@ -291,7 +301,10 @@ export function CompleteSignupPage() {
                   label={t("fields.orgCountry")}
                   extra={t("completeSignup.countryHelp")}
                   rules={[
-                    { required: true, message: t("validation.required") },
+                    {
+                      required: true,
+                      message: localized("validation.required"),
+                    },
                   ]}
                 >
                   <Select
@@ -304,8 +317,14 @@ export function CompleteSignupPage() {
                   name="password"
                   label={t("fields.newPassword")}
                   rules={[
-                    { required: true, message: t("validation.required") },
-                    predicateRule(isNewPassword, t("validation.newPassword")),
+                    {
+                      required: true,
+                      message: localized("validation.required"),
+                    },
+                    predicateRule(
+                      isNewPassword,
+                      localized("validation.newPassword"),
+                    ),
                   ]}
                 >
                   <Input.Password autoComplete="new-password" maxLength={128} />
@@ -315,7 +334,10 @@ export function CompleteSignupPage() {
                   label={t("fields.confirmPassword")}
                   dependencies={["password"]}
                   rules={[
-                    { required: true, message: t("validation.required") },
+                    {
+                      required: true,
+                      message: localized("validation.required"),
+                    },
                     ({ getFieldValue }) => ({
                       validator: (_, value: string | undefined) =>
                         value === undefined ||
@@ -323,7 +345,7 @@ export function CompleteSignupPage() {
                         value === getFieldValue("password")
                           ? Promise.resolve()
                           : Promise.reject(
-                              new Error(t("validation.passwordMatch")),
+                              localized("validation.passwordMatch"),
                             ),
                     }),
                   ]}
@@ -344,7 +366,7 @@ export function CompleteSignupPage() {
                         value === true
                           ? Promise.resolve()
                           : Promise.reject(
-                              new Error(t("completeSignup.termsRequired")),
+                              localized("completeSignup.termsRequired"),
                             ),
                     },
                   ]}

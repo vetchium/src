@@ -1,6 +1,7 @@
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, App, Form, Modal, Radio, Typography } from "antd";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PipelineStage } from "typespec/orgs/hiring/pipelines";
 import { isDefiniteRefusal } from "../../api/client";
@@ -38,7 +39,7 @@ export function ShortlistDialog({
     `shortlist:${openingNumber}:${application.application_number}`,
   );
   const [stageID, setStageID] = useState(stages[0]?.id);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
   const name = applicantName(t, application);
   const chosen = stages.find((stage) => stage.id === stageID);
 
@@ -60,7 +61,7 @@ export function ShortlistDialog({
       onDone?.();
       onClose();
     } catch (cause) {
-      setError(applicationErrorMessage(t, cause));
+      setError(localized((t) => applicationErrorMessage(t, cause)));
       if (isDefiniteRefusal(cause)) key.rotate();
     }
   };

@@ -3,6 +3,7 @@ import {
   type IdempotencyKeyHolder,
   useIdempotencyKey,
 } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   App,
@@ -17,8 +18,12 @@ import {
   Tag,
   Typography,
 } from "antd";
-import type { TFunction } from "i18next";
-import { useCallback, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import type {
   AISettingsResponse,
@@ -44,11 +49,10 @@ type SaveSettings = ReturnType<typeof useSetAISettings>;
 
 /** Saves the settings and returns a message for the user when it fails. */
 async function submitSettings(
-  t: TFunction,
   save: SaveSettings,
   key: IdempotencyKeyHolder,
   request: SetAISettingsRequest,
-): Promise<string | undefined> {
+): Promise<ReactElement | undefined> {
   try {
     await save.mutateAsync({ request, key: key.current() });
     key.rotate();
@@ -57,14 +61,16 @@ async function submitSettings(
     if (isDefiniteRefusal(cause)) key.rotate();
     const problem = cause instanceof APIError ? cause.problem : undefined;
     if (problem?.type === AITermsRequiredErrorType) {
-      return t("ai.settings.errors.termsRequired");
+      return localized("ai.settings.errors.termsRequired");
     }
     if (isAIModelNotOfferedProblem(problem)) {
-      return t("ai.settings.errors.modelNotOffered", {
-        models: problem.model_oids.join(", "),
-      });
+      return localized((t) =>
+        t("ai.settings.errors.modelNotOffered", {
+          models: problem.model_oids.join(", "),
+        }),
+      );
     }
-    return problemMessage(t, cause);
+    return localized((t) => problemMessage(t, cause));
   }
 }
 
@@ -76,14 +82,14 @@ function AIAssistanceCard({ settings }: { settings: AISettingsResponse }) {
   const key = useIdempotencyKey();
   const [termsOpen, setTermsOpen] = useState(false);
   const [accept, setAccept] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
   const enabled = settings.settings.enabled;
   const termsCurrent =
     settings.settings.accepted_terms_version === settings.current_terms_version;
 
   const apply = async (next: boolean, acceptTerms: boolean) => {
     setError(undefined);
-    const failure = await submitSettings(t, save, key, {
+    const failure = await submitSettings(save, key, {
       enabled: next,
       policies: resendablePolicies(settings),
       ...(acceptTerms
@@ -243,7 +249,7 @@ function FeaturePolicyCard({
   const key = useIdempotencyKey();
   const stored = storedDraft(settings, operation);
   const [draft, setDraft] = useState<PolicyDraft>(stored);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
   const number = new Intl.NumberFormat(i18n.language);
   const feature = t(`ai.operations.${operation}`);
   const modelName = (oid: string | undefined) =>
@@ -292,7 +298,7 @@ function FeaturePolicyCard({
                   : { default_model: draft.preselected }),
               },
             ];
-    const failure = await submitSettings(t, save, key, {
+    const failure = await submitSettings(save, key, {
       enabled: settings.settings.enabled,
       policies: [...others, ...policy],
     });

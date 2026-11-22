@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   findRegion,
   regionFromSearchParams,
@@ -286,7 +287,7 @@ export function CompleteSignupPage() {
                     {
                       validator: async (_, value: string | undefined) => {
                         if (!isNewPassword(value ?? "")) {
-                          throw new Error(t("validation.newPassword"));
+                          throw localized("validation.newPassword");
                         }
                       },
                     },

@@ -1,4 +1,5 @@
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   type AnswerValues,
   answerFits,
@@ -597,7 +598,7 @@ export function ApplyPage() {
                             trimmed !== "" &&
                             !isApplicationCoverNote(trimmed)
                           ) {
-                            throw new Error(t("apply.coverNote.invalid"));
+                            throw localized("apply.coverNote.invalid");
                           }
                         },
                       },

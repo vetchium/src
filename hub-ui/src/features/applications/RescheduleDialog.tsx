@@ -1,3 +1,4 @@
+import { localized } from "@vetchium/portal-ui/localized";
 import { Form, Input, Modal } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -50,7 +51,7 @@ export function RescheduleDialog({
             {
               validator: async (_, value: string | undefined) => {
                 if (!isInterviewRescheduleNote((value ?? "").trim())) {
-                  throw new Error(t("applications.reschedule.invalid"));
+                  throw localized("applications.reschedule.invalid");
                 }
               },
             },

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import { Alert, Button, Card, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
@@ -95,7 +96,7 @@ function ResetPasswordOperation({ token }: { token: string }) {
             name="new_password"
             label={t("fields.newPassword")}
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               {
                 validator: (_: unknown, value: string | undefined) =>
                   value === undefined ||
@@ -105,7 +106,7 @@ function ResetPasswordOperation({ token }: { token: string }) {
                     new_password: value,
                   }).includes("new_password")
                     ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.newPassword"))),
+                    : Promise.reject(localized("validation.newPassword")),
               },
             ]}
           >
@@ -116,12 +117,12 @@ function ResetPasswordOperation({ token }: { token: string }) {
             label={t("fields.confirmPassword")}
             dependencies={["new_password"]}
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               ({ getFieldValue }) => ({
                 validator: (_, value: string) =>
                   value === getFieldValue("new_password")
                     ? Promise.resolve()
-                    : Promise.reject(new Error(t("validation.passwordMatch"))),
+                    : Promise.reject(localized("validation.passwordMatch")),
               }),
             ]}
           >

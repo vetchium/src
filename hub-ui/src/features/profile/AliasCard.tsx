@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDateTimeFormat } from "@vetchium/portal-ui/date-time";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   App,
@@ -130,7 +131,7 @@ function AliasForm({
             {
               validator: async (_, value: string) => {
                 if (!isHubAlias(value ?? "")) {
-                  throw new Error(t("profileAlias.invalid"));
+                  throw localized("profileAlias.invalid");
                 }
               },
             },

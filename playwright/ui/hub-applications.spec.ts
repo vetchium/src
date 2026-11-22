@@ -25,6 +25,7 @@ import {
 } from "../lib/orgs-applications.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
 import {
+  chooseOption,
   chooseRegion,
   expect,
   type HubTestUser,
@@ -1008,6 +1009,20 @@ test("a Hub user answers every type of question within its bounds and reads the 
 
       // Required questions block the submit until answered.
       await page.getByRole("button", { name: "Submit application" }).click();
+      await expect(page.getByText("Answer this question.")).toHaveCount(4);
+      await chooseOption(
+        page,
+        page.getByRole("combobox", { name: "Select language" }),
+        "Deutsch (Deutschland)",
+      );
+      await expect(page.getByText("Beantworten Sie diese Frage.")).toHaveCount(
+        4,
+      );
+      await chooseOption(
+        page,
+        page.getByRole("combobox", { name: "Sprache auswählen" }),
+        "English (United States)",
+      );
       await expect(page.getByText("Answer this question.")).toHaveCount(4);
 
       await page.getByLabel("Current role").fill("  Platform engineer  ");

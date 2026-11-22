@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { frontendLocaleOptions } from "@vetchium/portal-ui/localization";
+import { localized } from "@vetchium/portal-ui/localized";
 import { App, Button, Form, Input, Select } from "antd";
 import { useTranslation } from "react-i18next";
 import { isDisplayName } from "typespec/common/localization";
@@ -46,7 +47,7 @@ export function CompanyDetailsForm({ org }: { org: OrgSummary }) {
             validator: (_, value: unknown) =>
               typeof value === "string" && isDisplayName(value)
                 ? Promise.resolve()
-                : Promise.reject(new Error(t("company.invalidName"))),
+                : Promise.reject(localized("company.invalidName")),
           },
         ]}
       >
@@ -56,7 +57,7 @@ export function CompanyDetailsForm({ org }: { org: OrgSummary }) {
         name="country"
         label={t("company.country")}
         extra={t("company.countryHelp")}
-        rules={[{ required: true, message: t("validation.required") }]}
+        rules={[{ required: true, message: localized("validation.required") }]}
       >
         <Select
           showSearch
@@ -68,7 +69,7 @@ export function CompanyDetailsForm({ org }: { org: OrgSummary }) {
         name="default_language"
         label={t("company.defaultLanguage")}
         extra={t("company.defaultLanguageHelp")}
-        rules={[{ required: true, message: t("validation.required") }]}
+        rules={[{ required: true, message: localized("validation.required") }]}
       >
         <Select options={frontendLocaleOptions(frontendLocaleValues)} />
       </Form.Item>

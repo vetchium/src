@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   Button,
@@ -152,9 +153,14 @@ export function TwoFactorPage() {
                 : t("fields.recoveryCode")
             }
             rules={[
-              { required: true, message: t("validation.required") },
+              { required: true, message: localized("validation.required") },
               ...(method === "totp"
-                ? [{ pattern: /^\d{6}$/, message: t("validation.totpCode") }]
+                ? [
+                    {
+                      pattern: /^\d{6}$/,
+                      message: localized("validation.totpCode"),
+                    },
+                  ]
                 : [
                     {
                       validator: (_: unknown, value: string | undefined) =>
@@ -163,7 +169,7 @@ export function TwoFactorPage() {
                         isTOTPRecoveryCode(value)
                           ? Promise.resolve()
                           : Promise.reject(
-                              new Error(t("validation.recoveryCode")),
+                              localized("validation.recoveryCode"),
                             ),
                     },
                   ]),

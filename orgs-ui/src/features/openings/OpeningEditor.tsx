@@ -12,6 +12,7 @@ import {
 } from "@ant-design/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { fieldErrors, localized } from "@vetchium/portal-ui/localized";
 import { OpeningTagSelect } from "@vetchium/portal-ui/opening-tags";
 import { SidePanel } from "@vetchium/portal-ui/shell";
 import {
@@ -299,7 +300,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
   const tags = useOpeningTags();
   const hiringManagerEmail = Form.useWatch("hiring_manager_email", form);
   const recruiterEmail = Form.useWatch("recruiter_email", form);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
   const [activeTab, setActiveTab] = useState("edit");
   // The one section on screen; every section stays mounted (hidden) so the
   // form validates and saves all of them.
@@ -458,22 +459,31 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       void queryClient.invalidateQueries({
         queryKey: ["orgs", "openings", "detail", opening?.opening_number],
       });
-      setError(t("openings.errors.versionConflict"));
+      setError(localized("openings.errors.versionConflict"));
     } else if (problem.kind === "quota-exceeded") {
       setError(
-        t("openings.errors.quota", {
-          quota: problem.quota,
-          count: problem.count,
-        }),
+        localized((t) =>
+          t("openings.errors.quota", {
+            quota: problem.quota,
+            count: problem.count,
+          }),
+        ),
       );
     } else if (problem.kind === "tag-unknown") {
-      const unknownTags = t("openings.errors.unknownTags", {
-        tags: problem.tagOIDs.join(", "),
-      });
-      form.setFields([{ name: ["content", "tags"], errors: [unknownTags] }]);
+      const unknownTags = localized((t) =>
+        t("openings.errors.unknownTags", { tags: problem.tagOIDs.join(", ") }),
+      );
+      form.setFields([
+        { name: ["content", "tags"], errors: fieldErrors(unknownTags) },
+      ]);
       revealErrors();
       setError(unknownTags);
     } else if (problem.kind === "hiring-team-invalid") {
+      const invalidTeam = localized((t) =>
+        t("openings.errors.invalidTeam", {
+          addresses: problem.emailAddresses.join(", "),
+        }),
+      );
       const values = form.getFieldsValue();
       for (const field of [
         "hiring_manager_email",
@@ -494,21 +504,13 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
           form.setFields([
             {
               name: field,
-              errors: [
-                t("openings.errors.invalidTeam", {
-                  addresses: problem.emailAddresses.join(", "),
-                }),
-              ],
+              errors: fieldErrors(invalidTeam),
             },
           ]);
         }
       }
       revealErrors();
-      setError(
-        t("openings.errors.invalidTeam", {
-          addresses: problem.emailAddresses.join(", "),
-        }),
-      );
+      setError(invalidTeam);
     } else {
       if (cause instanceof APIError && cause.problem?.fields?.length) {
         form.setFields(
@@ -520,12 +522,12 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
               : field) as NonNullable<
               Parameters<typeof form.setFields>[0][number]["name"]
             >,
-            errors: [t("openings.errors.invalidField")],
+            errors: fieldErrors(localized("openings.errors.invalidField")),
           })),
         );
         revealErrors();
       }
-      setError(problemMessage(t, cause));
+      setError(localized((t) => problemMessage(t, cause)));
     }
     if (isDefiniteRefusal(cause)) rotateKey();
   };

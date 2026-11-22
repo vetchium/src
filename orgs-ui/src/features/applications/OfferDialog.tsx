@@ -1,5 +1,6 @@
 import { UploadOutlined } from "@ant-design/icons";
 import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import { localized } from "@vetchium/portal-ui/localized";
 import {
   Alert,
   Button,
@@ -9,7 +10,7 @@ import {
   Typography,
   Upload,
 } from "antd";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ApplicationDetail } from "typespec/orgs/applications/applications";
 import {
@@ -42,7 +43,7 @@ export function OfferDialog({ detail, openingNumber, onClose }: Props) {
     `offer-letter:${openingNumber}:${detail.application_number}`,
   );
   const [letter, setLetter] = useState<File>();
-  const [letterError, setLetterError] = useState<string>();
+  const [letterError, setLetterError] = useState<ReactNode>();
   const [joining, setJoining] = useState("");
   const [days, setDays] = useState<number | null>(defaultResponseDays);
   const uploaded = useRef<{ file: File; id: string } | undefined>(undefined);
@@ -64,12 +65,12 @@ export function OfferDialog({ detail, openingNumber, onClose }: Props) {
     letterKey.rotate();
     setLetter(undefined);
     if (file.size > maxOfferLetterBytes) {
-      setLetterError(t("applications.errors.letterTooLarge"));
+      setLetterError(localized("applications.errors.letterTooLarge"));
       return;
     }
     const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
     if (!isPDF(head)) {
-      setLetterError(t("applications.errors.letterInvalid"));
+      setLetterError(localized("applications.errors.letterInvalid"));
       return;
     }
     setLetterError(undefined);

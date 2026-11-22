@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { localized } from "@vetchium/portal-ui/localized";
 import { useExplicitRegionSelection } from "@vetchium/portal-ui/region-picker";
 import { Button, Card, Checkbox, Form, Input, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
@@ -81,7 +82,11 @@ export function LoginPage() {
             name="email_address"
             label={t("fields.email")}
             rules={[
-              { required: true, type: "email", message: t("validation.email") },
+              {
+                required: true,
+                type: "email",
+                message: localized("validation.email"),
+              },
             ]}
           >
             <Input autoComplete="email" />
@@ -89,7 +94,9 @@ export function LoginPage() {
           <Form.Item
             name="password"
             label={t("fields.password")}
-            rules={[{ required: true, message: t("validation.required") }]}
+            rules={[
+              { required: true, message: localized("validation.required") },
+            ]}
           >
             <Input.Password autoComplete="current-password" />
           </Form.Item>

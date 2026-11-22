@@ -14,6 +14,14 @@ import {
   test,
 } from "../lib/region-ui.ts";
 
+const german = {
+  name: "Geben Sie Ihren Namen mit höchstens 200 Zeichen ein.",
+  email: "Geben Sie eine gültige E-Mail-Adresse ein.",
+  country: "Wählen Sie Ihr Wohnsitzland.",
+  refused:
+    "Mit dieser E-Mail-Domain ist keine Registrierung möglich. Versuchen Sie eine andere Adresse.",
+};
+
 const accepted = (route: Route) => route.fulfill({ status: 202 });
 
 function refused(problem: { status: number }) {
@@ -80,6 +88,57 @@ test("signup explains every missing or invalid field and sends nothing", async (
   ).toBeVisible();
   await expect(page.getByText("Enter a valid email address.")).toBeVisible();
   expect(hosts).toEqual([]);
+});
+
+test("field errors follow the language, and a valid field gains none", async ({
+  page,
+}) => {
+  const hosts = recordRegionalAPIHosts(page);
+  await page.goto(`${HUB_PORTAL}/signup`);
+  await name(page).fill("Example Person");
+  await email(page).fill("not-an-address");
+  await send(page);
+  await expect(page.getByText("Enter a valid email address.")).toBeVisible();
+
+  await chooseOption(
+    page,
+    page.getByRole("combobox", { name: "Select language" }),
+    "Deutsch (Deutschland)",
+  );
+  await expect(page.getByText(german.email)).toBeVisible();
+  await expect(page.getByText(german.country)).toBeVisible();
+  await expect(page.getByText(german.name)).toHaveCount(0);
+  await expect(
+    page.getByRole("textbox", { name: "Ihr Name", exact: true }),
+  ).toHaveValue("Example Person");
+  await expect(
+    page.getByRole("combobox", { name: "Sprache auswählen" }),
+  ).toBeFocused();
+  expect(hosts).toEqual([]);
+});
+
+test("a server's refusal of a field follows the language and sends nothing again", async ({
+  page,
+}) => {
+  const requests = await stubSignup(page, refused(SignupDomainNotAllowedError));
+  await fillForm(page);
+  await send(page);
+  await expect(
+    page.getByText(
+      "Signup isn't open to this email domain. Try another address.",
+    ),
+  ).toBeVisible();
+
+  await chooseOption(
+    page,
+    page.getByRole("combobox", { name: "Select language" }),
+    "Deutsch (Deutschland)",
+  );
+  await expect(page.getByText(german.refused)).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Sprache auswählen" }),
+  ).toBeFocused();
+  expect(requests).toHaveLength(1);
 });
 
 test("each signup field explains itself to the keyboard and the pointer", async ({

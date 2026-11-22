@@ -15,6 +15,7 @@
     "./idempotency": "./src/idempotency.ts",
     "./inbox": "./src/inbox.tsx",
     "./localization": "./src/localization.ts",
+    "./localized": "./src/localized.tsx",
     "./navigation": "./src/navigation.ts",
     "./openings": "./src/openings/index.ts",
     "./opening-tags": "./src/opening-tags/index.ts",
