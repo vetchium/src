@@ -37,6 +37,7 @@ import {
 } from "antd";
 import type { TFunction } from "i18next";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { normalizeEmailAddress } from "typespec/common/common";
@@ -354,32 +355,32 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
    * moved on from the bottom of the previous section.
    */
   const showSection = (key: string, field?: (string | number)[]) => {
-    setActiveTab("edit");
-    setCurrentSection(key);
-    // The section renders before the next frame.
-    requestAnimationFrame(() => {
-      if (field) {
-        form.scrollToField(field, {
-          behavior: token.motion ? "smooth" : "auto",
-          block: "center",
-        });
-        // scrollToField's focus option needs a ref, which custom inputs such
-        // as OrgUserInput lack; every input carries the Form.Item id (the
-        // unnamed form's path joined by "_").
-        document
-          .getElementById(field.join("_"))
-          ?.focus({ preventScroll: true });
-        return;
-      }
-      const heading = headingRef.current;
-      if (!heading) return;
-      heading.focus({ preventScroll: true });
-      if (heading.getBoundingClientRect().top < 0)
-        heading.scrollIntoView({
-          behavior: token.motion ? "smooth" : "auto",
-          block: "start",
-        });
+    // A hidden element ignores focus(), and a frame can come before React's
+    // render. flushSync also flushes what the render's layout effects update:
+    // the tab pane, and the questions opened for an error.
+    flushSync(() => {
+      setActiveTab("edit");
+      setCurrentSection(key);
     });
+    if (field) {
+      form.scrollToField(field, {
+        behavior: token.motion ? "smooth" : "auto",
+        block: "center",
+      });
+      // scrollToField's focus option needs a ref, which custom inputs such
+      // as OrgUserInput lack; every input carries the Form.Item id (the
+      // unnamed form's path joined by "_").
+      document.getElementById(field.join("_"))?.focus({ preventScroll: true });
+      return;
+    }
+    const heading = headingRef.current;
+    if (!heading) return;
+    heading.focus({ preventScroll: true });
+    if (heading.getBoundingClientRect().top < 0)
+      heading.scrollIntoView({
+        behavior: token.motion ? "smooth" : "auto",
+        block: "start",
+      });
   };
   const countryNames = new Intl.DisplayNames([i18n.language], {
     type: "region",

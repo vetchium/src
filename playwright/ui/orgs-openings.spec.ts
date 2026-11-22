@@ -295,6 +295,79 @@ test("Opening managers find team members from the first letters typed", async ({
   });
 });
 
+/** Runs each animation frame callback at once, so one that expects a render
+ * first fails every time. One requested by another still waits for a frame,
+ * so animation loops end. */
+async function runFramesBeforeRenders(page: Page) {
+  await page.evaluate(() => {
+    const nextFrame = window.requestAnimationFrame.bind(window);
+    let inFrame = false;
+    window.requestAnimationFrame = (callback) => {
+      if (inFrame) return nextFrame(callback);
+      inFrame = true;
+      try {
+        callback(performance.now());
+      } finally {
+        inFrame = false;
+      }
+      return 0;
+    };
+  });
+}
+
+test("a failed save focuses a hidden field even when a frame comes before the render", async ({
+  page,
+  request,
+}) => {
+  await withOrg(request, async (org, api, owner) => {
+    const created = await api.createOpening(owner, {
+      content: {
+        ...completeContent,
+        questions: [
+          {
+            text: "Notice period in days?",
+            type: "number",
+            required: true,
+            min: 0,
+            max: 90,
+          },
+        ],
+      },
+      team_member_emails: [],
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    await signIn(page, org);
+    await page.goto(`${ORGS_PORTAL}/openings/1/edit`);
+    await openEditorStep(page, "Application questions");
+    const question = page.getByRole("button", {
+      name: /1\. Notice period in days\?/,
+    });
+    await question.click();
+    const smallest = page.getByRole("spinbutton", { name: "Smallest answer" });
+    const largest = page.getByRole("spinbutton", { name: "Largest answer" });
+    await smallest.fill("100");
+    await question.click();
+    await expect(largest).toBeHidden();
+    await page.getByRole("tab", { name: "Candidate preview" }).click();
+    await runFramesBeforeRenders(page);
+
+    // The field is inside a closed question, behind another tab.
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(largest).toBeFocused();
+
+    await smallest.fill("0");
+    await openEditorStep(page, "Hiring team and notes");
+    const hiringManager = page.getByRole("combobox", {
+      name: "Hiring manager",
+    });
+    await hiringManager.fill(`unknown@${org.domain}`);
+    await openEditorStep(page, "Basics");
+    // The server refuses a field in another section.
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(hiringManager).toBeFocused();
+  });
+});
+
 test("invalid team addresses and a full quota get specific messages", async ({
   page,
   request,

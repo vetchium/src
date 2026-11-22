@@ -13,7 +13,13 @@ import {
   Switch,
   Typography,
 } from "antd";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   type ApplicationQuestion,
@@ -70,7 +76,8 @@ export function QuestionsEditor({
     knownKeys.current = keys;
     setFieldKeys(keys);
   }, []);
-  useEffect(() => {
+  // Before paint, so the editor can focus a field inside an opened question.
+  useLayoutEffect(() => {
     if (opened > 0) setOpen(fieldKeys);
   }, [opened, fieldKeys]);
 
