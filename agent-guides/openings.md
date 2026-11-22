@@ -309,6 +309,10 @@ transition takes or returns one.
 - **OPN-ORG-006** Ship every string in every `orgs-ui` locale.
 - **OPN-ORG-007** Openings pages omit the Org name and logo from the shell
   banner; every Opening shown is the signed-in Org's own.
+- **OPN-ORG-009** The editor's "last read" (OPN-LIFE-004) is the copy its
+  edits started from, advanced only by its own saves. A refetch replaces it
+  only while the form has no edits and no write awaits an answer. A version
+  conflict replaces edits with the latest copy; never merge.
 
 ## Hub display
 

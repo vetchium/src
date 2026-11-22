@@ -10,8 +10,10 @@ import {
   SaveOutlined,
   SendOutlined,
 } from "@ant-design/icons";
-import { useQueryClient } from "@tanstack/react-query";
-import { useIdempotencyKey } from "@vetchium/portal-ui/idempotency";
+import {
+  type IdempotencyKeyHolder,
+  useIdempotencyKey,
+} from "@vetchium/portal-ui/idempotency";
 import { fieldErrors, localized } from "@vetchium/portal-ui/localized";
 import { OpeningTagSelect } from "@vetchium/portal-ui/opening-tags";
 import { SidePanel } from "@vetchium/portal-ui/shell";
@@ -37,13 +39,20 @@ import {
   theme,
 } from "antd";
 import type { TFunction } from "i18next";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { normalizeEmailAddress } from "typespec/common/common";
 import { countryCodeValues } from "typespec/common/countries";
 import { currencyCatalog } from "typespec/common/currency_catalog";
+import type { IdempotencyKey } from "typespec/common/idempotency";
 import {
   isLanguageTag,
   languageCatalog,
@@ -74,6 +83,7 @@ import { cleanQuestions, publicationFieldLabels } from "./publication";
 import { QuestionsEditor } from "./QuestionsEditor";
 import {
   useCreateOpeningMutation,
+  useLoadLatestOpening,
   useOpeningSummaryQuery,
   useOpeningTags,
   useRequestOpeningChangeMutation,
@@ -166,6 +176,49 @@ function teamRequest(values: EditorValues) {
       normalizeEmailAddress(value),
     ),
     internal_notes: values.internal_notes?.trim() || undefined,
+  };
+}
+
+/** The form's values that show one copy of an Opening. */
+function formValues(opening: OrgOpening): EditorValues {
+  return {
+    content: opening.working_content ?? opening.live_content ?? {},
+    hiring_manager_email: opening.hiring_manager?.email,
+    recruiter_email: opening.recruiter?.email,
+    team_member_emails: opening.team_members.map((member) => member.email),
+    internal_notes: opening.internal_notes,
+    pipeline_template_id: "",
+  };
+}
+
+function isContentFrozen(opening: OrgOpening | undefined): boolean {
+  return ["publish", "revise"].includes(opening?.pending_request?.kind ?? "");
+}
+
+/** What saving `values` over `opening` would write. */
+function changesFrom(opening: OrgOpening, values: EditorValues) {
+  const content = cleanContent(values.content);
+  const contentChanged =
+    !isContentFrozen(opening) &&
+    !sameValue(
+      content,
+      cleanContent(opening.working_content ?? opening.live_content),
+    );
+  const team = teamRequest(values);
+  const teamChanged = !sameValue(
+    { ...team, team_member_emails: [...team.team_member_emails].sort() },
+    {
+      hiring_manager_email: opening.hiring_manager?.email,
+      recruiter_email: opening.recruiter?.email,
+      team_member_emails: opening.team_members
+        .map((member) => member.email)
+        .sort(),
+      internal_notes: opening.internal_notes,
+    },
+  );
+  return {
+    content: contentChanged ? content : undefined,
+    team: teamChanged ? team : undefined,
   };
 }
 
@@ -285,11 +338,23 @@ function publicationChecklist(
   }));
 }
 
-export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
+export function OpeningEditor({
+  opening: fetched,
+}: {
+  /** The latest copy read; not necessarily the one being edited. */
+  opening?: OrgOpening;
+}) {
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const loadLatestOpening = useLoadLatestOpening();
+  // The copy the edits are based on, whose version a save sends
+  // (OPN-LIFE-004). Only this editor's saves and `adopt` move it: following
+  // `fetched` under unsaved edits would save them over a colleague's change.
+  const [opening, setOpening] = useState(fetched);
+  // Sends the last write again, body and key alike, while its outcome is
+  // unknown.
+  const unsettled = useRef<() => Promise<OrgOpening>>(undefined);
   const [form] = Form.useForm<EditorValues>();
   const content = Form.useWatch("content", form) as OpeningContent | undefined;
   const arrangement = Form.useWatch(["content", "work_arrangement"], form);
@@ -333,9 +398,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
   );
   const summary = useOpeningSummaryQuery();
   const { data: me } = useMyInfoQuery();
-  const contentLocked = ["publish", "revise"].includes(
-    opening?.pending_request?.kind ?? "",
-  );
+  const contentLocked = isContentFrozen(opening);
   const canApprove = me !== undefined && holds(me.permissions, ApproveOpenings);
   const create = useCreateOpeningMutation();
   const requestChange = useRequestOpeningChangeMutation();
@@ -422,16 +485,42 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
     }
   }, [form, opening, orgCountry, orgLanguage]);
 
+  /** Shows `copy` in place of what the form holds. */
+  const adopt = useCallback(
+    (copy: OrgOpening) => {
+      setOpening(copy);
+      setErrorSections([]);
+      form.setFields(
+        form.getFieldsError().map(({ name }) => ({
+          name: name as NonNullable<
+            Parameters<typeof form.setFields>[0][number]["name"]
+          >,
+          errors: [],
+        })),
+      );
+      const values = formValues(copy);
+      // Not setFieldsValue: it merges objects, so a field cleared in `copy`
+      // would keep its old value and be saved again.
+      form.setFields(
+        (Object.keys(values) as (keyof EditorValues)[]).map((name) => ({
+          name,
+          value: values[name],
+        })),
+      );
+    },
+    [form],
+  );
+
   useEffect(() => {
-    if (!opening) return;
-    form.setFieldsValue({
-      content: opening.working_content ?? opening.live_content ?? {},
-      hiring_manager_email: opening.hiring_manager?.email,
-      recruiter_email: opening.recruiter?.email,
-      team_member_emails: opening.team_members.map((member) => member.email),
-      internal_notes: opening.internal_notes,
-    });
-  }, [form, opening]);
+    if (
+      fetched &&
+      opening &&
+      fetched.version > opening.version &&
+      !unsettled.current &&
+      sameValue(form.getFieldsValue(true), formValues(opening))
+    )
+      adopt(fetched);
+  }, [form, fetched, opening, adopt]);
 
   // Form.setFields does not call onFieldsChange, so server errors refresh the
   // step statuses themselves.
@@ -453,13 +542,20 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
     if (first) showSection(sectionOf(first.name) ?? currentSection, first.name);
   };
 
-  const handleError = (cause: unknown, rotateKey: () => void) => {
-    const problem = openingProblem(cause);
-    if (problem.kind === "version-conflict") {
-      void queryClient.invalidateQueries({
-        queryKey: ["orgs", "openings", "detail", opening?.opening_number],
-      });
+  // The conflict's message says the latest is loaded, so it waits until it is.
+  const loadLatest = async (openingNumber: number) => {
+    try {
+      adopt(await loadLatestOpening(openingNumber));
       setError(localized("openings.errors.versionConflict"));
+    } catch (cause) {
+      setError(localized((t) => problemMessage(t, cause)));
+    }
+  };
+
+  const handleError = (cause: unknown) => {
+    const problem = openingProblem(cause);
+    if (problem.kind === "version-conflict" && opening) {
+      void loadLatest(opening.opening_number);
     } else if (problem.kind === "quota-exceeded") {
       setError(
         localized((t) =>
@@ -529,72 +625,106 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       }
       setError(localized((t) => problemMessage(t, cause)));
     }
-    if (isDefiniteRefusal(cause)) rotateKey();
   };
 
-  /** Saves what changed; the version saved last, or undefined on failure. */
+  /** Makes one write and bases the edits on what it saved. */
+  const write = async (
+    key: IdempotencyKeyHolder,
+    send: (key: IdempotencyKey) => Promise<OrgOpening>,
+  ): Promise<OrgOpening> => {
+    unsettled.current = () => write(key, send);
+    try {
+      const saved = await send(key.current());
+      key.rotate();
+      unsettled.current = undefined;
+      setOpening(saved);
+      return saved;
+    } catch (cause) {
+      if (isDefiniteRefusal(cause)) {
+        key.rotate();
+        unsettled.current = undefined;
+      }
+      throw cause;
+    }
+  };
+
+  /**
+   * `sent` with the ids the save gave its new questions (HP-QST-002), which
+   * the form takes too unless its questions changed during the save.
+   */
+  const keepQuestionIDs = (
+    sent: OpeningContent,
+    saved: OpeningContent | undefined,
+  ): OpeningContent => {
+    const path: ["content", "questions"] = ["content", "questions"];
+    const questions = sent.questions;
+    if (
+      !questions ||
+      !saved?.questions ||
+      !sameValue(cleanQuestions(form.getFieldValue(path) ?? []), questions)
+    )
+      return sent;
+    const ids = saved.questions.map((question) => question.id);
+    form.setFields(
+      ids.map((id, index) => ({ name: [...path, index, "id"], value: id })),
+    );
+    return {
+      ...sent,
+      questions: questions.map((question, index) => ({
+        ...question,
+        id: ids[index],
+      })),
+    };
+  };
+
+  /** Saves what changed; the copy saved last, or undefined on failure. */
   const saveExisting = async (
     current: OrgOpening,
-    values: EditorValues,
-  ): Promise<{ version: number; contentChanged: boolean } | undefined> => {
-    const nextContent = cleanContent(values.content);
-    const contentChanged =
-      !contentLocked &&
-      !sameValue(
-        nextContent,
-        cleanContent(current.working_content ?? current.live_content),
-      );
-    const nextTeam = teamRequest(values);
-    const teamChanged = !sameValue(
-      {
-        ...nextTeam,
-        team_member_emails: [...nextTeam.team_member_emails].sort(),
-      },
-      {
-        hiring_manager_email: current.hiring_manager?.email,
-        recruiter_email: current.recruiter?.email,
-        team_member_emails: current.team_members
-          .map((member) => member.email)
-          .sort(),
-        internal_notes: current.internal_notes,
-      },
-    );
-    let version = current.version;
-    if (contentChanged) {
-      try {
-        const saved = await save.mutateAsync({
-          request: {
-            opening_number: current.opening_number,
-            version,
-            content: nextContent,
-          },
-          key: contentKey.current(),
-        });
-        contentKey.rotate();
-        version = saved.version;
-      } catch (cause) {
-        handleError(cause, contentKey.rotate);
-        return undefined;
+    submitted: EditorValues,
+  ): Promise<OrgOpening | undefined> => {
+    const opening_number = current.opening_number;
+    let saved = current;
+    let values = submitted;
+    try {
+      // An unanswered write may have committed. Sending anything else first
+      // would conflict with it, as the same key or as an older version.
+      if (unsettled.current) {
+        try {
+          saved = await unsettled.current();
+          // It may have given new questions their ids. The whole store, since
+          // only mounted fields are listed otherwise, and none may be by now.
+          values = form.getFieldsValue(true);
+        } catch (cause) {
+          // A refusal means it never committed.
+          if (!isDefiniteRefusal(cause)) throw cause;
+        }
       }
-    }
-    if (teamChanged) {
-      try {
-        const saved = await saveTeam.mutateAsync({
-          request: {
-            opening_number: current.opening_number,
-            version,
-            ...nextTeam,
-          },
-          key: teamKey.current(),
+      const { content, team } = changesFrom(saved, values);
+      // Each write's result keeps the content as sent: the server trims it, so
+      // its copy would count as a change and be sent again.
+      if (content) {
+        const request = { opening_number, version: saved.version, content };
+        saved = await write(contentKey, async (key) => {
+          const result = await save.mutateAsync({ request, key });
+          return {
+            ...result,
+            working_content: keepQuestionIDs(content, result.working_content),
+          };
         });
-        teamKey.rotate();
-        version = saved.version;
-      } catch (cause) {
-        handleError(cause, teamKey.rotate);
-        return undefined;
       }
+      if (team) {
+        const { version, working_content } = saved;
+        const request = { opening_number, version, ...team };
+        saved = await write(teamKey, async (key) => ({
+          ...(await saveTeam.mutateAsync({ request, key })),
+          working_content,
+        }));
+      }
+      return saved;
+    } catch (cause) {
+      handleError(cause);
+      return undefined;
     }
-    return { version, contentChanged };
   };
 
   // After a save, publishing is the request the Opening's page would make;
@@ -633,6 +763,12 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
     if (opening) {
       const saved = await saveExisting(opening, values);
       if (saved === undefined) return;
+      const typed = changesFrom(saved, form.getFieldsValue(true));
+      if (typed.content || typed.team) {
+        // Leaving would lose it, and publishing would leave it out.
+        void message.warning(t("openings.editor.savedExceptTyped"));
+        return;
+      }
       if (publish) {
         await requestPublication(
           opening.opening_number,
@@ -668,7 +804,8 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       void message.success(t("openings.created"));
       navigate(paths.openingDetail(created.opening_number));
     } catch (cause) {
-      handleError(cause, contentKey.rotate);
+      if (isDefiniteRefusal(cause)) contentKey.rotate();
+      handleError(cause);
     }
   };
 
@@ -704,6 +841,8 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
   };
 
   const pending = create.isPending || save.isPending || saveTeam.isPending;
+  // The editor closes after the request, so input during it would be lost.
+  const requesting = requestChange.isPending;
   const previewContent = cleanContent(content);
   const checklist = publicationChecklist(t, previewContent, {
     hiring_manager_email: hiringManagerEmail,
@@ -718,7 +857,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       : "openings.editor.actions.revisionHelp";
 
   const lockable = (children: ReactNode) => (
-    <ConfigProvider componentDisabled={contentLocked}>
+    <ConfigProvider componentDisabled={contentLocked || requesting}>
       {children}
     </ConfigProvider>
   );
@@ -1142,6 +1281,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       form={form}
       layout="vertical"
       requiredMark={false}
+      disabled={requesting}
       onFinish={(values) => {
         const publish = publishing.current;
         publishing.current = false;
@@ -1149,11 +1289,11 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
       }}
       onFieldsChange={refreshErrorSections}
       onFinishFailed={revealErrors}
-      initialValues={{
-        content: {},
-        team_member_emails: [],
-        pipeline_template_id: "",
-      }}
+      initialValues={
+        opening
+          ? formValues(opening)
+          : { content: {}, team_member_emails: [], pipeline_template_id: "" }
+      }
     >
       <Flex vertical gap="middle">
         {contentLocked && (
@@ -1378,6 +1518,9 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
     </Card>
   );
 
+  if (opening && !["draft", "published", "paused"].includes(opening.state))
+    return <Alert type="warning" title={t("openings.errors.notEditable")} />;
+
   return (
     <Space orientation="vertical" size="large" className="full-width">
       <title>{t(opening ? "openings.editTitle" : "openings.newTitle")}</title>
@@ -1409,7 +1552,7 @@ export function OpeningEditor({ opening }: { opening?: OrgOpening }) {
                     cleanContent(form.getFieldValue("content"), true)
                   }
                   onDrafted={applyDraft}
-                  disabled={contentLocked || pending}
+                  disabled={contentLocked || pending || requesting}
                 />
               }
               items={[

@@ -31,12 +31,27 @@ export function useOpeningsQuery(request: ListOpeningsRequest, enabled = true) {
   });
 }
 
+const openingQuery = (openingNumber: number) => ({
+  queryKey: [...openingsQueryKey, "detail", openingNumber],
+  queryFn: () => orgsAPI.getOpening({ opening_number: openingNumber }),
+});
+
 export function useOpeningQuery(openingNumber: number) {
   return useQuery({
-    queryKey: [...openingsQueryKey, "detail", openingNumber],
-    queryFn: () => orgsAPI.getOpening({ opening_number: openingNumber }),
+    ...openingQuery(openingNumber),
     enabled: Number.isInteger(openingNumber) && openingNumber > 0,
   });
+}
+
+/** Reads an Opening afresh: a read already under way may predate the change
+ * that calls for this one. */
+export function useLoadLatestOpening() {
+  const queryClient = useQueryClient();
+  return async (openingNumber: number) => {
+    const query = openingQuery(openingNumber);
+    await queryClient.cancelQueries({ queryKey: query.queryKey });
+    return queryClient.fetchQuery({ ...query, staleTime: 0 });
+  };
 }
 
 export function useOpeningSummaryQuery() {

@@ -1397,6 +1397,8 @@ export const en = {
         submitted: "Saved and submitted for approval.",
       },
       publishFailed: "Saved, but not published: {{reason}}",
+      savedExceptTyped:
+        "Saved, except what you changed while saving. Save again to keep those changes.",
       team: "Hiring team and notes",
       recruiter: "Recruiter",
       teamMembers: "Team members",

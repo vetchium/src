@@ -13,7 +13,8 @@ export function OpeningEditorPage() {
     return <Alert type="error" title={t("openings.notFound")} />;
   if (query.isLoading)
     return <Typography.Text>{t("common.loading")}</Typography.Text>;
-  if (query.isError || !query.data)
+  // A failed refetch keeps the data it had, and the editor its unsaved input.
+  if (!query.data)
     return (
       <Alert
         type="error"
@@ -25,7 +26,5 @@ export function OpeningEditorPage() {
         }
       />
     );
-  if (!["draft", "published", "paused"].includes(query.data.state))
-    return <Alert type="warning" title={t("openings.errors.notEditable")} />;
-  return <OpeningEditor opening={query.data} />;
+  return <OpeningEditor key={number} opening={query.data} />;
 }

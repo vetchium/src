@@ -1439,6 +1439,8 @@ export const de = {
         submitted: "Gespeichert und zur Genehmigung eingereicht.",
       },
       publishFailed: "Gespeichert, aber nicht veröffentlicht: {{reason}}",
+      savedExceptTyped:
+        "Gespeichert, außer dem, was Sie während des Speicherns geändert haben. Speichern Sie erneut, um diese Änderungen zu behalten.",
       team: "Einstellungsteam und Notizen",
       recruiter: "Rekrutierende Person",
       teamMembers: "Teammitglieder",
