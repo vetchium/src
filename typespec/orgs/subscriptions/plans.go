@@ -52,13 +52,18 @@ var entitlements = map[Plan]Entitlements{
 	},
 	SilverTier: {
 		MaxUsers:        50,
-		OpeningsPerYear: 250, AllowsLogo: true, AllowsListings: true,
+		OpeningsPerYear: 250,
+		AllowsLogo:      true,
+		AllowsListings:  true,
 	},
 	GoldTier: {
-		MaxUsers: 1000, OpeningsPerYear: 2500, AllowsLogo: true,
+		MaxUsers:              1000,
+		OpeningsPerYear:       2500,
+		AllowsLogo:            true,
 		IncludesTicketSupport: true,
-		AllowsAI:              true, AICreditsPerMonth: 100_000,
-		AllowsListings: true,
+		AllowsAI:              true,
+		AICreditsPerMonth:     100_000,
+		AllowsListings:        true,
 	},
 }
 
