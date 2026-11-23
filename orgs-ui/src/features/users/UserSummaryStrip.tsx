@@ -40,14 +40,10 @@ export function UserSummaryStrip({ onRole, onState }: UserSummaryStripProps) {
     <Card size="small">
       <Flex orientation="vertical" gap="small">
         <Typography.Text strong data-testid="user-seats">
-          {summary.seat_limit === undefined
-            ? t("users.summary.seatsUnlimited", {
-                used: summary.seats_in_use,
-              })
-            : t("users.summary.seats", {
-                used: summary.seats_in_use,
-                limit: summary.seat_limit,
-              })}
+          {t("users.summary.seats", {
+            used: summary.seats_in_use,
+            limit: summary.seat_limit,
+          })}
         </Typography.Text>
         <Flex gap="small" wrap align="center">
           <Typography.Text type="secondary">

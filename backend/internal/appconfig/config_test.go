@@ -940,8 +940,8 @@ func TestOrgUnavailableFixtureConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Env != EnvironmentCI || cfg.TenantID != "sgp" || cfg.OrgsAPIServer.Signup.Enabled || cfg.OrgsAPIServer.GoogleSignIn != nil {
-		t.Fatal("Org unavailable fixture must be a CI sgp instance with signup and Google sign-in unavailable")
+	if cfg.Env != EnvironmentCI || cfg.TenantID != "sgp" || cfg.OrgsAPIServer.Signup.Enabled {
+		t.Fatal("Org unavailable fixture must be a CI sgp instance with signup unavailable")
 	}
 	catalog, err := regions.Load(filepath.Join("..", "..", "..", "config", "ci", "fixtures", "orgs-unavailable-regions.json"))
 	if err != nil {

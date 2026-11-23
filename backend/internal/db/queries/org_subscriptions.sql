@@ -1,7 +1,6 @@
 -- name: GetOrgSubscription :one
 SELECT
     o.org_plan_oid, o.org_billing_interval, o.org_state,
-    o.google_sign_in_enabled,
     vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use
 FROM vetchium.orgs AS o
 WHERE o.org_did = sqlc.arg(org_did);
@@ -15,7 +14,7 @@ FOR UPDATE;
 
 -- name: SaveOrgSubscription :exec
 WITH previous AS (
-    SELECT o.org_plan_oid, o.org_billing_interval, o.google_sign_in_enabled
+    SELECT o.org_plan_oid, o.org_billing_interval
     FROM vetchium.orgs AS o
     WHERE o.org_did = sqlc.arg(org_did)
 ), updated AS (
@@ -23,9 +22,6 @@ WITH previous AS (
     SET
         org_plan_oid = sqlc.arg(org_plan_oid),
         org_billing_interval = sqlc.narg(org_billing_interval),
-        google_sign_in_enabled = o.google_sign_in_enabled
-            AND sqlc.arg(org_plan_oid)::text
-                = ANY(sqlc.arg(google_sign_in_plan_oids)::text[]),
         updated_at = now()
     WHERE o.org_did = sqlc.arg(org_did)
     RETURNING o.org_did, o.org_billing_interval
@@ -74,22 +70,6 @@ WITH previous AS (
         jsonb_build_object('org_plan_oid', sqlc.arg(org_plan_oid)::text,
             'capability', q.capability_oid)
     FROM listings_unlisted AS q
-    RETURNING audit_event_id
-), google_audit AS (
-    INSERT INTO vetchium.audit_events (
-        tenant_id, action, entity_type, entity_id, actor_type, actor_id,
-        source, idempotency_key, payload
-    )
-    SELECT
-        sqlc.arg(tenant_id), 'org.google_sign_in.disabled_by_plan', 'org',
-        sqlc.arg(org_did)::text, 'org_user',
-        sqlc.arg(actor_org_user_id)::uuid::text,
-        'orgs-api', sqlc.arg(idempotency_key),
-        jsonb_build_object('org_plan_oid', sqlc.arg(org_plan_oid)::text)
-    FROM previous AS p
-    WHERE p.google_sign_in_enabled
-      AND NOT (sqlc.arg(org_plan_oid)::text
-          = ANY(sqlc.arg(google_sign_in_plan_oids)::text[]))
     RETURNING audit_event_id
 )
 INSERT INTO vetchium.audit_events (

@@ -31,15 +31,12 @@ var planRanks = map[Plan]int{
 	GoldTier:   3000,
 }
 
-// Entitlements is what one plan allows. MaxUsersWithGoogleSignIn is nil when
-// the cap is lifted while the Org has Google sign-in enabled.
+// Entitlements is what one plan allows.
 type Entitlements struct {
-	MaxUsers                 int
-	MaxUsersWithGoogleSignIn *int
-	OpeningsPerYear          int
-	AllowsLogo               bool
-	AllowsGoogleSignIn       bool
-	IncludesTicketSupport    bool
+	MaxUsers              int
+	OpeningsPerYear       int
+	AllowsLogo            bool
+	IncludesTicketSupport bool
 	// AllowsAI gates AI operations, the monthly credit grant, and credit
 	// purchases. Credits bought earlier stay usable without it.
 	AllowsAI          bool
@@ -49,23 +46,24 @@ type Entitlements struct {
 	AllowsListings bool
 }
 
-func intPtr(value int) *int { return &value }
-
 var entitlements = map[Plan]Entitlements{
 	FreeTier: {
-		MaxUsers: 5, MaxUsersWithGoogleSignIn: intPtr(5),
-		OpeningsPerYear: 25,
+		MaxUsers: 5, OpeningsPerYear: 25,
 	},
 	SilverTier: {
-		MaxUsers: 50, MaxUsersWithGoogleSignIn: intPtr(50),
-		OpeningsPerYear: 250, AllowsLogo: true, AllowsListings: true,
+		MaxUsers:        50,
+		OpeningsPerYear: 250,
+		AllowsLogo:      true,
+		AllowsListings:  true,
 	},
 	GoldTier: {
-		MaxUsers: 1000, MaxUsersWithGoogleSignIn: nil,
-		OpeningsPerYear: 2500, AllowsLogo: true,
-		AllowsGoogleSignIn: true, IncludesTicketSupport: true,
-		AllowsAI: true, AICreditsPerMonth: 100_000,
-		AllowsListings: true,
+		MaxUsers:              1000,
+		OpeningsPerYear:       2500,
+		AllowsLogo:            true,
+		IncludesTicketSupport: true,
+		AllowsAI:              true,
+		AICreditsPerMonth:     100_000,
+		AllowsListings:        true,
 	},
 }
 
@@ -124,29 +122,12 @@ func IsUpgrade(
 	return fromInterval == Month && toInterval == Year
 }
 
-// MaxUsers returns the seat cap. Only Gold with Google sign-in enabled is
-// unlimited; an unknown plan has a cap of zero.
-func MaxUsers(plan Plan, googleSignInEnabled bool) (limit int, unlimited bool) {
-	held, ok := entitlements[plan]
-	if !ok {
-		return 0, false
-	}
-	if googleSignInEnabled && held.AllowsGoogleSignIn {
-		if held.MaxUsersWithGoogleSignIn == nil {
-			return 0, true
-		}
-		return *held.MaxUsersWithGoogleSignIn, false
-	}
-	return held.MaxUsers, false
-}
+// MaxUsers returns the seat cap; an unknown plan has a cap of zero.
+func MaxUsers(plan Plan) int { return entitlements[plan].MaxUsers }
 
 func OpeningsPerYear(plan Plan) int { return entitlements[plan].OpeningsPerYear }
 
 func AllowsLogo(plan Plan) bool { return entitlements[plan].AllowsLogo }
-
-func AllowsGoogleSignIn(plan Plan) bool {
-	return entitlements[plan].AllowsGoogleSignIn
-}
 
 func IncludesTicketSupport(plan Plan) bool {
 	return entitlements[plan].IncludesTicketSupport

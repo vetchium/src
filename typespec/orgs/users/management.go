@@ -126,7 +126,7 @@ type PermissionCount struct {
 
 type UserSummaryResponse struct {
 	SeatsInUse                    int32             `json:"seats_in_use"`
-	SeatLimit                     *int32            `json:"seat_limit,omitempty"`
+	SeatLimit                     int32             `json:"seat_limit"`
 	ActiveUsers                   int32             `json:"active_users"`
 	DisabledManualUsers           int32             `json:"disabled_manual_users"`
 	ActiveUsersWithoutPermissions int32             `json:"active_users_without_permissions"`

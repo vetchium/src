@@ -29,9 +29,7 @@ export function CurrentSubscriptionCard({
   const limit = subscription.seat_limit;
   const used = subscription.seats_in_use;
   const percent =
-    limit === undefined || limit === 0
-      ? undefined
-      : Math.min(100, Math.floor((used / limit) * 100));
+    limit === 0 ? undefined : Math.min(100, Math.floor((used / limit) * 100));
   return (
     <Card title={t("plans.current.title")} data-testid="current-subscription">
       <Flex orientation="vertical" gap="middle" align="start">
@@ -56,11 +54,9 @@ export function CurrentSubscriptionCard({
               children: (
                 <Flex orientation="vertical" gap="small" style={{ flex: 1 }}>
                   <Typography.Text>
-                    {limit === undefined
-                      ? t("plans.current.seatsUnlimited", { used })
-                      : t("plans.current.seats", { used, limit })}
+                    {t("plans.current.seats", { used, limit })}
                   </Typography.Text>
-                  {percent === undefined || limit === undefined ? null : (
+                  {percent === undefined ? null : (
                     <Progress
                       aria-label={t("plans.current.seatsLabel")}
                       percent={percent}

@@ -72,17 +72,6 @@ WITH sessions AS (
         LIMIT 1000
     )
     RETURNING i.org_invitation_id
-), sso_states AS (
-    DELETE FROM vetchium.org_sso_login_states AS t
-    WHERE t.state_hash IN (
-        SELECT candidate.state_hash
-        FROM vetchium.org_sso_login_states AS candidate
-        WHERE candidate.expires_at <= now()
-           OR candidate.consumed_at IS NOT NULL
-        ORDER BY candidate.created_at
-        LIMIT 1000
-    )
-    RETURNING t.state_hash
 ),
 -- Outbox ciphertext can contain a signup or reset link, so it is kept only
 -- for a day after delivery ends, whether it succeeded or not.
@@ -105,7 +94,6 @@ outbox AS (
         (SELECT count(*) FROM resets)::bigint AS resets,
         (SELECT count(*) FROM signups)::bigint AS signups,
         (SELECT count(*) FROM invitations)::bigint AS invitations,
-        (SELECT count(*) FROM sso_states)::bigint AS sso_states,
         (SELECT count(*) FROM outbox)::bigint AS outbox
 ), audit AS (
     INSERT INTO vetchium.audit_events (
@@ -122,9 +110,9 @@ outbox AS (
         'workers',
         to_jsonb(summary)
     FROM summary
-    WHERE sessions + challenges + enrollments + resets + signups + invitations + sso_states + outbox > 0
+    WHERE sessions + challenges + enrollments + resets + signups + invitations + outbox > 0
 )
 SELECT
-    (sessions + challenges + enrollments + resets + signups + invitations + sso_states + outbox)::bigint
+    (sessions + challenges + enrollments + resets + signups + invitations + outbox)::bigint
         AS deleted_count
 FROM summary;

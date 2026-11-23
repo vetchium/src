@@ -23,7 +23,6 @@ export const en = {
     pipelineTemplates: "Pipeline templates",
     myInterviews: "My interviews",
     findProviders: "Find providers",
-    organizationSecurity: "Organization security",
     listings: "Listings",
     clients: "Clients",
     workQueue: "Work queue",
@@ -179,9 +178,6 @@ export const en = {
     logoTooLarge: "That image is larger than 2 MiB.",
     logoConflict:
       "The logo was changed by someone else at the same time. Try again.",
-    ssoSignInFailed:
-      "Google sign-in did not work. Check that you chose your organization's Google account, that your organization has Google sign-in turned on, and that you have been invited. You can sign in with your password instead.",
-    ssoNotAvailable: "Google sign-in is not available in this region.",
     planRequired: "This needs a higher plan.",
     permissionRequired: "Only a superadmin of your organization can do this.",
     recentAuthenticationRequired: "Sign in again to continue.",
@@ -329,15 +325,6 @@ export const en = {
     forgotPassword: "Forgot your password?",
     noAccount: "Organization not on Vetchium yet?",
     signUp: "Sign it up",
-    or: "or",
-    google: "Continue with Google",
-  },
-  googleCallback: {
-    documentTitle: "Google sign-in | Vetchium for organizations",
-    title: "Google sign-in",
-    failed:
-      "Google sign-in could not be completed. Start again, or sign in with your password.",
-    back: "Back to sign-in",
   },
   twoFactor: {
     documentTitle: "Two-factor verification | Vetchium for organizations",
@@ -816,7 +803,6 @@ export const en = {
       plan: "Plan",
       seatsLabel: "Users",
       seats: "{{used}} of {{limit}} seats used (users and pending invitations)",
-      seatsUnlimited: "{{used}} seats used (no limit)",
     },
     unknownPlanTitle: "Unrecognized plan",
     unknownPlanDescription:
@@ -842,7 +828,7 @@ export const en = {
       "org-silver-tier":
         "For growing teams that hire regularly under their own brand.",
       "org-gold-tier":
-        "For larger organizations hiring at scale, with AI assistance and Google sign-in.",
+        "For larger organizations hiring at scale, with AI assistance.",
     },
     currentBadge: "Current",
     freePrice: "Free",
@@ -852,10 +838,8 @@ export const en = {
     no: "Not included",
     features: {
       users: "Up to {{count}} users",
-      usersWithGoogle: "Up to {{count}} users, unlimited with Google sign-in",
       openings: "{{count}} job openings per year",
       logo: "Organization logo",
-      googleSignIn: "Google sign-in",
       ticketSupport: "Ticket-based support",
       mcp: "MCP support",
       aiCredits: "{{count}} AI credits a month",
@@ -866,7 +850,6 @@ export const en = {
       users: "Users",
       openings: "Job openings per year",
       logo: "Organization logo",
-      googleSignIn: "Google sign-in",
       ai: "AI assistance",
       listings: "Marketplace Listings",
       ticketSupport: "Ticket-based support",
@@ -892,8 +875,6 @@ export const en = {
     changed: "Plan updated",
     losesLogo:
       "Your logo will be removed. Upgrading again will not restore it.",
-    losesGoogle:
-      "Google sign-in will be turned off. Upgrading again will not turn it back on.",
     excessSeats:
       "{{used}} seats are in use; the target plan allows {{limit}}. Disable users or cancel invitations first.",
   },
@@ -910,14 +891,6 @@ export const en = {
       replace: "Replace logo",
       remove: "Remove logo",
       upgrade: "A logo needs the Silver plan or higher.",
-      seePlans: "See plans",
-    },
-    google: {
-      title: "Google sign-in",
-      help: "Let your users sign in with their Google Workspace accounts. Only users already in this organization can sign in, with an address on your domain verified by Google. Your Google administrator's 2-Step Verification replaces the authenticator code, and passwords keep working. While it is on, the user limit is lifted.",
-      on: "On",
-      off: "Off",
-      upgrade: "Google sign-in needs the Gold plan.",
       seePlans: "See plans",
     },
     domain: {
@@ -986,7 +959,6 @@ export const en = {
     summary: {
       seats:
         "{{used}} of {{limit}} seats used (members and pending invitations)",
-      seatsUnlimited: "{{used}} seats used (no limit)",
       roles: "Roles:",
       states: "States:",
       role: {
@@ -1102,12 +1074,6 @@ export const en = {
     defaultLanguageHelp:
       "Used for invitations and as the starting language of new Openings. Each member still receives their own emails in their own language.",
     invalidName: "Enter a name of 1 to 200 characters.",
-    securityTitle: "Organization security | Vetchium",
-    confirmGoogle: "Change Google sign-in?",
-    enableGoogle:
-      "Members can sign in with their Google Workspace accounts. Workspace security policies apply.",
-    disableGoogle:
-      "Members will need their password and any configured two-factor authentication to sign in.",
   },
   people: {
     manage: "Manage",

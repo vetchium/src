@@ -139,27 +139,20 @@ func TestIsPlanAndIsBillingInterval(t *testing.T) {
 func TestMaxUsers(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name          string
-		plan          Plan
-		google        bool
-		wantLimit     int
-		wantUnlimited bool
+		name string
+		plan Plan
+		want int
 	}{
-		{"free", FreeTier, false, 5, false},
-		{"free ignores google", FreeTier, true, 5, false},
-		{"silver", SilverTier, false, 50, false},
-		{"silver ignores google", SilverTier, true, 50, false},
-		{"gold", GoldTier, false, 1000, false},
-		{"gold with google", GoldTier, true, 0, true},
-		{"unknown", "org-platinum-tier", true, 0, false},
+		{"free", FreeTier, 5},
+		{"silver", SilverTier, 50},
+		{"gold", GoldTier, 1000},
+		{"unknown", "org-platinum-tier", 0},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			limit, unlimited := MaxUsers(testCase.plan, testCase.google)
-			if limit != testCase.wantLimit || unlimited != testCase.wantUnlimited {
-				t.Fatalf("MaxUsers() = %d, %t, want %d, %t", limit, unlimited,
-					testCase.wantLimit, testCase.wantUnlimited)
+			if got := MaxUsers(testCase.plan); got != testCase.want {
+				t.Fatalf("MaxUsers() = %d, want %d", got, testCase.want)
 			}
 		})
 	}
@@ -175,9 +168,6 @@ func TestEntitlementsGrowWithRank(t *testing.T) {
 	}
 	if AllowsLogo(FreeTier) || !AllowsLogo(SilverTier) || !AllowsLogo(GoldTier) {
 		t.Fatal("logo must be Silver and above")
-	}
-	if AllowsGoogleSignIn(SilverTier) || !AllowsGoogleSignIn(GoldTier) {
-		t.Fatal("Google sign-in must be Gold only")
 	}
 	if IncludesTicketSupport(SilverTier) || !IncludesTicketSupport(GoldTier) {
 		t.Fatal("ticket support must be Gold only")

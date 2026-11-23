@@ -103,11 +103,19 @@ Each item: what is not done, and what must be decided first.
   (per region if needed), proration, when paid entitlements start, tax,
   refunds, billing contacts, and nonpayment consequences.
 - Org user management at scale: groups, custom roles beyond the catalog, SCIM
-  provisioning (the expected next step for large Google sign-in Orgs), invite
-  links, domain auto-join, and an Org-facing audit log viewer.
-- Single sign-on beyond Google: SAML and other OIDC providers (the credential
-  table and `internal/oidc` are provider-neutral), just-in-time provisioning,
-  and enforcing SSO-only sign-in for an Org.
+  provisioning (the expected next step for large SSO Orgs), invite links,
+  domain auto-join, and an Org-facing audit log viewer.
+- Single sign-on for Orgs: a first Google sign-in was built and removed; design
+  SSO properly before rebuilding it, covering Google, SAML, and generic
+  OAuth/OIDC providers behind one provider-neutral credential model. Decide
+  which plans include it and how it relates to the seat cap; whether an Org
+  may enforce SSO-only sign-in (so a user suspended at the identity provider
+  cannot fall back to a password); lifecycle sync (SCIM or the provider's
+  directory API) so disabling a user at the provider disables them here and
+  ends their sessions; just-in-time provisioning against invite-only; how the
+  provider's second factor relates to Vetchium TOTP; per-Org versus
+  per-tenant provider configuration and secrets; the development and CI
+  identity provider stand-in; and the login, settings, and callback screens.
 - MCP support for Gold Orgs is shown as "Coming soon" in the plan comparison
   and has no contract value until it is built.
 - Gold ticket-based support: give Gold Org users a way to raise and track

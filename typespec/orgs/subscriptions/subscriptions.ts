@@ -12,8 +12,7 @@ export interface OrgSubscription {
   /** Absent on Free. */
   billing_interval?: BillingInterval;
   seats_in_use: number;
-  /** Absent when uncapped. */
-  seat_limit?: number;
+  seat_limit: number;
 }
 
 export interface SetSubscriptionPlanRequest {

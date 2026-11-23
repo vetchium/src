@@ -91,7 +91,6 @@ the same shape rather than invent a second one.
 
 - Require recent authentication to change a password, enroll or disable a
   second factor, regenerate recovery codes, or change what a user may do.
-- It also guards turning Org Google sign-in on or off.
 - Do not require it for ordinary administration (inviting or disabling a user,
   reading a list) — the permission check is the control, and routine prompts
   train users to re-enter credentials without reading.

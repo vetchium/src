@@ -67,9 +67,7 @@ func MyInfo(s *orgsruntime.Server) http.HandlerFunc {
 			Org:                    summary(s, info),
 			PlanOID:                plan,
 			LogoURL:                logoURL,
-			GoogleSignInEnabled: info.GoogleSignInEnabled &&
-				plan == subscriptions.PlanOID(subscriptions.GoldTier),
-			Marketplace: orgsaccount.MarketplaceRoles{Capabilities: capabilities},
+			Marketplace:            orgsaccount.MarketplaceRoles{Capabilities: capabilities},
 		})
 	}
 }

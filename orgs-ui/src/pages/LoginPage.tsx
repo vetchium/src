@@ -1,19 +1,9 @@
-import { GoogleOutlined } from "@ant-design/icons";
 import { useMutation } from "@tanstack/react-query";
 import { localized } from "@vetchium/portal-ui/localized";
 import { safeReturnTo } from "@vetchium/portal-ui/navigation";
 import { usePendingOperations } from "@vetchium/portal-ui/pending-operations";
 import { useExplicitRegionSelection } from "@vetchium/portal-ui/region-picker";
-import {
-  App,
-  Button,
-  Card,
-  Divider,
-  Flex,
-  Form,
-  Input,
-  Typography,
-} from "antd";
+import { App, Button, Card, Flex, Form, Input, Typography } from "antd";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
@@ -31,7 +21,6 @@ import type { LoginAttempt } from "../auth/AuthContext";
 import { useAuth } from "../auth/AuthContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { RegionField } from "../features/regions/RegionField";
-import { rememberGoogleSignIn } from "../features/sso/pending";
 
 function forgotPasswordPath(domain: string): string {
   const normalized = normalizeOrgDomain(domain);
@@ -55,31 +44,6 @@ export function LoginPage() {
       request: LoginRequest;
       tenantId: string;
     }) => orgsAPI.login(request, tenantId),
-  });
-  const googleMutation = useMutation({
-    mutationFn: async ({
-      domain,
-      tenantId,
-    }: {
-      domain: string;
-      tenantId: string;
-    }) => {
-      const { authorization_url } = await orgsAPI.startGoogleSignIn(
-        { domain },
-        tenantId,
-      );
-      const target = new URL(authorization_url);
-      if (target.protocol !== "https:" && target.protocol !== "http:") {
-        throw new Error("Unexpected authorization URL");
-      }
-      const state = target.searchParams.get("state");
-      if (!state || !rememberGoogleSignIn({ tenantId, returnTo, state })) {
-        throw new Error("Session storage is unavailable");
-      }
-      // A top-level navigation: the provider's page is never framed or
-      // fetched, so the portal's CSP needs no entry for it.
-      window.location.assign(target.toString());
-    },
   });
   const [region, setRegion] = useExplicitRegionSelection();
   const [form] = Form.useForm<LoginRequest>();
@@ -107,20 +71,6 @@ export function LoginPage() {
   );
 
   if (auth.authenticated) return <Navigate replace to={returnTo} />;
-
-  const signInWithGoogle = async () => {
-    if (supersedingBlocked() || region === undefined) return;
-    try {
-      await form.validateFields(["domain"]);
-    } catch {
-      return;
-    }
-    auth.clearChallenge();
-    const domain = normalizeOrgDomain(form.getFieldValue("domain") ?? "");
-    await googleMutation
-      .mutateAsync({ domain, tenantId: region })
-      .catch(() => undefined);
-  };
 
   const submit = async (values: LoginRequest) => {
     if (supersedingBlocked()) return;
@@ -163,7 +113,7 @@ export function LoginPage() {
             {t("login.description")}
           </Typography.Text>
         </div>
-        <APIErrorAlert error={mutation.error ?? googleMutation.error} />
+        <APIErrorAlert error={mutation.error} />
         <Form<LoginRequest>
           form={form}
           layout="vertical"
@@ -175,7 +125,6 @@ export function LoginPage() {
             autoFocus
             onChange={(value) => {
               mutation.reset();
-              googleMutation.reset();
               setRegion(value);
             }}
             disabled={mutation.isPending}
@@ -234,17 +183,6 @@ export function LoginPage() {
             {t("login.action")}
           </Button>
         </Form>
-        <Divider plain>{t("login.or")}</Divider>
-        <Button
-          block
-          icon={<GoogleOutlined />}
-          data-testid="google-sign-in"
-          disabled={region === undefined}
-          loading={googleMutation.isPending || googleMutation.isSuccess}
-          onClick={() => void signInWithGoogle()}
-        >
-          {t("login.google")}
-        </Button>
         <Flex orientation="vertical" gap="small">
           {/* Leaving for a password reset abandons the sign-in, so a response
               still in flight cannot pull the user back into it. */}

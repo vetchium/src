@@ -11,11 +11,6 @@
         "service": "orgs-ui",
         "entryPoints": ["web"]
       },
-      "oidc-dev": {
-        "rule": "Host(`oidc.vetchium.localhost`)",
-        "service": "oidc-dev",
-        "entryPoints": ["web"]
-      },
       "doh-dev": {
         "rule": "Host(`doh.vetchium.localhost`)",
         "service": "doh-dev",
@@ -63,15 +58,6 @@
       }
     },
     "services": {
-      "oidc-dev": {
-        "loadBalancer": {
-          "servers": [
-            {
-              "url": "http://oidc-dev:8080"
-            }
-          ]
-        }
-      },
       "doh-dev": {
         "loadBalancer": {
           "servers": [

@@ -1,7 +1,7 @@
 # Org Subscriptions
 
-Applies to Org plans, seats, user management, company identity, logo, and
-Google sign-in. Compose with `orgs.md` and `authorization.md`.
+Applies to Org plans, seats, user management, company identity, and logo.
+Compose with `orgs.md` and `authorization.md`.
 
 ## Plans and changes
 
@@ -15,11 +15,11 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
   Mark them as not charged during development. Launch requires real payments
   (`docs/todo.md`).
 - Lock the Org row, then read seats in a separate statement. Refuse a target
-  whose cap is below seats in use; compute its cap with the current Google
-  sign-in choice. An unchanged plan and interval succeeds without a write.
+  whose cap is below seats in use. An unchanged plan and interval succeeds
+  without a write.
 - Save plan, interval, entitlement effects, and audit in one transaction.
-  Leaving Gold disables Google sign-in. A target without logos retires the
-  logo; Gold to Silver preserves it. Upgrading restores neither setting.
+  A target without logos retires the logo; Gold to Silver preserves it.
+  Upgrading does not restore the logo.
 - Keep idempotency across uncertain outcomes. A replay writes no audit event.
 - Billing needs `org:manage_billing`; confirm every change with its immediate
   effects and concrete losses. Interval-only changes are not upgrades.
@@ -29,7 +29,7 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
 - A seat is an active user or an unexpired pending invitation, defined once in
   the SQL function `org_seats_in_use`. Disabled users hold none.
 - Check the current plan's seat cap under the Org lock on invite, accept,
-  and re-enable. A Gold Org with Google sign-in is uncapped.
+  and re-enable.
 - Roles are permissions: `org:manage_users` and `org:manage_billing` are
   catalog permissions, and `org:superadmin` implies both. Billing is separate
   from member administration.
@@ -82,39 +82,6 @@ Google sign-in. Compose with `orgs.md` and `authorization.md`.
 - PNG or JPEG, 128 to 4096 pixels per side, at most 2 MiB. Removal is open to
   every plan. `SaveOrgSubscription` queues the object for deletion whenever
   the new plan lacks logos; a later upgrade does not restore it.
-
-## Google sign-in
-
-- Gold only, switched on by a superadmin (step-up) in Organization security. Turning it off
-  runs under the Org lock and is refused with `org-user-limit-exceeds-target`
-  while seats exceed the plain Gold cap. Leaving Gold clears it in the
-  transition statement, and a CHECK keeps the column false off Gold.
-- `backend/internal/oidc` runs the authorization code flow with PKCE and a
-  nonce against one provider (go-oidc and oauth2). The credential table is
-  `org_user_sso_identities (provider, subject)`; the tenant config is
-  `orgsAPIServer.googleSignIn` (`issuer`, `clientID`, `clientSecretFile`,
-  `redirectURI`, and `discoveryURL` only for the development provider).
-  Without the block a tenant answers `org-sso-not-available`.
-- `sso/google/start` answers alike for every domain. `sso/google/complete`
-  succeeds only when the state is unused and unexpired, the ID token verifies
-  (issuer, audience, expiry, nonce), `email_verified` is true, `hd` and the
-  address's domain equal the Org domain, the Org still holds the domain
-  (`verified`, `failing`, or `releasing`; a released domain proves nothing),
-  the address is an existing active user, the Org is on Gold with the switch
-  on, and the subject is unlinked or already that user's. The first success links the subject.
-  `CreateOrgSSOSession` re-checks all of it in the statement that links and
-  signs in.
-- Every refusal before the user is a known member is `org-sso-sign-in-failed`;
-  the reason is logged only. A disabled user gets the password-login problems;
-  a suspended Org may sign in. There is no auto-provisioning.
-- It skips Vetchium TOTP: the Workspace administrator's 2-Step Verification is
-  the second factor. Password sign-in still requires TOTP, and every user keeps
-  a password for fallback and step-up.
-- Development and CI run `cmd/oidc-dev`, a real provider without a user
-  interface (`internal/oidc/mock`); the test names the account with
-  `login_hint` and may override `hd`, `sub`, and `email_verified`. There is no
-  code bypass, and it is never in `deploy/`. Production setup is in
-  `deploy/README.md`.
 
 ## Listings
 

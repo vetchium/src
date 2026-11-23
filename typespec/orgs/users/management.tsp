@@ -125,8 +125,7 @@ model PermissionCount {
 model UserSummaryResponse {
   seats_in_use: int32;
 
-  /** Absent while the Org has no seat cap. */
-  seat_limit?: int32;
+  seat_limit: int32;
 
   active_users: int32;
   disabled_manual_users: int32;

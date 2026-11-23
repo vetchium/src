@@ -200,8 +200,6 @@ by the `workers` schedule and check-now.
 - An unknown domain, unknown user, wrong region, and wrong password produce
   the same `org-invalid-credentials`.
 - Refuse a disabled Org user with `org-user-disabled`.
-- Gold Orgs may also sign in with Google (`sso/google/start` and `complete`),
-  which skips Vetchium TOTP; see [`org-subscriptions.md`](org-subscriptions.md).
 - TOTP is optional and follows the Hub and admin flow: login challenge, TOTP or
   recovery-code verification, recovery codes, enrolment, and disabling.
 - Offer sign-out, my-info, forgot and reset password by emailed link, change
@@ -225,7 +223,7 @@ by the `workers` schedule and check-now.
   every other permission; manage and approve Openings each imply view.
 - Org plans are seeded rows identified by plan OIDs, identical in every tenant.
   A new Org starts on `org-free-tier`. Plans, billing, seats, user management,
-  the logo, and Google sign-in are in
+  and the logo are in
   [`org-subscriptions.md`](org-subscriptions.md).
 
 ## Portal
@@ -237,12 +235,11 @@ by the `workers` schedule and check-now.
 - `orgs-ui` provides region choice, signup request, the private-link
   completion page (which requires accepting the terms), the public terms
   page, sign-in with a mandatory empty region picker, the TOTP
-  step, Google sign-in and its callback, forgot and reset password, the
+  step, forgot and reset password, the
   signed-in shell, account security, the failing banner, and the suspended
   (restore-domain) screen, plus members and invitations, plans and billing,
   Home and My interviews, Company (name, country, default language, logo,
-  and domain status), Organization security
-  (Google sign-in), Openings lists, editing (with Draft with AI), requests,
+  and domain status), Openings lists, editing (with Draft with AI), requests,
   approvals, and history, pipeline templates, Applicants, Candidates, and
   application detail (interviews, feedback, assessments, background checks,
   offers, joining), Find providers, engagements, Opening providers, and routing,
