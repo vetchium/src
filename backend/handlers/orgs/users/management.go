@@ -17,7 +17,6 @@ import (
 
 	"github.com/vetchium/src/typespec/common"
 	"github.com/vetchium/src/typespec/orgs/authorization"
-	subscriptionspec "github.com/vetchium/src/typespec/orgs/subscriptions"
 	"github.com/vetchium/src/typespec/orgs/users"
 	"github.com/vetchium/src/typespec/problem"
 	orgsproblem "github.com/vetchium/src/typespec/problem/orgs"
@@ -206,17 +205,11 @@ func UserSummary(s *orgsruntime.Server) http.HandlerFunc {
 		}
 		response := users.UserSummaryResponse{
 			SeatsInUse:                    int32(summary.SeatsInUse),
+			SeatLimit:                     seatLimit(summary.OrgPlanOid),
 			ActiveUsers:                   int32(summary.ActiveUsers),
 			DisabledManualUsers:           int32(summary.DisabledManualUsers),
 			ActiveUsersWithoutPermissions: int32(summary.ActiveUsersWithoutPermissions),
 			PermissionCounts:              make([]users.PermissionCount, 0, len(counts)),
-		}
-		if limit, unlimited := orgusers.SeatLimit(
-			subscriptionspec.PlanOID(summary.OrgPlanOid),
-			summary.GoogleSignInEnabled,
-		); !unlimited {
-			value := int32(limit)
-			response.SeatLimit = &value
 		}
 		for _, count := range counts {
 			response.PermissionCounts = append(
@@ -401,10 +394,7 @@ func enable(s *orgsruntime.Server, w http.ResponseWriter, r *http.Request, email
 			if refused := requireSuperadminForSuperadmins(identity, targets); refused != nil {
 				return refused, nil
 			}
-			limit, limitValue := seatLimit(
-				policy.OrgPlanOid,
-				policy.GoogleSignInEnabled,
-			)
+			limit := seatLimit(policy.OrgPlanOid)
 			result, err := q.EnableOrgUsers(ctx, sqlc.EnableOrgUsersParams{
 				OrgDid:         identity.OrgDID,
 				OrgUserIds:     userIDs(targets),
@@ -416,7 +406,7 @@ func enable(s *orgsruntime.Server, w http.ResponseWriter, r *http.Request, email
 				return nil, err
 			}
 			if result == "limit-reached" {
-				return orgsproblem.UserLimitReachedError(limitValue), nil
+				return orgsproblem.UserLimitReachedError(limit), nil
 			}
 			return nil, nil
 		},

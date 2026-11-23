@@ -104,7 +104,6 @@ const pageIcons: Record<PageKey, ReactNode> = {
   plans: <CreditCardOutlined />,
   ai: <ThambiIcon />,
   settings: <SettingOutlined />,
-  organizationSecurity: <SafetyOutlined />,
   home: <HomeOutlined />,
   myInterviews: <CalendarOutlined />,
   security: <SafetyOutlined />,

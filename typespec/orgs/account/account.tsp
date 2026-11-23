@@ -82,9 +82,6 @@ model MyInfoResponse {
    */
   logo_url?: string;
 
-  /** Whether Google sign-in is on for the Org; only a Gold Org can have it. */
-  google_sign_in_enabled: boolean;
-
   marketplace: MarketplaceRoles;
 }
 

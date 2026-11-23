@@ -107,7 +107,7 @@ Commands are in [`verification.md`](verification.md).
   project costs about 0.2 s of CPU each time.
 - CI-only `orgs-api-unavailable` listens on `127.0.0.1:18084`, shares the sgp
   test database, and uses `config/ci/fixtures/orgs-unavailable.json` with Org
-  signup disabled and no Google provider. Mount its matching signup catalog;
+  signup disabled. Mount its matching signup catalog;
   attach `orgs_fixture_access` so Docker can publish the loopback port. Use it
   for unavailable-service responses; never toggle a shared running tenant's
   configuration in tests. Its region catalog also names `gone`, a tenant that

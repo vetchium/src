@@ -25,7 +25,6 @@ export const de = {
     pipelineTemplates: "Pipeline-Vorlagen",
     myInterviews: "Meine Interviews",
     findProviders: "Dienstleister finden",
-    organizationSecurity: "Organisationssicherheit",
     listings: "Angebote",
     clients: "Kunden",
     workQueue: "Arbeitsliste",
@@ -187,10 +186,6 @@ export const de = {
     logoTooLarge: "Dieses Bild ist größer als 2 MiB.",
     logoConflict:
       "Das Logo wurde gleichzeitig von jemand anderem geändert. Versuchen Sie es erneut.",
-    ssoSignInFailed:
-      "Die Anmeldung mit Google hat nicht funktioniert. Prüfen Sie, ob Sie das Google-Konto Ihrer Organisation gewählt haben, ob Ihre Organisation die Google-Anmeldung aktiviert hat und ob Sie eingeladen wurden. Sie können sich stattdessen mit Ihrem Passwort anmelden.",
-    ssoNotAvailable:
-      "Die Anmeldung mit Google ist in dieser Region nicht verfügbar.",
     planRequired: "Dafür ist ein höherer Tarif nötig.",
     permissionRequired: "Nur ein Superadmin Ihrer Organisation kann das tun.",
     recentAuthenticationRequired: "Melden Sie sich erneut an, um fortzufahren.",
@@ -343,15 +338,6 @@ export const de = {
     forgotPassword: "Passwort vergessen?",
     noAccount: "Ist Ihre Organisation noch nicht auf Vetchium?",
     signUp: "Jetzt registrieren",
-    or: "oder",
-    google: "Weiter mit Google",
-  },
-  googleCallback: {
-    documentTitle: "Google-Anmeldung | Vetchium für Organisationen",
-    title: "Google-Anmeldung",
-    failed:
-      "Die Anmeldung mit Google konnte nicht abgeschlossen werden. Beginnen Sie erneut oder melden Sie sich mit Ihrem Passwort an.",
-    back: "Zurück zur Anmeldung",
   },
   twoFactor: {
     documentTitle: "Zwei-Faktor-Prüfung | Vetchium für Organisationen",
@@ -849,7 +835,6 @@ export const de = {
       seatsLabel: "Benutzer",
       seats:
         "{{used}} von {{limit}} Plätzen belegt (Benutzer und offene Einladungen)",
-      seatsUnlimited: "{{used}} Plätze belegt (ohne Begrenzung)",
     },
     unknownPlanTitle: "Unbekannter Tarif",
     unknownPlanDescription:
@@ -876,7 +861,7 @@ export const de = {
       "org-silver-tier":
         "Für wachsende Teams, die regelmäßig unter eigener Marke einstellen.",
       "org-gold-tier":
-        "Für größere Organisationen, die in großem Umfang einstellen, mit KI-Unterstützung und Google-Anmeldung.",
+        "Für größere Organisationen, die in großem Umfang einstellen, mit KI-Unterstützung.",
     },
     currentBadge: "Aktuell",
     freePrice: "Kostenlos",
@@ -886,11 +871,8 @@ export const de = {
     no: "Nicht enthalten",
     features: {
       users: "Bis zu {{count}} Benutzer",
-      usersWithGoogle:
-        "Bis zu {{count}} Benutzer, unbegrenzt mit Google-Anmeldung",
       openings: "{{count}} Stellenausschreibungen pro Jahr",
       logo: "Logo der Organisation",
-      googleSignIn: "Google-Anmeldung",
       ticketSupport: "Support per Ticket",
       mcp: "MCP-Unterstützung",
       aiCredits: "{{count}} KI-Guthabenpunkte pro Monat",
@@ -901,7 +883,6 @@ export const de = {
       users: "Benutzer",
       openings: "Stellenausschreibungen pro Jahr",
       logo: "Logo der Organisation",
-      googleSignIn: "Google-Anmeldung",
       ai: "KI-Unterstützung",
       listings: "Angebote im Marktplatz",
       ticketSupport: "Support per Ticket",
@@ -927,8 +908,6 @@ export const de = {
     changed: "Tarif aktualisiert",
     losesLogo:
       "Ihr Logo wird entfernt. Ein späteres Upgrade stellt es nicht wieder her.",
-    losesGoogle:
-      "Die Google-Anmeldung wird deaktiviert. Ein späteres Upgrade aktiviert sie nicht wieder.",
     excessSeats:
       "{{used}} Plätze sind belegt; der Zieltarif erlaubt {{limit}}. Deaktivieren Sie zuerst Benutzer oder stornieren Sie Einladungen.",
   },
@@ -946,14 +925,6 @@ export const de = {
       replace: "Logo ersetzen",
       remove: "Logo entfernen",
       upgrade: "Ein Logo erfordert den Tarif Silver oder höher.",
-      seePlans: "Tarife ansehen",
-    },
-    google: {
-      title: "Google-Anmeldung",
-      help: "Ihre Benutzer können sich mit ihren Google-Workspace-Konten anmelden. Es können sich nur Benutzer anmelden, die bereits zu dieser Organisation gehören, mit einer von Google bestätigten Adresse Ihrer Domain. Die Zwei-Faktor-Authentifizierung Ihres Google-Administrators ersetzt den Authenticator-Code, und Passwörter funktionieren weiter. Solange die Option aktiv ist, entfällt die Benutzergrenze.",
-      on: "An",
-      off: "Aus",
-      upgrade: "Die Google-Anmeldung erfordert den Tarif Gold.",
       seePlans: "Tarife ansehen",
     },
     domain: {
@@ -1022,7 +993,6 @@ export const de = {
     summary: {
       seats:
         "{{used}} von {{limit}} Plätzen belegt (Mitglieder und offene Einladungen)",
-      seatsUnlimited: "{{used}} Plätze belegt (ohne Begrenzung)",
       roles: "Rollen:",
       states: "Status:",
       role: {
@@ -1138,12 +1108,6 @@ export const de = {
     defaultLanguageHelp:
       "Wird für Einladungen und als Ausgangssprache neuer Stellenanzeigen verwendet. Jedes Mitglied erhält eigene E-Mails weiterhin in seiner eigenen Sprache.",
     invalidName: "Geben Sie einen Namen mit 1 bis 200 Zeichen ein.",
-    securityTitle: "Organisationssicherheit | Vetchium",
-    confirmGoogle: "Google-Anmeldung ändern?",
-    enableGoogle:
-      "Mitglieder können sich mit ihren Google-Workspace-Konten anmelden. Es gelten die Sicherheitsrichtlinien von Workspace.",
-    disableGoogle:
-      "Mitglieder benötigen ihr Passwort und gegebenenfalls die Zwei-Faktor-Authentifizierung zur Anmeldung.",
   },
   people: {
     manage: "Verwalten",

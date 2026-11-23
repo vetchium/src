@@ -103,8 +103,7 @@ export interface PermissionCount {
 
 export interface UserSummaryResponse {
   seats_in_use: number;
-  /** Absent while the Org has no seat cap. */
-  seat_limit?: number;
+  seat_limit: number;
   active_users: number;
   disabled_manual_users: number;
   active_users_without_permissions: number;

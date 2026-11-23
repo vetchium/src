@@ -19,7 +19,6 @@ export const paths = {
   completeSignup: "/complete-signup",
   login: "/login",
   twoFactor: "/login/two-factor",
-  googleCallback: "/sso/google/callback",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
   reauthenticate: "/reauthenticate",
@@ -58,7 +57,6 @@ export const paths = {
   plans: "/plans",
   ai: "/ai",
   settings: "/company",
-  organizationSecurity: "/organization-security",
   acceptInvitation: "/accept-invitation",
   terms: "/terms",
 } as const;

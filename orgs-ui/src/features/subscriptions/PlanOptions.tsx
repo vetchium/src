@@ -68,10 +68,7 @@ export function PlanOptions({
   const onPaidPlan = known && subscription.plan_oid !== FreeTier;
   const options = presentablePlans(tenantID, configuredPlans);
   const number = new Intl.NumberFormat(locale);
-  const targetLimit =
-    target === undefined
-      ? null
-      : maxUsers(target, me?.google_sign_in_enabled ?? false);
+  const targetLimit = target === undefined ? null : maxUsers(target);
   const excess =
     targetLimit !== null && subscription.seats_in_use > targetLimit;
   const targetLabel =
@@ -92,7 +89,6 @@ export function PlanOptions({
     "users",
     "openings",
     "logo",
-    "googleSignIn",
     "ai",
     "listings",
     "ticketSupport",
@@ -102,19 +98,15 @@ export function PlanOptions({
     const held = entitlements[plan];
     switch (key) {
       case "users":
-        return held.maxUsersWithGoogleSignIn === null
-          ? t("plans.features.usersWithGoogle", {
-              count: number.format(held.maxUsers),
-            })
-          : t("plans.features.users", { count: number.format(held.maxUsers) });
+        return t("plans.features.users", {
+          count: number.format(held.maxUsers),
+        });
       case "openings":
         return t("plans.features.openings", {
           count: number.format(held.openingsPerYear),
         });
       case "logo":
         return t(held.allowsLogo ? "plans.yes" : "plans.no");
-      case "googleSignIn":
-        return t(held.allowsGoogleSignIn ? "plans.yes" : "plans.no");
       case "ai":
         return held.allowsAI
           ? t("plans.features.aiCredits", {
@@ -133,7 +125,6 @@ export function PlanOptions({
       feature(plan, "users"),
       feature(plan, "openings"),
       ...(held.allowsLogo ? [t("plans.features.logo")] : []),
-      ...(held.allowsGoogleSignIn ? [t("plans.features.googleSignIn")] : []),
       ...(held.allowsAI ? [feature(plan, "ai")] : []),
       ...(held.allowsListings ? [t("plans.features.listings")] : []),
     ];
@@ -356,9 +347,7 @@ export function PlanOptions({
               column={1}
               items={rows.slice(0, 4).map((key) => ({
                 key,
-                label: t(
-                  `plans.comparison.${key === "googleSignIn" ? "googleSignIn" : key}`,
-                ),
+                label: t(`plans.comparison.${key}`),
                 children: `${known ? feature(subscription.plan_oid as OrgPlan, key) : t("plans.unknownPlanTitle")} → ${feature(target, key)}`,
               }))}
             />
@@ -367,11 +356,6 @@ export function PlanOptions({
           me?.logo_url !== undefined &&
           !entitlements[target].allowsLogo ? (
             <Alert type="warning" title={t("plans.losesLogo")} />
-          ) : null}
-          {target !== undefined &&
-          me?.google_sign_in_enabled &&
-          !entitlements[target].allowsGoogleSignIn ? (
-            <Alert type="warning" title={t("plans.losesGoogle")} />
           ) : null}
           {excess ? (
             <Alert

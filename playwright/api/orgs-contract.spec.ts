@@ -61,8 +61,6 @@ test("malformed bodies are refused on every Org JSON route", async ({
   try {
     const token = await loginOrg(api, org);
     for (const path of [
-      "/sso/google/start",
-      "/sso/google/complete",
       "/get-signup-details",
       "/request-password-reset",
       "/complete-password-reset",

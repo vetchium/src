@@ -73,10 +73,8 @@ test("the compiled OpenAPI document carries the Org plan extensions", async () =
     const held = entitlements[plan];
     wantEntitlements[plan] = {
       max_users: held.maxUsers,
-      max_users_with_google_sign_in: held.maxUsersWithGoogleSignIn,
       openings_per_year: held.openingsPerYear,
       allows_logo: held.allowsLogo,
-      allows_google_sign_in: held.allowsGoogleSignIn,
       includes_ticket_support: held.includesTicketSupport,
       allows_ai: held.allowsAI,
       ai_credits_per_month: held.aiCreditsPerMonth,

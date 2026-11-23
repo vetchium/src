@@ -20,7 +20,7 @@ pipelines are in [`hiring-pipeline.md`](hiring-pipeline.md); providers in
   id never leaves the backend.
 - **OPN-GEN-003** Every Opening route, reads included, requires an active Org
   (`RequireActiveOrg`, as [`orgs.md`](orgs.md) requires of every route it does
-  not list) and an authenticated Org user. Password, TOTP, and Google sign-in sessions are
+  not list) and an authenticated Org user. Password and TOTP sessions are
   authorized identically; no Opening action requires step-up.
 - **OPN-GEN-004** Every committed write appends an Opening history entry and an
   audit event in the same transaction. Neither stores description, notes, or

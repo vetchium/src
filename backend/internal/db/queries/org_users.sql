@@ -82,7 +82,6 @@ LIMIT sqlc.arg(page_limit);
 -- name: GetOrgUserSummary :one
 SELECT
     o.org_plan_oid,
-    o.google_sign_in_enabled,
     vetchium.org_seats_in_use(o.org_did)::bigint AS seats_in_use,
     count(*) FILTER (WHERE u.org_user_state = 'active')::bigint
         AS active_users,
@@ -99,7 +98,7 @@ FROM vetchium.orgs AS o
 LEFT JOIN vetchium.org_users AS u
     ON u.org_did = o.org_did AND u.org_user_state <> 'provisioning'
 WHERE o.org_did = sqlc.arg(org_did)
-GROUP BY o.org_did, o.org_plan_oid, o.google_sign_in_enabled;
+GROUP BY o.org_did, o.org_plan_oid;
 
 -- Active users holding each directly granted permission.
 -- name: ListOrgPermissionCounts :many
@@ -221,7 +220,7 @@ SELECT CASE
 END::text AS result;
 
 -- Re-enables disabled targets (either reason) when the whole batch fits the
--- cap; seat_limit is NULL for an unlimited Org.
+-- cap.
 -- name: EnableOrgUsers :one
 WITH disabled AS (
     SELECT u.org_user_id
@@ -231,9 +230,8 @@ WITH disabled AS (
       AND u.org_user_state = 'disabled'
 ), fits AS (
     SELECT (
-        sqlc.narg(seat_limit)::integer IS NULL
-        OR vetchium.org_seats_in_use(sqlc.arg(org_did))
-            + (SELECT count(*) FROM disabled) <= sqlc.narg(seat_limit)::integer
+        vetchium.org_seats_in_use(sqlc.arg(org_did))
+            + (SELECT count(*) FROM disabled) <= sqlc.arg(seat_limit)::integer
     ) AS ok
 ), updated AS (
     UPDATE vetchium.org_users AS u

@@ -35,12 +35,8 @@ import (
 const invitationsPaginationPurpose = "orgs-list-invitations-v1"
 
 // seatLimit is checked under the Org lock.
-func seatLimit(plan string, googleSignIn bool) (pgtype.Int4, int32) {
-	limit, unlimited := orgusers.SeatLimit(subscriptionspec.PlanOID(plan), googleSignIn)
-	if unlimited {
-		return pgtype.Int4{}, 0
-	}
-	return pgtype.Int4{Int32: int32(limit), Valid: true}, int32(limit)
+func seatLimit(plan string) int32 {
+	return int32(orgusers.SeatLimit(subscriptionspec.PlanOID(plan)))
 }
 
 func userLimitReached(limit int32) *handlerauth.Problem {
@@ -96,10 +92,7 @@ func InviteUsers(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				limit, limitValue := seatLimit(
-					policy.OrgPlanOid,
-					policy.GoogleSignInEnabled,
-				)
+				limit := seatLimit(policy.OrgPlanOid)
 
 				params := sqlc.InviteOrgUsersParams{
 					OrgDid:         identity.OrgDID,
@@ -145,7 +138,7 @@ func InviteUsers(s *orgsruntime.Server) http.HandlerFunc {
 					}
 					for _, row := range rows {
 						if row.Outcome == "limit-reached" {
-							return result{}, userLimitReached(limitValue), nil
+							return result{}, userLimitReached(limit), nil
 						}
 						outcomes[row.EmailAddress] = row
 					}
@@ -288,10 +281,7 @@ func ResendInvitation(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				limit, limitValue := seatLimit(
-					policy.OrgPlanOid,
-					policy.GoogleSignInEnabled,
-				)
+				limit := seatLimit(policy.OrgPlanOid)
 				token, tokenHash, err := credentials.NewToken()
 				if err != nil {
 					return result{}, nil, err
@@ -322,7 +312,7 @@ func ResendInvitation(s *orgsruntime.Server) http.HandlerFunc {
 						orgsproblem.InvitationNotFoundError,
 					)
 				case "limit-reached":
-					return result{}, userLimitReached(limitValue), nil
+					return result{}, userLimitReached(limit), nil
 				}
 				return result{
 					Status: http.StatusOK,
@@ -427,10 +417,7 @@ func AcceptInvitation(s *orgsruntime.Server) http.HandlerFunc {
 				if err != nil {
 					return result{}, nil, err
 				}
-				limit, limitValue := seatLimit(
-					org.OrgPlanOid,
-					org.GoogleSignInEnabled,
-				)
+				limit := seatLimit(org.OrgPlanOid)
 				passwordHash, err := credentials.HashPassword(string(request.Password))
 				if err != nil {
 					return result{}, nil, err
@@ -462,7 +449,7 @@ func AcceptInvitation(s *orgsruntime.Server) http.HandlerFunc {
 						orgsproblem.UserAlreadyExistsError,
 					)
 				case "limit-reached":
-					return result{}, userLimitReached(limitValue), nil
+					return result{}, userLimitReached(limit), nil
 				}
 				return result{
 					Status: http.StatusCreated,

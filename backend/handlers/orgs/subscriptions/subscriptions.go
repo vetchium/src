@@ -35,13 +35,7 @@ func response(
 		)
 		result.BillingInterval = &interval
 	}
-	limit, unlimited := orgusers.SeatLimit(
-		result.PlanOID, row.GoogleSignInEnabled,
-	)
-	if !unlimited {
-		value := int32(limit)
-		result.SeatLimit = &value
-	}
+	result.SeatLimit = int32(orgusers.SeatLimit(result.PlanOID))
 	return result
 }
 
@@ -114,10 +108,8 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 						Status: http.StatusOK, Body: response(row),
 					}, nil, nil
 				}
-				limit, unlimited := subscriptionspec.MaxUsers(
-					request.PlanOID, row.GoogleSignInEnabled,
-				)
-				if !unlimited && row.SeatsInUse > int64(limit) {
+				limit := subscriptionspec.MaxUsers(subscriptionspec.Plan(request.PlanOID))
+				if row.SeatsInUse > int64(limit) {
 					return handlerauth.Failure[body](
 						orgsproblem.UserLimitExceedsTargetError(
 							int32(limit), int32(row.SeatsInUse),
@@ -128,9 +120,6 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 					OrgDid:             identity.OrgDID,
 					OrgPlanOid:         string(request.PlanOID),
 					OrgBillingInterval: interval,
-					GoogleSignInPlanOids: entitlements.PlanOIDs(
-						subscriptionspec.AllowsGoogleSignIn,
-					),
 					LogoPlanOids: entitlements.PlanOIDs(
 						subscriptionspec.AllowsLogo,
 					),
@@ -148,8 +137,6 @@ func SetSubscriptionPlan(s *orgsruntime.Server) http.HandlerFunc {
 				}
 				row.OrgPlanOid = string(request.PlanOID)
 				row.OrgBillingInterval = interval
-				row.GoogleSignInEnabled = row.GoogleSignInEnabled &&
-					subscriptionspec.AllowsGoogleSignIn(request.PlanOID)
 				return result{
 					Status: http.StatusOK, Body: response(row),
 				}, nil, nil

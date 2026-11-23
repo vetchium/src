@@ -36,7 +36,6 @@ export type PageKey =
   | "plans"
   | "ai"
   | "settings"
-  | "organizationSecurity"
   | "home"
   | "myInterviews"
   | "security"
@@ -130,10 +129,6 @@ export function workspacesFor(access: WorkspaceAccess): Workspace[] {
         access.manageBilling && { key: "plans", path: paths.plans },
         access.manageAI && { key: "ai", path: paths.ai },
         access.superadmin && { key: "settings", path: paths.settings },
-        access.superadmin && {
-          key: "organizationSecurity",
-          path: paths.organizationSecurity,
-        },
       ]),
     },
   ];

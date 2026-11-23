@@ -24,15 +24,12 @@ const planRanks: Readonly<Record<OrgPlan, number>> = {
 };
 
 /**
- * What one plan allows. `maxUsersWithGoogleSignIn` is null when the cap is
- * lifted while the Org has Google sign-in enabled.
+ * What one plan allows.
  */
 export interface Entitlements {
   maxUsers: number;
-  maxUsersWithGoogleSignIn: number | null;
   openingsPerYear: number;
   allowsLogo: boolean;
-  allowsGoogleSignIn: boolean;
   includesTicketSupport: boolean;
   /** Gates AI operations, the monthly credit grant, and credit purchases.
    * Credits bought earlier stay usable without it. */
@@ -46,10 +43,8 @@ export interface Entitlements {
 export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
   "org-free-tier": {
     maxUsers: 5,
-    maxUsersWithGoogleSignIn: 5,
     openingsPerYear: 25,
     allowsLogo: false,
-    allowsGoogleSignIn: false,
     includesTicketSupport: false,
     allowsAI: false,
     aiCreditsPerMonth: 0,
@@ -57,10 +52,8 @@ export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
   },
   "org-silver-tier": {
     maxUsers: 50,
-    maxUsersWithGoogleSignIn: 50,
     openingsPerYear: 250,
     allowsLogo: true,
-    allowsGoogleSignIn: false,
     includesTicketSupport: false,
     allowsAI: false,
     aiCreditsPerMonth: 0,
@@ -68,10 +61,8 @@ export const entitlements: Readonly<Record<OrgPlan, Entitlements>> = {
   },
   "org-gold-tier": {
     maxUsers: 1000,
-    maxUsersWithGoogleSignIn: null,
     openingsPerYear: 2500,
     allowsLogo: true,
-    allowsGoogleSignIn: true,
     includesTicketSupport: true,
     allowsAI: true,
     aiCreditsPerMonth: 100000,
@@ -134,19 +125,9 @@ export function isUpgrade(
   return fromInterval === "month" && toInterval === "year";
 }
 
-/**
- * The seat cap. Only Gold with Google sign-in enabled is unlimited, reported
- * as `null`; an unknown plan has a cap of zero.
- */
-export function maxUsers(
-  plan: OrgPlanOID,
-  googleSignInEnabled: boolean,
-): number | null {
-  if (!isOrgPlan(plan)) return 0;
-  const held = entitlements[plan];
-  return googleSignInEnabled && held.allowsGoogleSignIn
-    ? held.maxUsersWithGoogleSignIn
-    : held.maxUsers;
+/** The seat cap; an unknown plan has a cap of zero. */
+export function maxUsers(plan: OrgPlanOID): number {
+  return isOrgPlan(plan) ? entitlements[plan].maxUsers : 0;
 }
 
 export function openingsPerYear(plan: OrgPlanOID): number {
@@ -155,10 +136,6 @@ export function openingsPerYear(plan: OrgPlanOID): number {
 
 export function allowsLogo(plan: OrgPlanOID): boolean {
   return isOrgPlan(plan) && entitlements[plan].allowsLogo;
-}
-
-export function allowsGoogleSignIn(plan: OrgPlanOID): boolean {
-  return isOrgPlan(plan) && entitlements[plan].allowsGoogleSignIn;
 }
 
 export function includesTicketSupport(plan: OrgPlanOID): boolean {

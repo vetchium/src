@@ -6,7 +6,7 @@ type OrgSubscription struct {
 	PlanOID         PlanOID          `json:"plan_oid"`
 	BillingInterval *BillingInterval `json:"billing_interval,omitempty"`
 	SeatsInUse      int32            `json:"seats_in_use"`
-	SeatLimit       *int32           `json:"seat_limit,omitempty"`
+	SeatLimit       int32            `json:"seat_limit"`
 }
 
 // OptionalBillingInterval distinguishes an absent billing_interval member

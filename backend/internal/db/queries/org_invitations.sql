@@ -1,7 +1,7 @@
 -- Takes the Org row lock that serializes every statement consuming a seat.
 -- name: LockOrgSeatPolicy :one
 SELECT
-    o.org_plan_oid, o.google_sign_in_enabled,
+    o.org_plan_oid,
     d.domain::text AS domain
 FROM vetchium.orgs AS o
 JOIN vetchium.org_domains AS d ON d.org_did = o.org_did
@@ -10,7 +10,7 @@ WHERE o.org_did = sqlc.arg(org_did)
 FOR UPDATE OF o;
 
 -- One outcome per supplied address, in request order. When the new
--- invitations would exceed seat_limit (NULL means unlimited) none is created
+-- invitations would exceed seat_limit none is created
 -- and every would-be invitation is reported as 'limit-reached'.
 -- name: InviteOrgUsers :many
 -- The invitee has no language of their own yet, so the email uses the Org's.
@@ -70,8 +70,7 @@ WITH org AS (
 ), allowed AS (
     SELECT
         s.in_use,
-        (sqlc.narg(seat_limit)::integer IS NULL
-            OR s.in_use + s.requested <= sqlc.narg(seat_limit)::integer) AS ok
+        (s.in_use + s.requested <= sqlc.arg(seat_limit)::integer) AS ok
     FROM seats AS s
 ), upserted AS (
     INSERT INTO vetchium.org_user_invitations (
@@ -188,10 +187,9 @@ WITH existing AS (
 ), allowed AS (
     SELECT
         vetchium.org_seats_in_use(sqlc.arg(org_did)) AS in_use,
-        (sqlc.narg(seat_limit)::integer IS NULL
-            OR vetchium.org_seats_in_use(sqlc.arg(org_did))
-                + CASE WHEN e.expires_at > now() THEN 0 ELSE 1 END
-                <= sqlc.narg(seat_limit)::integer) AS ok
+        (vetchium.org_seats_in_use(sqlc.arg(org_did))
+            + CASE WHEN e.expires_at > now() THEN 0 ELSE 1 END
+            <= sqlc.arg(seat_limit)::integer) AS ok
     FROM existing AS e
 ), updated AS (
     UPDATE vetchium.org_user_invitations AS i
@@ -304,8 +302,7 @@ WHERE i.token_hash = sqlc.arg(token_hash)
 -- seat-consuming statement, and returns the plan the cap derives from.
 -- name: LockOrgForInvitation :one
 SELECT
-    o.org_did, o.org_plan_oid,
-    o.google_sign_in_enabled
+    o.org_did, o.org_plan_oid
 FROM vetchium.org_user_invitations AS i
 JOIN vetchium.orgs AS o ON o.org_did = i.org_did
 WHERE i.token_hash = sqlc.arg(token_hash)
@@ -335,9 +332,8 @@ WITH invitation AS (
 ), within_cap AS (
     -- The invitation already holds its seat, so converting it adds none; the
     -- check refuses only an Org that is already over its cap.
-    SELECT (sqlc.narg(seat_limit)::integer IS NULL
-        OR vetchium.org_seats_in_use(sqlc.arg(org_did))
-            <= sqlc.narg(seat_limit)::integer) AS ok
+    SELECT (vetchium.org_seats_in_use(sqlc.arg(org_did))
+        <= sqlc.arg(seat_limit)::integer) AS ok
 ), inserted_user AS (
     INSERT INTO vetchium.org_users (
         org_user_id, org_did, email_address, org_user_state, preferred_language

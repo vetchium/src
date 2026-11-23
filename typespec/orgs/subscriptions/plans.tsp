@@ -17,8 +17,7 @@ enum OrgPlan {
  * rank includes everything a lower rank allows.
  *
  * `x-vetchium-plan-entitlements` is the single authority for what a plan
- * allows. `max_users` is the seat cap; `max_users_with_google_sign_in` replaces
- * it while the Org has Google sign-in enabled, and `null` means unlimited.
+ * allows. `max_users` is the seat cap.
  * `openings_per_year` counts openings created in the last 365 days, drafts
  * included. `allows_ai` gates AI operations, the monthly AI credit grant, and
  * AI credit purchases; `ai_credits_per_month` is that grant. `allows_listings`
@@ -38,10 +37,8 @@ enum OrgPlan {
   #{
     `org-free-tier`: #{
       max_users: 5,
-      max_users_with_google_sign_in: 5,
       openings_per_year: 25,
       allows_logo: false,
-      allows_google_sign_in: false,
       includes_ticket_support: false,
       allows_ai: false,
       ai_credits_per_month: 0,
@@ -49,10 +46,8 @@ enum OrgPlan {
     },
     `org-silver-tier`: #{
       max_users: 50,
-      max_users_with_google_sign_in: 50,
       openings_per_year: 250,
       allows_logo: true,
-      allows_google_sign_in: false,
       includes_ticket_support: false,
       allows_ai: false,
       ai_credits_per_month: 0,
@@ -60,10 +55,8 @@ enum OrgPlan {
     },
     `org-gold-tier`: #{
       max_users: 1000,
-      max_users_with_google_sign_in: null,
       openings_per_year: 2500,
       allows_logo: true,
-      allows_google_sign_in: true,
       includes_ticket_support: true,
       allows_ai: true,
       ai_credits_per_month: 100000,

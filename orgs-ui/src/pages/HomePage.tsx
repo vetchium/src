@@ -628,7 +628,7 @@ function LimitAlerts({
   const alerts: ReactNode[] = [];
 
   const seats = subscription.data;
-  if (seats?.seat_limit !== undefined && seats.seat_limit > 0) {
+  if (seats !== undefined && seats.seat_limit > 0) {
     const percent = Math.floor((seats.seats_in_use * 100) / seats.seat_limit);
     if (percent >= SEAT_WARNING_PERCENT) {
       const full = seats.seats_in_use >= seats.seat_limit;

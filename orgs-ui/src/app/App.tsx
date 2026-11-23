@@ -23,7 +23,6 @@ import {
 } from "../components/common/ProtectedRoute";
 import { PublicShell } from "../components/common/PublicShell";
 import { RecentAuthenticationRoute } from "../components/common/RecentAuthenticationRoute";
-import { OrganizationSecurityPage } from "../pages/OrganizationSecurityPage";
 import { paths } from "./paths";
 
 const AcceptInvitationPage = lazy(() =>
@@ -172,11 +171,6 @@ const ForgotPasswordPage = lazy(() =>
     default: ForgotPasswordPage,
   })),
 );
-const GoogleCallbackPage = lazy(() =>
-  import("../pages/GoogleCallbackPage").then(({ GoogleCallbackPage }) => ({
-    default: GoogleCallbackPage,
-  })),
-);
 const HomePage = lazy(() =>
   import("../pages/HomePage").then(({ HomePage }) => ({ default: HomePage })),
 );
@@ -273,14 +267,6 @@ export function App() {
           element={
             <Page>
               <LoginPage />
-            </Page>
-          }
-        />
-        <Route
-          path={paths.googleCallback}
-          element={
-            <Page>
-              <GoogleCallbackPage />
             </Page>
           }
         />
@@ -565,14 +551,6 @@ export function App() {
               />
             </Route>
             <Route element={<PermissionRoute permission={Superadmin} />}>
-              <Route
-                path={paths.organizationSecurity}
-                element={
-                  <Page>
-                    <OrganizationSecurityPage />
-                  </Page>
-                }
-              />
               <Route
                 path={paths.settings}
                 element={

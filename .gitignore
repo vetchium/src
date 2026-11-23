@@ -10,7 +10,6 @@
 /backend/hub-api
 /backend/mcp-server
 /backend/mesh-api
-/backend/oidc-dev
 /backend/orgs-api
 /backend/workers
 

@@ -15,7 +15,6 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/federation/commands"
 	"backend/internal/imagesanitize"
-	"backend/internal/oidc"
 	orgai "backend/internal/orgs/ai"
 	"backend/internal/orgs/auth"
 	"backend/internal/orgs/domainverification"
@@ -82,20 +81,8 @@ type Server struct {
 	// OfferLetters is the tenant's object store for offer letters.
 	OfferLetters OfferLetterStorage
 
-	// GoogleSignIn is nil when the tenant does not offer Google sign-in.
-	GoogleSignIn SSOProvider
-
 	// AI is nil when the tenant offers no AI.
 	AI *orgai.Runtime
-}
-
-// SSOProvider is the OpenID Connect client for one identity provider.
-type SSOProvider interface {
-	NewVerifier() string
-	AuthorizationURL(
-		ctx context.Context, state, nonce, verifier, hostedDomain string,
-	) (string, error)
-	Exchange(ctx context.Context, code, verifier string) (oidc.Claims, error)
 }
 
 // LogoStorage stores Org logos and signs short-lived read URLs for them.

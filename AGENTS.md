@@ -64,7 +64,7 @@ Read every guide that applies before changing files.
 | [`hub-profile.md`](agent-guides/hub-profile.md) | Hub profiles, evidence, aliases, pictures |
 | [`hub-subscriptions.md`](agent-guides/hub-subscriptions.md) | Hub plans, subscriptions, payments |
 | [`orgs.md`](agent-guides/orgs.md) | Org signup, sign-in, domain verification |
-| [`org-subscriptions.md`](agent-guides/org-subscriptions.md) | Org plans, billing, seats, user management, logo, Google sign-in |
+| [`org-subscriptions.md`](agent-guides/org-subscriptions.md) | Org plans, billing, seats, user management, logo |
 | [`openings.md`](agent-guides/openings.md) | Openings: creation, approval, lifecycle, Org and Hub display |
 | [`hiring-pipeline.md`](agent-guides/hiring-pipeline.md) | Applications, pipelines, candidacies, interviews, offers, Hub Applications pages |
 | [`marketplace.md`](agent-guides/marketplace.md) | Capabilities, Listings, engagements, provider work, submissions, activity statements |

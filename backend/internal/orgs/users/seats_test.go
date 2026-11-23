@@ -10,27 +10,20 @@ import (
 func TestSeatLimit(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name          string
-		current       subscriptionspec.PlanOID
-		google        bool
-		wantLimit     int
-		wantUnlimited bool
+		name    string
+		current subscriptionspec.PlanOID
+		want    int
 	}{
-		{"free", "org-free-tier", false, 5, false},
-		{"silver", "org-silver-tier", false, 50, false},
-		{"gold", "org-gold-tier", false, 1000, false},
-		{"gold with google is unlimited", "org-gold-tier", true, 0, true},
-		{"unknown plan", "org-platinum-tier", true, 0, false},
+		{"free", "org-free-tier", 5},
+		{"silver", "org-silver-tier", 50},
+		{"gold", "org-gold-tier", 1000},
+		{"unknown plan", "org-platinum-tier", 0},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			limit, unlimited := SeatLimit(
-				testCase.current, testCase.google,
-			)
-			if limit != testCase.wantLimit || unlimited != testCase.wantUnlimited {
-				t.Fatalf("SeatLimit() = %d, %t, want %d, %t",
-					limit, unlimited, testCase.wantLimit, testCase.wantUnlimited)
+			if got := SeatLimit(testCase.current); got != testCase.want {
+				t.Fatalf("SeatLimit() = %d, want %d", got, testCase.want)
 			}
 		})
 	}

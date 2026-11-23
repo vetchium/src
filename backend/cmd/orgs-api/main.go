@@ -17,7 +17,6 @@ import (
 	"backend/internal/listingclient"
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
-	"backend/internal/oidc"
 	orgsruntime "backend/internal/orgs"
 	orgai "backend/internal/orgs/ai"
 	orgsauthn "backend/internal/orgs/auth"
@@ -191,17 +190,6 @@ func run(log *slog.Logger, address string) error {
 		OfferedPlans:           cfg.OrgBilling.OfferedPlans,
 		Logos:                  logos,
 		OfferLetters:           logos,
-	}
-	if google := cfg.OrgsAPIServer.GoogleSignIn; google != nil {
-		clientSecret, err := google.ClientSecret()
-		if err != nil {
-			return err
-		}
-		s.GoogleSignIn = oidc.New(oidc.Config{
-			Issuer: google.Issuer, DiscoveryURL: google.DiscoveryURL,
-			ClientID: google.ClientID, ClientSecret: clientSecret,
-			RedirectURI: google.RedirectURI,
-		})
 	}
 	if cfg.AI != nil {
 		s.AI, err = orgai.NewRuntime(*cfg.AI, chatmodel.New())

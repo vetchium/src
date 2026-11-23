@@ -76,10 +76,9 @@ Applies to product terms in prompts, specifications, code, and UI text.
 - Plan — a Hub subscription tier identified by its plan OID with a unique rank; a higher rank includes everything a lower rank allows.
 - Subscription — a Hub user's single current plan, billing interval, period, and scheduled change, stored on the user's row in the home tenant.
 - Offered plans — the plans a tenant sells, configured in both the backend and `hub-ui`.
-- Org plan — `org-free-tier`, `org-silver-tier`, or `org-gold-tier`, with entitlements (seats, Openings per year, logo, Google sign-in) defined once in the contract.
+- Org plan — `org-free-tier`, `org-silver-tier`, or `org-gold-tier`, with entitlements (seats, Openings per year, logo) defined once in the contract.
 - Seat — an active Org user or an unexpired pending invitation; the plan's user cap counts seats.
 - Preset — a role label in the Orgs portal (Superadmin, Finance, User manager, Recruiter, Hiring approver, Vendor manager, Provider staff, Member) that pre-ticks permission checkboxes; not stored.
-- Google sign-in — a Gold Org's optional sign-in with its members' Google Workspace accounts; skips Vetchium TOTP.
 
 ## AI
 

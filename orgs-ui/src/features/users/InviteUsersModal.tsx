@@ -69,8 +69,7 @@ export function InviteUsersModal({
   const queryClient = useQueryClient();
   const { data: summary } = useUserSummaryQuery();
   const full =
-    summary?.seat_limit !== undefined &&
-    summary.seats_in_use >= summary.seat_limit;
+    summary !== undefined && summary.seats_in_use >= summary.seat_limit;
   const [text, setText] = useState("");
   const [grants, setGrants] = useState<OrgPermissionID[]>([]);
   const [running, setRunning] = useState(false);

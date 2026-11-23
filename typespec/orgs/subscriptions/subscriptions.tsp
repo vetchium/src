@@ -24,8 +24,7 @@ model OrgSubscription {
 
   seats_in_use: int32;
 
-  /** Absent when uncapped. */
-  seat_limit?: int32;
+  seat_limit: int32;
 }
 
 model SetSubscriptionPlanRequest {

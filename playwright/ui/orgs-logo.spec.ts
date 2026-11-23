@@ -151,12 +151,6 @@ test("company name, account privacy and old routes work together", async ({
     await expect(
       page.getByText(org.emailAddress, { exact: true }),
     ).toBeVisible();
-    await page.goto(`${ORGS_PORTAL}/organization-security`);
-    await expect(
-      page.getByRole("main").getByText(org.emailAddress, { exact: true }),
-    ).toHaveCount(0);
-    await page.setViewportSize({ width: 375, height: 812 });
-    await expect(page.getByTestId("google-switch")).toBeVisible();
   } finally {
     await deleteOrgVerificationRecord(org.domain);
     cleanupOrg(org.domain);
