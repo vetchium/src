@@ -145,6 +145,12 @@ and API contract coverage. Narrower targets per area: `make test-go`,
 `make admin-ui-check`, `make portal-ui-check`, `make playwright-check`,
 `make sql-check`.
 
+To limit CPU use, set `JOBS`, `GOTESTFLAGS`, and `PLAYWRIGHT_WORKERS`:
+
+```bash
+PLAYWRIGHT_WORKERS=2 make test JOBS=2 GOTESTFLAGS='-p 2'
+```
+
 ## Build a feature with a coding agent
 
 Describe the feature to the agent (in Claude Code, `/feature-build <one-line
