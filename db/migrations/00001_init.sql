@@ -4011,6 +4011,35 @@ CREATE TABLE vetchium.hub_chat_request_sends (
 CREATE INDEX hub_chat_request_sends_day_idx
     ON vetchium.hub_chat_request_sends (hub_user_did, created_on);
 
+-- One-way blocks and mutes between Hub users (agent-guides/posts.md).
+CREATE TABLE vetchium.hub_user_blocks (
+    blocker_hub_user_did uuid NOT NULL
+        REFERENCES vetchium.hub_users (hub_user_did) ON DELETE CASCADE,
+    blocked_hub_user_did uuid NOT NULL,
+    blocked_handle text NOT NULL,
+    -- Routing hint only (federation.md); never authoritative.
+    blocked_tenant_id text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (blocker_hub_user_did, blocked_hub_user_did),
+    CHECK (blocker_hub_user_did <> blocked_hub_user_did)
+);
+CREATE INDEX hub_user_blocks_list_idx ON vetchium.hub_user_blocks
+    (blocker_hub_user_did, created_at DESC, blocked_hub_user_did);
+
+CREATE TABLE vetchium.hub_user_mutes (
+    muter_hub_user_did uuid NOT NULL
+        REFERENCES vetchium.hub_users (hub_user_did) ON DELETE CASCADE,
+    muted_hub_user_did uuid NOT NULL,
+    muted_handle text NOT NULL,
+    -- Routing hint only (federation.md); never authoritative.
+    muted_tenant_id text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (muter_hub_user_did, muted_hub_user_did),
+    CHECK (muter_hub_user_did <> muted_hub_user_did)
+);
+CREATE INDEX hub_user_mutes_list_idx ON vetchium.hub_user_mutes
+    (muter_hub_user_did, created_at DESC, muted_hub_user_did);
+
 -- Billable facts derived from recording actions (MKT-STM-001).
 -- Authoritative on consumer tenant; outlives applicant retention with numbers only
 -- (MKT-STM-004), deleted three years after engagement becomes terminal.
@@ -4140,6 +4169,8 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.hub_user_mutes;
+DROP TABLE IF EXISTS vetchium.hub_user_blocks;
 DROP TABLE IF EXISTS vetchium.hub_chat_request_sends;
 DROP TABLE IF EXISTS vetchium.hub_chat_request_creations;
 DROP TABLE IF EXISTS vetchium.hub_message_notices;
