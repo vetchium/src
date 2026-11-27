@@ -52,3 +52,5 @@ No new tests unless step 4 finds a gap.
 - `make test` passes.
 
 ## Carried over
+
+From T06: `playwright/ui/hub-plans.spec.ts` has two date-sensitive tests that fail when the local timezone (IST) has passed midnight and UTC has not. They pass with `TZ=UTC`. Add this pre-existing flake to `docs/todo.md`.

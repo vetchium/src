@@ -1714,10 +1714,12 @@ export function hubAuditEventsByIdempotencyKey(key: string): AuditEvent[] {
 export function hubAuditEventsForActor(
   hubUserDID: string,
   action: string,
+  tenant: TestTenant = "sgp",
 ): AuditEvent[] {
   assertHubUserDID(hubUserDID);
   assertHubAuditAction(action);
-  return auditEventJSON(
+  return auditEventJSONForTenant(
+    tenant,
     `actor_id = ${sqlLiteral(hubUserDID)} AND action = ${sqlLiteral(action)}`,
   );
 }
