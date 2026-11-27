@@ -92,9 +92,15 @@ nearest one wins on conflict, and a specific guide wins over a general one.
     each rule in one place. A `.claude/skills/` entry only points to a guide.
   - `README.md` holds human developer instructions; `deploy/README.md` the
     production runbook.
-  - `docs/` holds only `todo.md`, the deferred-work list.
+  - `docs/` holds `todo.md`, the deferred-work list, and documents for people.
+    Read the other files only when a task names them.
 - Write guides tersely: imperative bullets, exact values, a reason only when a
   rule would otherwise be misapplied. No history, plans, or ledgers.
+- Write all text (guides, docs, comments, commits, pull requests, UI copy) in
+  a standard like ASD-STE100. Use short sentences: at most 20 words for an
+  instruction and 25 for a description. Use the active voice, one instruction
+  in each sentence, and one meaning for each word. Prefer tables and lists. No
+  filler, hype, hedging, or repetition.
 
 ## Feature builds
 
