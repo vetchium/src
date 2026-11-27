@@ -59,6 +59,7 @@
     "./hub/subscriptions/plans": "./hub/subscriptions/plans.ts",
     "./hub/subscriptions/subscriptions": "./hub/subscriptions/subscriptions.ts",
     "./hub/messages/messages": "./hub/messages/messages.ts",
+    "./hub/blocks/blocks": "./hub/blocks/blocks.ts",
     "./hub/types": "./hub/types.ts",
     "./hub/users/profile": "./hub/users/profile.ts",
     "./orgs/orgs": "./orgs/orgs.ts",
@@ -157,7 +158,7 @@
     "format:check": "biome check --config-path=../biome.json .",
     "test:contract-files": "node --test scripts/check-contract-files.test.mjs",
     "test:openapi": "node --experimental-strip-types --test scripts/openapi-extensions.test.ts",
-    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts directory/*.test.ts federation/*.test.ts hub/*.test.ts hub/applications/*.test.ts hub/operations/*.test.ts hub/profile/*.test.ts orgs/*.test.ts orgs/operations/*.test.ts",
+    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts directory/*.test.ts federation/*.test.ts hub/*.test.ts hub/applications/*.test.ts hub/blocks/*.test.ts hub/operations/*.test.ts hub/profile/*.test.ts orgs/*.test.ts orgs/operations/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
