@@ -66,6 +66,10 @@ type Request struct {
 	// Payload is the replayable logical command, a JSON object. Never put a
 	// bearer secret in it.
 	Payload any
+	// Prepare is optional. Send calls it in the transaction that inserts a
+	// new pending operation; a replay never calls it. A problem it returns
+	// refuses the request and stores nothing.
+	Prepare PrepareFunc
 }
 
 type State int
@@ -231,6 +235,19 @@ func (s *Sender) Send(ctx context.Context, request Request) (Outcome, error) {
 	if err != nil {
 		return Outcome{}, err
 	}
+	if request.Prepare != nil {
+		details, err := request.Prepare(ctx, tx, operationID)
+		if err != nil {
+			return Outcome{}, fmt.Errorf("prepare federation operation: %w", err)
+		}
+		if details != nil {
+			response, err := rejection(*details)
+			if err != nil {
+				return Outcome{}, err
+			}
+			return Outcome{State: StateFailed, Response: response}, nil
+		}
+	}
 	// A local authority executes in this transaction, so the operation is
 	// created and resolved together and never left pending.
 	response, err := s.config.Executor.executeInTx(ctx, tx, command, nil)
@@ -243,7 +260,7 @@ func (s *Sender) Send(ctx context.Context, request Request) (Outcome, error) {
 	if err != nil {
 		return Outcome{}, err
 	}
-	outcome, err := s.resolve(ctx, q, operation, response, actor)
+	outcome, err := s.resolve(ctx, tx, operation, command, response, actor)
 	if err != nil {
 		return Outcome{}, err
 	}
@@ -400,7 +417,7 @@ func (s *Sender) drive(
 	if err != nil {
 		return Outcome{}, err
 	}
-	outcome, err := s.resolve(ctx, sqlc.New(tx), operation, response, actor)
+	outcome, err := s.resolve(ctx, tx, operation, command, response, actor)
 	if err != nil {
 		return Outcome{}, err
 	}
@@ -422,7 +439,7 @@ func (s *Sender) deliver(
 			"event", "federation_command_not_sent",
 			"operationID", dbvalue.FormatUUID(operation.OperationID),
 			"kind", operation.Kind, "error", err)
-		if first && s.abandon(ctx, operation, actor) {
+		if first && s.abandon(ctx, operation, command, actor) {
 			return Outcome{
 				OperationID: operation.OperationID, State: StateUnavailable,
 			}, nil
@@ -441,7 +458,7 @@ func (s *Sender) deliver(
 			OperationID: operation.OperationID, State: StatePending,
 		}, nil
 	}
-	return s.resolve(ctx, s.queries, operation, response, actor)
+	return s.resolveStandalone(ctx, operation, command, response, actor)
 }
 
 // abandon removes an operation that was certainly never sent, releasing its
@@ -449,14 +466,9 @@ func (s *Sender) deliver(
 // when another attempt was recorded, which may have sent the command.
 func (s *Sender) abandon(
 	ctx context.Context, operation sqlc.VetchiumFederationOperation,
-	actor auditActor,
+	command Command, actor auditActor,
 ) bool {
-	removed, err := s.queries.AbandonUnsentFederationOperation(ctx,
-		sqlc.AbandonUnsentFederationOperationParams{
-			OperationID: operation.OperationID, TenantID: s.config.TenantID,
-			ActorType: actor.actorType, ActorID: dbvalue.Text(actor.actorID),
-			Source: s.config.Source,
-		})
+	removed, err := s.abandonInTx(ctx, operation, command, actor)
 	if err != nil {
 		s.config.Log.Warn("federation operation not abandoned",
 			"event", "federation_command_abandon_failed",
@@ -464,17 +476,50 @@ func (s *Sender) abandon(
 			"kind", operation.Kind, "error", err)
 		return false
 	}
-	return removed == 1
+	return removed
+}
+
+// abandonInTx deletes the operation and settles it in one transaction, so a
+// failed settle leaves the operation pending.
+func (s *Sender) abandonInTx(
+	ctx context.Context, operation sqlc.VetchiumFederationOperation,
+	command Command, actor auditActor,
+) (bool, error) {
+	tx, err := s.config.Pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin federation abandon: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	removed, err := sqlc.New(tx).AbandonUnsentFederationOperation(ctx,
+		sqlc.AbandonUnsentFederationOperationParams{
+			OperationID: operation.OperationID, TenantID: s.config.TenantID,
+			ActorType: actor.actorType, ActorID: dbvalue.Text(actor.actorID),
+			Source: s.config.Source,
+		})
+	if err != nil || removed != 1 {
+		return false, err
+	}
+	if err := s.config.Executor.settle(ctx, tx, command, operation.OperationID,
+		Outcome{
+			OperationID: operation.OperationID, State: StateUnavailable,
+		}); err != nil {
+		return false, fmt.Errorf("settle abandoned federation operation: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit federation abandon: %w", err)
+	}
+	return true, nil
 }
 
 // resolve records a definite outcome. If another driver already resolved
-// the operation, its stored outcome wins; both came from the same command
-// result at the authority.
+// the operation, its stored outcome wins and settle does not run again; both
+// came from the same command result at the authority.
 func (s *Sender) resolve(
-	ctx context.Context, q *sqlc.Queries,
-	operation sqlc.VetchiumFederationOperation, response Response,
-	actor auditActor,
+	ctx context.Context, tx pgx.Tx,
+	operation sqlc.VetchiumFederationOperation, command Command,
+	response Response, actor auditActor,
 ) (Outcome, error) {
+	q := sqlc.New(tx)
 	key, ok := s.config.ResultKeys[OwnerType(operation.OwnerPrincipalType)]
 	if !ok {
 		return Outcome{}, fmt.Errorf(
@@ -511,9 +556,35 @@ func (s *Sender) resolve(
 	if err != nil {
 		return Outcome{}, fmt.Errorf("resolve federation operation: %w", err)
 	}
-	return Outcome{
+	outcome := Outcome{
 		OperationID: operation.OperationID, State: state, Response: response,
-	}, nil
+	}
+	if err := s.config.Executor.settle(ctx, tx, command,
+		operation.OperationID, outcome); err != nil {
+		return Outcome{}, fmt.Errorf("settle federation operation: %w", err)
+	}
+	return outcome, nil
+}
+
+// resolveStandalone resolves in its own transaction, for an outcome that came
+// back over the relay.
+func (s *Sender) resolveStandalone(
+	ctx context.Context, operation sqlc.VetchiumFederationOperation,
+	command Command, response Response, actor auditActor,
+) (Outcome, error) {
+	tx, err := s.config.Pool.Begin(ctx)
+	if err != nil {
+		return Outcome{}, fmt.Errorf("begin federation resolve: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	outcome, err := s.resolve(ctx, tx, operation, command, response, actor)
+	if err != nil {
+		return Outcome{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Outcome{}, fmt.Errorf("commit federation resolve: %w", err)
+	}
+	return outcome, nil
 }
 
 func (s *Sender) stored(operation sqlc.VetchiumFederationOperation) (Outcome, error) {

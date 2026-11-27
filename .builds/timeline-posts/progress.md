@@ -1,7 +1,7 @@
 # Timeline posts build progress
 
 branch: timeline-posts
-current: T02
+current: T03
 phase: implement
 
 ## Tasks
@@ -9,7 +9,7 @@ phase: implement
 ### M1 Foundations
 
 T01 done Backend: Add the post ID helper
-T02 todo Federation: Add Prepare and Settle hooks to commands
+T02 done Federation: Add Prepare and Settle hooks to commands
 T03 todo Backend: Add the region fan-out read helper
 
 ### M2 Blocks and mutes

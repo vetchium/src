@@ -259,6 +259,13 @@ command-result ledger at the authority; no per-feature reliability protocol.
     this tenant's database for an in-process or relay-local command,
     `resolve-principal` before the transaction for a peer's — else the stored
     outcome is `403 federation-initiator-mismatch`.
+  - `Request.Prepare` runs in the transaction that inserts a new pending
+    operation, never on a replay. A problem it returns rolls back and answers
+    `StateFailed`; no operation remains, so the same key may be sent again.
+  - `Registry.RegisterSettle` gives a kind a `SettleFunc`. It runs in the
+    transaction that stores a succeeded or failed outcome, in `Send` and
+    `Recover`, and in the abandon transaction with `StateUnavailable`. Its error
+    rolls that transaction back: `Send` returns it, `Recover` retries later.
   - Outcomes: `StateSucceeded`/`StateFailed` carry the stored status and body;
     `StatePending` is `202` with `PendingOperation`; `StateUnavailable` is a
     retryable `503` after the sender abandoned the never-sent operation.

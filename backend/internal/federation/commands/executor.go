@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
@@ -252,6 +253,18 @@ func (e *Executor) executeInTx(
 		return Response{}, fmt.Errorf("record federation command result: %w", err)
 	}
 	return response, nil
+}
+
+// settle runs the kind's SettleFunc, if any, in tx.
+func (e *Executor) settle(
+	ctx context.Context, tx pgx.Tx, command Command, operationID pgtype.UUID,
+	outcome Outcome,
+) error {
+	entry, ok := e.registry.registration(command.Kind)
+	if !ok || entry.settle == nil {
+		return nil
+	}
+	return entry.settle(ctx, tx, command, operationID, outcome)
 }
 
 func rejection(details problem.Details) (Response, error) {

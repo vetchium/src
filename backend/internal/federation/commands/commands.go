@@ -84,9 +84,20 @@ type Handler func(context.Context, pgx.Tx, Command) (Result, error)
 // command names none; the executor then stores a validation rejection.
 type Initiator func(Command) (Principal, bool)
 
+// PrepareFunc runs in the transaction that creates the pending operation.
+// A non-nil problem refuses the request: the transaction rolls back and
+// nothing is stored.
+type PrepareFunc func(ctx context.Context, tx pgx.Tx, operationID pgtype.UUID) (*problem.Details, error)
+
+// SettleFunc runs in the transaction that stores an operation's final
+// outcome, and in the abandon transaction (Outcome.State is then
+// StateUnavailable).
+type SettleFunc func(ctx context.Context, tx pgx.Tx, command Command, operationID pgtype.UUID, outcome Outcome) error
+
 type registration struct {
 	handler   Handler
 	initiator Initiator
+	settle    SettleFunc
 }
 
 // Registry maps command kinds to their authority handlers.
@@ -111,6 +122,20 @@ func (r *Registry) Register(
 		panic(fmt.Sprintf("duplicate federation command kind %q", kind))
 	}
 	r.kinds[kind] = registration{handler: handler, initiator: initiator}
+}
+
+// RegisterSettle sets the SettleFunc of a registered kind. It belongs to the
+// kind, not the request, because Recover has no Request. It panics on an
+// unknown kind or a second registration.
+func (r *Registry) RegisterSettle(
+	kind federationspec.CommandKind, settle SettleFunc,
+) {
+	entry, ok := r.kinds[kind]
+	if !ok || settle == nil || entry.settle != nil {
+		panic(fmt.Sprintf("invalid federation settle registration %q", kind))
+	}
+	entry.settle = settle
+	r.kinds[kind] = entry
 }
 
 func (r *Registry) registration(
