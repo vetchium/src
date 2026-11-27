@@ -51,6 +51,14 @@ import type {
 } from "typespec/hub/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
+  BlockState,
+  BlockUserRequest,
+  ListBlockedUsersRequest,
+  ListBlockedUsersResponse,
+  ListMutedUsersRequest,
+  ListMutedUsersResponse,
+} from "typespec/hub/blocks/blocks";
+import type {
   AwaitingConversationCounts,
   DeleteMessageRequest,
   GetConversationRequest,
@@ -428,6 +436,20 @@ export const hubAPI = {
       body: {},
       idempotencyKey,
     }),
+  blockUser: (body: BlockUserRequest) =>
+    apiRequest<void>(`${base}/blocks/block`, { body }),
+  unblockUser: (body: BlockUserRequest) =>
+    apiRequest<void>(`${base}/blocks/unblock`, { body }),
+  listBlockedUsers: (body: ListBlockedUsersRequest) =>
+    apiRequest<ListBlockedUsersResponse>(`${base}/blocks/list`, { body }),
+  blockState: (body: BlockUserRequest) =>
+    apiRequest<BlockState>(`${base}/blocks/state`, { body }),
+  muteUser: (body: BlockUserRequest) =>
+    apiRequest<void>(`${base}/mutes/mute`, { body }),
+  unmuteUser: (body: BlockUserRequest) =>
+    apiRequest<void>(`${base}/mutes/unmute`, { body }),
+  listMutedUsers: (body: ListMutedUsersRequest) =>
+    apiRequest<ListMutedUsersResponse>(`${base}/mutes/list`, { body }),
   listProfessionalEmails: (body: ListProfessionalEmailsRequest) =>
     apiRequest<ListProfessionalEmailsResponse>(
       `${base}/profile/professional-email/list`,

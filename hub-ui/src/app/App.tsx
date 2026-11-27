@@ -69,6 +69,11 @@ const PlanPage = lazy(() =>
     default: PlanPage,
   })),
 );
+const BlocksPage = lazy(() =>
+  import("../pages/BlocksPage").then(({ BlocksPage }) => ({
+    default: BlocksPage,
+  })),
+);
 const PreferencesPage = lazy(() =>
   import("../pages/PreferencesPage").then(({ PreferencesPage }) => ({
     default: PreferencesPage,
@@ -285,6 +290,14 @@ export function App() {
             element={
               <Page>
                 <PreferencesPage />
+              </Page>
+            }
+          />
+          <Route
+            path="settings/blocks"
+            element={
+              <Page>
+                <BlocksPage />
               </Page>
             }
           />

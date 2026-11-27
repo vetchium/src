@@ -261,7 +261,7 @@ test("a visitor with a stored session lands on a personal home page", async ({
     page.getByRole("link", { name: "View as others see it" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "See plans" })).toBeVisible();
-  await expect(page.getByRole("menuitem")).toHaveCount(9);
+  await expect(page.getByRole("menuitem")).toHaveCount(10);
   await expect(page.getByRole("menuitem", { name: "Home" })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Hub");
 });
@@ -463,7 +463,7 @@ test("the single home entry remains usable on a narrow viewport", async ({
 
   await header.getByRole("button", { name: "Open navigation" }).click();
   const navigation = page.getByRole("dialog", { name: "Navigation" });
-  await expect(navigation.getByRole("menuitem")).toHaveCount(9);
+  await expect(navigation.getByRole("menuitem")).toHaveCount(10);
   for (const name of [
     "Home",
     "Openings",

@@ -30,6 +30,7 @@ export const de = {
     settings: "Einstellungen",
     security: "Konto & Sicherheit",
     preferences: "Präferenzen",
+    blocks: "Blockierte und stummgeschaltete Nutzer",
     workEmails: "Berufliche E-Mails",
   },
   theme: {
@@ -523,6 +524,41 @@ export const de = {
     upgradeRequired:
       "Für ein Profilbild ist ein kostenpflichtiger Tarif erforderlich.",
     viewPlans: "Tarife ansehen",
+  },
+  blocks: {
+    documentTitle: "Blockierte und stummgeschaltete Nutzer | Vetchium",
+    title: "Blockierte und stummgeschaltete Nutzer",
+    description:
+      "Verwalten Sie Nutzer, die Sie blockiert oder stummgeschaltet haben. Niemand wird darüber informiert.",
+    blockedTitle: "Blockierte Nutzer",
+    blockedHelp:
+      "Blockierte Nutzer können weder auf Ihre Beiträge antworten noch unter Ihren Antworten antworten oder Ihre Beiträge zitieren. Sie können Ihre Beiträge weiterhin lesen.",
+    blockedEmpty: "Sie haben niemanden blockiert.",
+    blockedUndoLabel: "Blockierung aufheben",
+    blockedUndo: "Blockierung von @{{handle}} aufheben",
+    blockedUndoDone: "Sie haben die Blockierung von @{{handle}} aufgehoben.",
+    mutedTitle: "Stummgeschaltete Nutzer",
+    mutedHelp:
+      "Antworten und Zitate stummgeschalteter Nutzer sehen Sie nicht in Diskussionen und Zitatlisten.",
+    mutedEmpty: "Sie haben niemanden stummgeschaltet.",
+    mutedUndoLabel: "Stummschaltung aufheben",
+    mutedUndo: "Stummschaltung von @{{handle}} aufheben",
+    mutedUndoDone: "Sie haben die Stummschaltung von @{{handle}} aufgehoben.",
+    more: "Mehr laden",
+    menu: {
+      label: "Nutzeraktionen",
+      block: "Blockieren",
+      unblock: "Blockierung aufheben",
+      mute: "Stummschalten",
+      unmute: "Stummschaltung aufheben",
+      confirmTitle: "@{{handle}} blockieren?",
+      confirmContent:
+        "Dieser Nutzer kann weder auf Ihre Beiträge antworten noch sie zitieren. Niemand wird über die Blockierung informiert.",
+      blocked: "Sie haben @{{handle}} blockiert.",
+      unblocked: "Sie haben die Blockierung von @{{handle}} aufgehoben.",
+      muted: "Sie haben @{{handle}} stummgeschaltet.",
+      unmuted: "Sie haben die Stummschaltung von @{{handle}} aufgehoben.",
+    },
   },
   profileView: {
     edit: "Mein Profil bearbeiten",

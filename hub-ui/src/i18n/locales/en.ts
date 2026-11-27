@@ -28,6 +28,7 @@ export const en = {
     settings: "Settings",
     security: "Account & security",
     preferences: "Preferences",
+    blocks: "Blocks and mutes",
     workEmails: "Professional emails",
   },
   theme: {
@@ -497,6 +498,41 @@ export const en = {
     loading: "Loading profile picture",
     upgradeRequired: "A paid plan is needed to add a profile picture.",
     viewPlans: "View plans",
+  },
+  blocks: {
+    documentTitle: "Blocks and mutes | Vetchium",
+    title: "Blocks and mutes",
+    description:
+      "Manage the users you blocked or muted. Nobody is told about either.",
+    blockedTitle: "Blocked users",
+    blockedHelp:
+      "Blocked users cannot reply to your posts, reply below your replies, or quote your posts. They can still read your posts.",
+    blockedEmpty: "You have not blocked anyone.",
+    blockedUndoLabel: "Unblock",
+    blockedUndo: "Unblock @{{handle}}",
+    blockedUndoDone: "You unblocked @{{handle}}.",
+    mutedTitle: "Muted users",
+    mutedHelp:
+      "You do not see replies and quotes from muted users in threads and quote lists.",
+    mutedEmpty: "You have not muted anyone.",
+    mutedUndoLabel: "Unmute",
+    mutedUndo: "Unmute @{{handle}}",
+    mutedUndoDone: "You unmuted @{{handle}}.",
+    more: "Load more",
+    menu: {
+      label: "User actions",
+      block: "Block",
+      unblock: "Unblock",
+      mute: "Mute",
+      unmute: "Unmute",
+      confirmTitle: "Block @{{handle}}?",
+      confirmContent:
+        "This user cannot reply to your posts or quote them. Nobody is told about the block.",
+      blocked: "You blocked @{{handle}}.",
+      unblocked: "You unblocked @{{handle}}.",
+      muted: "You muted @{{handle}}.",
+      unmuted: "You unmuted @{{handle}}.",
+    },
   },
   profileView: {
     edit: "Edit my profile",
