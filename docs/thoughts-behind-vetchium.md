@@ -65,6 +65,10 @@ keeps only the data that routing needs.
   gets a signed link for one file. The link expires after a short time.
 - Each record has one owner region. That region applies the rules for the
   record.
+- An application goes to the home region of the hiring Org, because the Org
+  runs the hiring process. If that region is not the applicant's home region,
+  the application leaves the applicant's home region. The Org's region also
+  keeps the interviews and the offers.
 - A user can move to a different region. The system copies the data, verifies
   the copy, and then changes the routing in one step.
 - The Admins of the author's region do takedowns of content.
@@ -77,7 +81,7 @@ keeps only the data that routing needs.
 | Posts, replies, comments, quotes | The author's home region |
 | The list of replies on a post (no text) | The post owner's home region |
 | Org account, Org users, Openings | The Org's home region |
-| Applications, interviews, offers | The hiring Org's home region, because the Org runs the hiring process |
+| Applications, interviews, offers | The hiring Org's home region, which can be different from the applicant's home region |
 | Pictures, logos, offer letters | Private storage in the owner's home region |
 | Account ID, handle, home region, email hash | The global directory |
 
