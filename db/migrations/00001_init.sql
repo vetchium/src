@@ -4040,6 +4040,59 @@ CREATE TABLE vetchium.hub_user_mutes (
 CREATE INDEX hub_user_mutes_list_idx ON vetchium.hub_user_mutes
     (muter_hub_user_did, created_at DESC, muted_hub_user_did);
 
+-- Hub timeline posts (agent-guides/posts.md, Posts). The author's home tenant
+-- holds the words; removal clears them and keeps the row.
+CREATE TYPE vetchium.hub_post_kind AS ENUM ('post', 'quote');
+CREATE TYPE vetchium.hub_post_policy AS ENUM ('everyone', 'nobody');
+CREATE TYPE vetchium.hub_post_state AS ENUM ('live', 'removed', 'taken_down');
+
+CREATE TABLE vetchium.hub_posts (
+    post_id text COLLATE "C" PRIMARY KEY
+        CHECK (post_id ~ '^[0-9a-v]{20}[0-9a-z]{20}$'),
+    author_hub_user_did uuid NOT NULL
+        REFERENCES vetchium.hub_users (hub_user_did) ON DELETE CASCADE,
+    kind vetchium.hub_post_kind NOT NULL,
+    body text,
+    reply_policy vetchium.hub_post_policy NOT NULL DEFAULT 'everyone',
+    quote_policy vetchium.hub_post_policy NOT NULL DEFAULT 'everyone',
+    locked_at timestamptz,
+    reply_count integer NOT NULL DEFAULT 0 CHECK (reply_count >= 0),
+    quote_count integer NOT NULL DEFAULT 0 CHECK (quote_count >= 0),
+    state vetchium.hub_post_state NOT NULL DEFAULT 'live',
+    revision integer NOT NULL DEFAULT 1,
+    version bigint NOT NULL DEFAULT 1,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    edited_at timestamptz,
+    removed_at timestamptz,
+    -- Set when post cleanup finished (PST-RPL-013).
+    cleanup_done_at timestamptz,
+    -- A live body holds 1 to 512 code points with no surrounding whitespace
+    -- (PST-GEN-003); a removed body is NULL (PST-POS-007).
+    CHECK (
+        CASE state
+            WHEN 'live' THEN body IS NOT NULL
+                AND char_length(body) BETWEEN 1 AND 512
+                AND body !~ '^\s|\s$'
+            WHEN 'removed' THEN body IS NULL
+            ELSE true
+        END
+    )
+);
+CREATE INDEX hub_posts_author_live_idx ON vetchium.hub_posts
+    (author_hub_user_did, created_at DESC, post_id DESC)
+    WHERE state = 'live';
+CREATE INDEX hub_posts_author_created_idx ON vetchium.hub_posts
+    (author_hub_user_did, created_at);
+
+CREATE TABLE vetchium.hub_post_revisions (
+    post_id text COLLATE "C" NOT NULL
+        REFERENCES vetchium.hub_posts (post_id) ON DELETE CASCADE,
+    revision integer NOT NULL,
+    body text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (post_id, revision)
+);
+
 -- Billable facts derived from recording actions (MKT-STM-001).
 -- Authoritative on consumer tenant; outlives applicant retention with numbers only
 -- (MKT-STM-004), deleted three years after engagement becomes terminal.
@@ -4169,6 +4222,11 @@ $$;
 -- +goose StatementEnd
 
 -- +goose Down
+DROP TABLE IF EXISTS vetchium.hub_post_revisions;
+DROP TABLE IF EXISTS vetchium.hub_posts;
+DROP TYPE IF EXISTS vetchium.hub_post_state;
+DROP TYPE IF EXISTS vetchium.hub_post_policy;
+DROP TYPE IF EXISTS vetchium.hub_post_kind;
 DROP TABLE IF EXISTS vetchium.hub_user_mutes;
 DROP TABLE IF EXISTS vetchium.hub_user_blocks;
 DROP TABLE IF EXISTS vetchium.hub_chat_request_sends;

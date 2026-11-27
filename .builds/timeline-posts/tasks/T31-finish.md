@@ -56,3 +56,4 @@ No new tests unless step 4 finds a gap.
 From T06: `playwright/ui/hub-plans.spec.ts` has two date-sensitive tests that fail when the local timezone (IST) has passed midnight and UTC has not. They pass with `TZ=UTC`. Add this pre-existing flake to `docs/todo.md`.
 From T07: UI tests `orgs-opening-editor.spec.ts:240` and `orgs-typed-pickers.spec.ts:125` fail under full-suite load and pass on a one-worker rerun. Add this pre-existing flake to `docs/todo.md`.
 From T08: `orgs-opening-editor.spec.ts:966` also timed out once under full-suite load and passed on a one-worker rerun. Add it to the same `docs/todo.md` flake entry.
+From T10 (orchestrator): `api/orgs-application-transitions.spec.ts:917` failed once with a 409 version conflict under full-suite load and passed on a rerun. Add it to the flake entry in `docs/todo.md`.
