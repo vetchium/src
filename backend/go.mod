@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/rs/xid v1.6.0
 	github.com/vetchium/src/typespec v0.0.0
 	github.com/wneessen/go-mail v0.8.1
 	golang.org/x/crypto v0.57.0
@@ -33,7 +34,6 @@ require (
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/moov-io/iso3166 v0.4.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
-	github.com/rs/xid v1.6.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
