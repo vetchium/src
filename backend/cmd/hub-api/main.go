@@ -9,6 +9,7 @@ import (
 
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
+	"backend/internal/blocksclient"
 	"backend/internal/conversationclient"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
@@ -78,6 +79,10 @@ func run(log *slog.Logger, address string) error {
 		meshCredential, cfg.MeshAPIServer.RequestTimeout,
 	)
 	profiles := profileclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
+	blocks := blocksclient.NewRelay(
 		cfg.MeshAPIServer.BaseURL, meshCredential,
 		cfg.MeshAPIServer.RequestTimeout,
 	)
@@ -152,6 +157,7 @@ func run(log *slog.Logger, address string) error {
 		Queries:       dbsqlc.New(pool),
 		Directory:     globalDirectory,
 		Profiles:      profiles,
+		Blocks:        blocks,
 		Openings:      openings,
 		Applications:  applications,
 		Conversations: conversations,

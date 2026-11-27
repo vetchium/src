@@ -1,7 +1,7 @@
 # Timeline posts build progress
 
 branch: timeline-posts
-current: T06
+current: T07
 phase: implement
 
 ## Tasks
@@ -16,7 +16,7 @@ T03 done Backend: Add the region fan-out read helper
 
 T04 done Contracts: Add Hub blocks and mutes
 T05 done Database: Add Hub user blocks and mutes
-T06 todo Hub API: Serve blocks and mutes
+T06 done Hub API: Serve blocks and mutes
 T07 todo Playwright: Test Hub block and mute APIs
 T08 todo Hub portal: Add blocks and mutes
 T09 todo Playwright: Test the Hub block and mute screens

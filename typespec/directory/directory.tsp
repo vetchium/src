@@ -343,6 +343,10 @@ alias MeshPrincipalReadResponse =
   | Vetchium.Problem.InternalServerErrorResponse
   | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 
+alias MeshReadResponse =
+  | ReadResponseBase
+  | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
 alias MeshOrgReadResponse =
   | OrgReadResponseBase
   | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
@@ -517,6 +521,13 @@ interface MeshOperations {
   @route("/resolve-org-domain")
   @post
   resolveOrgDomain(@body request: ResolveOrgDomainRequest): MeshOrgReadResponse;
+
+  /** The DID and home tenant of a handle or alias, so an API finds a user. */
+  @route("/resolve-profile-slug")
+  @post
+  resolveProfileSlug(
+    @body request: ResolveProfileSlugRequest,
+  ): MeshReadResponse;
 
   /** Where a principal lives, so an API finds a counterparty by its DID. */
   @route("/resolve-principal")

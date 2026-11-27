@@ -43,6 +43,10 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 		mesh.ResolveOrgDomain(s.Runtime, s.Directory, s.Credential),
 	)
 	mux.HandleFunc(
+		"POST /mesh/directory/resolve-profile-slug",
+		mesh.ResolveProfileSlug(s.Runtime, s.Directory, s.Credential),
+	)
+	mux.HandleFunc(
 		"POST /mesh/directory/resolve-principal",
 		mesh.ResolvePrincipal(s.Runtime, s.Directory, s.Credential),
 	)
@@ -63,6 +67,7 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 		mesh.ClaimOrgDomain(s.Runtime, s.Directory, s.Credential),
 	)
 	mux.HandleFunc("POST /mesh/profile/read", mesh.RelayReadProfile(s))
+	mux.HandleFunc("POST /mesh/blocks/check", mesh.RelayCheckBlock(s))
 	mux.HandleFunc("POST /mesh/org-openings/list", mesh.RelayListOrgOpenings(s))
 	mux.HandleFunc("POST /mesh/org-openings/get", mesh.RelayGetOrgOpening(s))
 	mux.HandleFunc("POST /mesh/org-openings/agencies", mesh.RelayListOpeningAgencies(s))
@@ -91,6 +96,7 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 func RegisterMeshPeerRoutes(mux *http.ServeMux, s *meshapi.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
 	mux.HandleFunc("POST /api/mesh/profile/read", mesh.PeerReadProfile(s))
+	mux.HandleFunc("POST /api/mesh/blocks/check", mesh.PeerCheckBlock(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/list", mesh.PeerListOrgOpenings(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/get", mesh.PeerGetOrgOpening(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/agencies", mesh.PeerListOpeningAgencies(s))

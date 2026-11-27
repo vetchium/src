@@ -9,6 +9,7 @@ import (
 	federationspec "github.com/vetchium/src/typespec/federation"
 
 	"backend/internal/apiserver"
+	"backend/internal/blocksclient"
 	"backend/internal/conversationclient"
 	"backend/internal/db/sqlc"
 	"backend/internal/directoryclient"
@@ -57,6 +58,7 @@ type Server struct {
 	TenantID       string
 	Directory      *directoryclient.Client
 	Profiles       *profileclient.Client
+	Blocks         *blocksclient.Client
 	Openings       *publicopeningclient.Client
 	Applications   *hubapplicationclient.Client
 	PublicOpenings publicopenings.Reader

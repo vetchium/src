@@ -5,6 +5,7 @@ import (
 
 	hubapplications "backend/handlers/hub/applications"
 	hubauth "backend/handlers/hub/auth"
+	hubblocks "backend/handlers/hub/blocks"
 	hubmessages "backend/handlers/hub/messages"
 	hubopenings "backend/handlers/hub/openings"
 	huboperations "backend/handlers/hub/operations"
@@ -79,6 +80,17 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		"POST /api/hub/regenerate-totp-recovery-codes",
 		hubAuth(recentAuth(hubauth.RegenerateTOTPRecoveryCodes(s))),
 	)
+	for path, handler := range map[string]http.HandlerFunc{
+		"POST /api/hub/blocks/block":   hubblocks.Block(s),
+		"POST /api/hub/blocks/unblock": hubblocks.Unblock(s),
+		"POST /api/hub/blocks/list":    hubblocks.ListBlocks(s),
+		"POST /api/hub/blocks/state":   hubblocks.State(s),
+		"POST /api/hub/mutes/mute":     hubblocks.Mute(s),
+		"POST /api/hub/mutes/unmute":   hubblocks.Unmute(s),
+		"POST /api/hub/mutes/list":     hubblocks.ListMutes(s),
+	} {
+		mux.Handle(path, hubAuth(handler))
+	}
 	mux.Handle("GET /api/hub/my-info", hubAuth(hubusers.MyInfo(s)))
 	mux.Handle("POST /api/hub/set-preferred-job-countries", hubAuth(hubusers.SetPreferredJobCountries(s)))
 	mux.Handle(

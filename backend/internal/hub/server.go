@@ -10,6 +10,7 @@ import (
 	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 
 	"backend/internal/apiserver"
+	"backend/internal/blocksclient"
 	"backend/internal/conversationclient"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
@@ -52,6 +53,7 @@ type Server struct {
 	Regions        *regions.Catalog
 	Directory      *directoryclient.Client
 	Profiles       *profileclient.Client
+	Blocks         *blocksclient.Client
 	Openings       *publicopeningclient.Client
 	Applications   *hubapplicationclient.Client
 	Conversations  *conversationclient.Client
