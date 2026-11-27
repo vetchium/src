@@ -204,3 +204,31 @@ FROM vetchium.hub_posts AS p
 WHERE p.author_hub_user_did = sqlc.arg(author_hub_user_did)
   AND p.post_id = ANY(sqlc.arg(post_ids)::text[])
   AND p.state = 'live';
+
+-- Card fields of one active user (PST-POS-009). The picture is the active
+-- object; the caller signs its URL.
+-- name: GetHubCardByDID :one
+SELECT u.handle, u.profile_alias, u.display_name,
+    picture.object_id AS picture_object_id
+FROM vetchium.hub_users AS u
+LEFT JOIN LATERAL (
+    SELECT p.object_id
+    FROM vetchium.hub_profile_picture_objects AS p
+    WHERE p.hub_user_did = u.hub_user_did AND p.state = 'active'
+) AS picture ON true
+WHERE u.hub_user_did = sqlc.arg(hub_user_did)
+  AND u.hub_user_state = 'active';
+
+-- Card fields of the active users this tenant homes, by permanent handle
+-- (PST-THR-007).
+-- name: GetHubCardsByHandles :many
+SELECT u.handle, u.profile_alias, u.display_name,
+    picture.object_id AS picture_object_id
+FROM vetchium.hub_users AS u
+LEFT JOIN LATERAL (
+    SELECT p.object_id
+    FROM vetchium.hub_profile_picture_objects AS p
+    WHERE p.hub_user_did = u.hub_user_did AND p.state = 'active'
+) AS picture ON true
+WHERE u.handle = ANY(sqlc.arg(handles)::text[])
+  AND u.hub_user_state = 'active';

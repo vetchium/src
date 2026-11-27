@@ -19,6 +19,7 @@ import (
 	"backend/internal/listingclient"
 	"backend/internal/listings"
 	"backend/internal/openingsearch"
+	"backend/internal/postsclient"
 	"backend/internal/profileclient"
 	"backend/internal/providerwork"
 	"backend/internal/publicopeningclient"
@@ -59,6 +60,7 @@ type Server struct {
 	Directory      *directoryclient.Client
 	Profiles       *profileclient.Client
 	Blocks         *blocksclient.Client
+	Posts          *postsclient.Client
 	Openings       *publicopeningclient.Client
 	Applications   *hubapplicationclient.Client
 	PublicOpenings publicopenings.Reader

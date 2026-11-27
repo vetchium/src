@@ -9,6 +9,7 @@ import (
 	hubmessages "backend/handlers/hub/messages"
 	hubopenings "backend/handlers/hub/openings"
 	huboperations "backend/handlers/hub/operations"
+	hubposts "backend/handlers/hub/posts"
 	hubprofile "backend/handlers/hub/profile"
 	hubsubscriptions "backend/handlers/hub/subscriptions"
 	hubusers "backend/handlers/hub/users"
@@ -81,13 +82,20 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		hubAuth(recentAuth(hubauth.RegenerateTOTPRecoveryCodes(s))),
 	)
 	for path, handler := range map[string]http.HandlerFunc{
-		"POST /api/hub/blocks/block":   hubblocks.Block(s),
-		"POST /api/hub/blocks/unblock": hubblocks.Unblock(s),
-		"POST /api/hub/blocks/list":    hubblocks.ListBlocks(s),
-		"POST /api/hub/blocks/state":   hubblocks.State(s),
-		"POST /api/hub/mutes/mute":     hubblocks.Mute(s),
-		"POST /api/hub/mutes/unmute":   hubblocks.Unmute(s),
-		"POST /api/hub/mutes/list":     hubblocks.ListMutes(s),
+		"POST /api/hub/blocks/block":       hubblocks.Block(s),
+		"POST /api/hub/blocks/unblock":     hubblocks.Unblock(s),
+		"POST /api/hub/blocks/list":        hubblocks.ListBlocks(s),
+		"POST /api/hub/blocks/state":       hubblocks.State(s),
+		"POST /api/hub/mutes/mute":         hubblocks.Mute(s),
+		"POST /api/hub/mutes/unmute":       hubblocks.Unmute(s),
+		"POST /api/hub/mutes/list":         hubblocks.ListMutes(s),
+		"POST /api/hub/posts/create":       hubposts.Create(s),
+		"POST /api/hub/posts/edit":         hubposts.Edit(s),
+		"POST /api/hub/posts/remove":       hubposts.Remove(s),
+		"POST /api/hub/posts/set-policies": hubposts.SetPolicies(s),
+		"POST /api/hub/posts/list":         hubposts.List(s),
+		"POST /api/hub/posts/get":          hubposts.Get(s),
+		"POST /api/hub/profile/read-cards": hubprofile.ReadCards(s),
 	} {
 		mux.Handle(path, hubAuth(handler))
 	}

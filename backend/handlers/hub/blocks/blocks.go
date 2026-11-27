@@ -41,6 +41,35 @@ type target struct {
 	tenantID string
 }
 
+// Failure tells why an address did not resolve.
+type Failure int
+
+const (
+	Resolved Failure = iota
+	NotFound
+	Unavailable
+)
+
+// Lookup resolves an address through the global directory. Posts reuse it
+// (PST-OWN-004).
+func Lookup(
+	ctx context.Context, s *hubruntime.Server, address profilespec.ProfileAddress,
+) (directoryspec.ResolveProfileSlugResponse, Failure) {
+	resolved, details, err := s.Directory.ResolveProfileSlug(
+		ctx, directoryspec.ResolveProfileSlugRequest{Slug: string(address)},
+	)
+	if err != nil {
+		return resolved, Unavailable
+	}
+	if details != nil {
+		if details.Type == coordinatorproblem.DirectoryEntryNotFoundError.Type {
+			return resolved, NotFound
+		}
+		return resolved, Unavailable
+	}
+	return resolved, Resolved
+}
+
 // resolve finds the user an address names. It writes the problem and returns
 // false when it cannot.
 func resolve(
@@ -48,19 +77,13 @@ func resolve(
 	address profilespec.ProfileAddress,
 ) (target, bool) {
 	ctx := r.Context()
-	resolved, details, err := s.Directory.ResolveProfileSlug(
-		ctx, directoryspec.ResolveProfileSlugRequest{Slug: string(address)},
-	)
-	if err != nil {
-		s.Problem(ctx, w, hubproblem.ProfileUnavailableError)
+	resolved, failure := Lookup(ctx, s, address)
+	switch failure {
+	case NotFound:
+		s.Problem(ctx, w, hubproblem.ProfileNotFoundError)
 		return target{}, false
-	}
-	if details != nil {
-		if details.Type == coordinatorproblem.DirectoryEntryNotFoundError.Type {
-			s.Problem(ctx, w, hubproblem.ProfileNotFoundError)
-		} else {
-			s.Problem(ctx, w, hubproblem.ProfileUnavailableError)
-		}
+	case Unavailable:
+		s.Problem(ctx, w, hubproblem.ProfileUnavailableError)
 		return target{}, false
 	}
 	did, err := dbvalue.ParseUUID(string(resolved.HubUserDID))

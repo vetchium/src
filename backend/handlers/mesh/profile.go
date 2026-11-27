@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 
@@ -19,6 +20,7 @@ import (
 	"backend/internal/apiserver"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
+	"backend/internal/fanout"
 	"backend/internal/meshapi"
 	"backend/internal/meshidentity"
 )
@@ -252,4 +254,140 @@ func writeLocalProfile(
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	s.JSON(r.Context(), w, http.StatusOK, profile)
+}
+
+type cardResolution struct {
+	tenant   directoryspec.TenantID
+	notFound bool
+}
+
+// RelayReadCards answers a local hub-api that reads the cards of handles
+// this tenant does not home (PST-THR-007). It resolves the handles in
+// parallel, groups them by home tenant, and reads each tenant once. A handle
+// whose tenant did not answer is `unavailable`; a handle that names no user
+// is in neither list.
+func RelayReadCards(s *meshapi.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !authenticateRelay(s.Runtime, w, r, s.Credential) {
+			return
+		}
+		var request profilespec.RelayReadCardsRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		if !relayViewer(s, w, r, request.ViewerHubUserDID, request.ViewerHandle) {
+			return
+		}
+		ctx := r.Context()
+		response := profilespec.ReadCardsResponse{
+			Cards: []profilespec.ProfileCard{}, Unavailable: []hubspec.HubHandle{},
+		}
+		local, err := postReader(s).CardsByHandles(ctx, request.Handles)
+		if err != nil {
+			s.InternalError(ctx, w, "read local cards", err)
+			return
+		}
+		response.Cards = append(response.Cards, local...)
+		homed := map[hubspec.HubHandle]bool{}
+		for _, card := range local {
+			homed[card.Handle] = true
+		}
+		unresolved := map[hubspec.HubHandle]struct{}{}
+		for _, handle := range request.Handles {
+			if !homed[handle] {
+				unresolved[handle] = struct{}{}
+			}
+		}
+		resolved := fanout.Do(ctx, unresolved, func(
+			ctx context.Context, handle hubspec.HubHandle, _ struct{},
+		) (cardResolution, error) {
+			slug, details, err := s.Directory.ResolveProfileSlug(
+				ctx, directoryspec.ResolveProfileSlugRequest{Slug: string(handle)},
+			)
+			if err != nil {
+				return cardResolution{}, err
+			}
+			if details != nil {
+				if details.Type == directoryproblem.DirectoryEntryNotFoundError.Type {
+					return cardResolution{notFound: true}, nil
+				}
+				return cardResolution{}, errors.New(details.Type)
+			}
+			if slug.Kind != directoryspec.ProfileSlugKindHandle ||
+				slug.Slug != string(handle) ||
+				string(slug.HomeTenantID) == s.TenantID {
+				return cardResolution{notFound: true}, nil
+			}
+			return cardResolution{tenant: slug.HomeTenantID}, nil
+		}, fanout.DefaultDeadline)
+		groups := map[directoryspec.TenantID][]hubspec.HubHandle{}
+		for _, handle := range request.Handles {
+			if homed[handle] {
+				continue
+			}
+			result := resolved[handle]
+			switch {
+			case result.Err != nil:
+				response.Unavailable = append(response.Unavailable, handle)
+			case !result.Value.notFound:
+				groups[result.Value.tenant] = append(
+					groups[result.Value.tenant], handle)
+			}
+		}
+		answers := fanout.Do(ctx, groups, func(
+			ctx context.Context, tenant directoryspec.TenantID,
+			handles []hubspec.HubHandle,
+		) (*profilespec.ReadCardsResponse, error) {
+			outcome, err := s.Profiles.PeerReadCards(ctx, tenant,
+				profilespec.PeerReadCardsRequest{
+					ViewerHubUserDID: request.ViewerHubUserDID,
+					ViewerHandle:     request.ViewerHandle, Handles: handles,
+				})
+			if err != nil {
+				return nil, err
+			}
+			if outcome.Problem != nil {
+				return nil, errors.New(outcome.Problem.Type)
+			}
+			return outcome.Cards, nil
+		}, fanout.DefaultDeadline)
+		for tenant, handles := range groups {
+			answer := answers[tenant]
+			if answer.Err != nil {
+				response.Unavailable = append(response.Unavailable, handles...)
+				continue
+			}
+			for _, card := range answer.Value.Cards {
+				// A tenant answers only for the handles it was asked for.
+				if slices.Contains(handles, card.Handle) {
+					response.Cards = append(response.Cards, card)
+				}
+			}
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(ctx, w, http.StatusOK, response)
+	}
+}
+
+// PeerReadCards answers another tenant's card read after verifying that the
+// calling tenant homes the viewer. It answers only for users it homes.
+func PeerReadCards(s *meshapi.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request profilespec.PeerReadCardsRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		if !peerViewer(s, w, r, request.ViewerHubUserDID, request.ViewerHandle) {
+			return
+		}
+		cards, err := postReader(s).CardsByHandles(r.Context(), request.Handles)
+		if err != nil {
+			s.InternalError(r.Context(), w, "read local cards", err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(r.Context(), w, http.StatusOK, profilespec.ReadCardsResponse{
+			Cards: cards, Unavailable: []hubspec.HubHandle{},
+		})
+	}
 }
