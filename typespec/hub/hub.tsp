@@ -20,3 +20,6 @@ import "./subscriptions/plans.tsp";
 import "./subscriptions/subscriptions.tsp";
 import "./messages/messages.tsp";
 import "./blocks/blocks.tsp";
+import "./posts/posts.tsp";
+import "./posts/mesh.tsp";
+import "./profile/cards.tsp";
