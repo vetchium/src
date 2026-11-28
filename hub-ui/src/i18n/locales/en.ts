@@ -594,6 +594,30 @@ export const en = {
       title: "Post not found",
       description: "The author removed this post, or it never existed.",
     },
+    quote: {
+      button: "Quote",
+      title: "Quote this post",
+      openingTitle: "Quote this Opening",
+      label: "Add your words",
+      submit: "Post quote",
+      done: "Your quote was posted.",
+    },
+    embed: {
+      label: "Quoted item",
+      unavailable: "This post is not available",
+      nested: "Quoted post",
+    },
+    quotes: {
+      title: "Quotes",
+      documentTitle: "Quotes of a post by {{name}} | Vetchium",
+      empty: "No quotes yet.",
+      partial: "Some items are not available now. Try again later.",
+      detach: "Detach",
+      detachTitle: "Detach this quote?",
+      detachContent:
+        "The quote leaves this list and no longer counts. The quote post stays on its author's profile.",
+      detached: "The quote was detached.",
+    },
     thread: {
       loading: "Loading replies",
       loadingTab: "Loading replies",

@@ -626,6 +626,31 @@ export const de = {
       description:
         "Der Autor hat diesen Beitrag entfernt, oder er existiert nicht.",
     },
+    quote: {
+      button: "Zitieren",
+      title: "Diesen Beitrag zitieren",
+      openingTitle: "Diese Stelle zitieren",
+      label: "Deine Worte",
+      submit: "Zitat veröffentlichen",
+      done: "Dein Zitat wurde veröffentlicht.",
+    },
+    embed: {
+      label: "Zitiertes Element",
+      unavailable: "Dieser Beitrag ist nicht verfügbar",
+      nested: "Zitierter Beitrag",
+    },
+    quotes: {
+      title: "Zitate",
+      documentTitle: "Zitate eines Beitrags von {{name}} | Vetchium",
+      empty: "Noch keine Zitate.",
+      partial:
+        "Einige Elemente sind jetzt nicht verfügbar. Versuche es später erneut.",
+      detach: "Lösen",
+      detachTitle: "Dieses Zitat lösen?",
+      detachContent:
+        "Das Zitat verlässt diese Liste und zählt nicht mehr. Der Zitat-Beitrag bleibt im Profil des Autors.",
+      detached: "Das Zitat wurde gelöst.",
+    },
     thread: {
       loading: "Antworten werden geladen",
       loadingTab: "Antworten werden geladen",

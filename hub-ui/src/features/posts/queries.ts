@@ -18,6 +18,12 @@ import {
   type SetPostPoliciesRequest,
 } from "typespec/hub/posts/posts";
 import {
+  type CreateQuoteRequest,
+  type DetachQuoteRequest,
+  normalizeCreateQuoteRequest,
+  normalizeDetachQuoteRequest,
+} from "typespec/hub/posts/quotes";
+import {
   type EditReplyRequest,
   type HideReplyRequest,
   type ListRepliesResponse,
@@ -359,5 +365,46 @@ export function useAuthorRepliesQuery(owner: string) {
     initialPageParam: undefined as PaginationKey | undefined,
     getNextPageParam: (page) => page.next_pagination_key,
     retry: false,
+  });
+}
+
+/** A quote lands in the quoter's profile and the target's quote count. */
+export function useCreateQuoteMutation() {
+  const invalidate = usePostsInvalidation();
+  return useMutation({
+    mutationFn: (request: CreateQuoteRequest) =>
+      hubAPI.createQuote(normalizeCreateQuoteRequest(request)),
+    onSuccess: invalidate,
+  });
+}
+
+/** The quotes of one post, newest first (PST-QTE-012). */
+export function useQuotesQuery(
+  owner: string,
+  postID: string,
+  enabled: boolean,
+) {
+  return useInfiniteQuery({
+    queryKey: [...postsQueryKey, "quotes", owner, postID],
+    queryFn: ({ pageParam }) =>
+      hubAPI.listQuotes({
+        owner,
+        post_id: postID,
+        limit: pageSize,
+        ...(pageParam !== undefined && { pagination_key: pageParam }),
+      }),
+    initialPageParam: undefined as PaginationKey | undefined,
+    getNextPageParam: (page) => page.next_pagination_key,
+    retry: false,
+    enabled,
+  });
+}
+
+export function useDetachQuoteMutation() {
+  const invalidate = usePostsInvalidation();
+  return useMutation({
+    mutationFn: (request: DetachQuoteRequest) =>
+      hubAPI.detachQuote(normalizeDetachQuoteRequest(request)),
+    onSuccess: invalidate,
   });
 }

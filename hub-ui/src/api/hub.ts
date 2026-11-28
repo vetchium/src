@@ -104,6 +104,12 @@ import type {
   SetPostPoliciesRequest,
 } from "typespec/hub/posts/posts";
 import type {
+  CreateQuoteRequest,
+  DetachQuoteRequest,
+  ListQuotesRequest,
+  ListQuotesResponse,
+} from "typespec/hub/posts/quotes";
+import type {
   EditReplyRequest,
   HideReplyRequest,
   ListAuthorRepliesRequest,
@@ -508,6 +514,12 @@ export const hubAPI = {
     apiRequest<ListAuthorRepliesResponse>(`${base}/posts/list-author-replies`, {
       body,
     }),
+  createQuote: (body: CreateQuoteRequest) =>
+    apiRequest<Post>(`${base}/posts/create-quote`, { body }),
+  listQuotes: (body: ListQuotesRequest) =>
+    apiRequest<ListQuotesResponse>(`${base}/posts/list-quotes`, { body }),
+  detachQuote: (body: DetachQuoteRequest) =>
+    apiRequest<void>(`${base}/posts/detach-quote`, { body }),
   readCards: (body: ReadCardsRequest) =>
     apiRequest<ReadCardsResponse>(`${base}/profile/read-cards`, { body }),
   listProfessionalEmails: (body: ListProfessionalEmailsRequest) =>

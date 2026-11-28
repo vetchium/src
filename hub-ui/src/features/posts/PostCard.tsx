@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { Post } from "typespec/hub/posts/posts";
 import { ProfileAvatar } from "../../components/common/ProfileAvatar";
+import { PostEmbed } from "./PostEmbed";
+import { QuoteButton } from "./QuoteComposer";
 import { relativeTime } from "./time";
 
 export function postPath(post: Post): string {
@@ -14,9 +16,12 @@ export function postPath(post: Post): string {
 export function PostCard({
   post,
   link = true,
+  showEmbed = true,
   children,
 }: {
   post: Post;
+  /** The quotes page already names the target, so it passes false. */
+  showEmbed?: boolean;
   /** Links the time to the post page. The post page itself passes false. */
   link?: boolean;
   children?: ReactNode;
@@ -61,7 +66,10 @@ export function PostCard({
           >
             {post.body}
           </Typography.Paragraph>
-          <Space size="middle">
+          {showEmbed && post.kind === "quote" ? (
+            <PostEmbed embed={post.embed} />
+          ) : null}
+          <Space size="middle" wrap>
             {link ? (
               <Link to={postPath(post)}>
                 {t("posts.replyCount", { count: post.reply_count })}
@@ -71,9 +79,20 @@ export function PostCard({
                 {t("posts.replyCount", { count: post.reply_count })}
               </Typography.Text>
             )}
-            <Typography.Text type="secondary">
+            <Link to={`${postPath(post)}/quotes`}>
               {t("posts.quoteCount", { count: post.quote_count })}
-            </Typography.Text>
+            </Link>
+            {post.quote_policy !== "nobody" ? (
+              <QuoteButton
+                title={t("posts.quote.title")}
+                target={{
+                  type: "timeline_post",
+                  owner: post.owner.handle,
+                  post_id: post.post_id,
+                }}
+                preview={<PostEmbed embed={{ state: "post", post }} />}
+              />
+            ) : null}
           </Space>
           {children}
         </Flex>

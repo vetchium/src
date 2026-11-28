@@ -1,7 +1,7 @@
 # Timeline posts build progress
 
 branch: timeline-posts
-current: T27
+current: T28
 phase: implement
 
 ## Tasks
@@ -46,7 +46,7 @@ T23 done Contracts: Add Hub quote posts
 T24 done Database: Add Hub quote posts
 T25 done Hub API: Serve quotes and embeds
 T26 done Playwright: Test Hub quote APIs
-T27 todo Hub portal: Add quotes and embeds
+T27 done Hub portal: Add quotes and embeds
 T28 todo Playwright: Test the Hub quote screens
 
 ### M6 Retention and fixtures

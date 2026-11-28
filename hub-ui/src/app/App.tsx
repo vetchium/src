@@ -69,6 +69,11 @@ const PlanPage = lazy(() =>
     default: PlanPage,
   })),
 );
+const PostQuotesPage = lazy(() =>
+  import("../pages/PostQuotesPage").then(({ PostQuotesPage }) => ({
+    default: PostQuotesPage,
+  })),
+);
 const PostPage = lazy(() =>
   import("../pages/PostPage").then(({ PostPage }) => ({
     default: PostPage,
@@ -327,6 +332,14 @@ export function App() {
             element={
               <Page>
                 <PostPage />
+              </Page>
+            }
+          />
+          <Route
+            path="u/:address/posts/:postId/quotes"
+            element={
+              <Page>
+                <PostQuotesPage />
               </Page>
             }
           />
