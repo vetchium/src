@@ -32,7 +32,7 @@ WITH inserted AS (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
         subject_hub_user_did, source, idempotency_key, payload
     )
-    SELECT sqlc.arg(tenant_id), 'hub.post.created', 'hub_post',
+    SELECT sqlc.arg(tenant_id), 'hub.post.quoted', 'hub_post',
         inserted.post_id, 'hub_user', inserted.author_hub_user_did::text,
         inserted.author_hub_user_did, 'hub-api',
         sqlc.narg(idempotency_key)::text,
@@ -44,6 +44,17 @@ SELECT (SELECT count(*) FROM inserted)::bigint AS inserted_rows,
     (SELECT count(*) FROM audit)::bigint AS audit_rows,
     COALESCE((SELECT max(inserted.version) FROM inserted), 0)::bigint
         AS version;
+
+-- Locks a live post of the author and returns its quote target, so removal
+-- can tell the target owner (PST-QTE-006). No row means the post is not the
+-- author's or not live.
+-- name: GetHubPostQuoteRefForRemoval :one
+SELECT p.kind, p.quote_target_type, p.quote_owner_did, p.quote_target_id
+FROM vetchium.hub_posts AS p
+WHERE p.post_id = sqlc.arg(post_id)
+  AND p.author_hub_user_did = sqlc.arg(author_hub_user_did)
+  AND p.state = 'live'
+FOR UPDATE;
 
 -- ---------------------------------------------------------------------------
 -- Target owner side

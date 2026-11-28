@@ -26,7 +26,8 @@ const (
 // cleanRemovedHubPosts finishes the removal of each removed post that has no
 // `cleanup_done_at` (PST-RPL-013). Each commit enqueues hub-post-removed to at
 // most 100 reply authors and records its last author, so a crash resumes
-// after that author. The last commit deletes the post's structure rows.
+// after that author. The last commit deletes the post's structure and quote
+// rows.
 func (w *Worker) cleanRemovedHubPosts(ctx context.Context) error {
 	posts, err := w.queries.ListRemovedHubPostsForCleanup(ctx, hubPostCleanupPostsPerRun)
 	if err != nil {
@@ -93,6 +94,10 @@ func (w *Worker) cleanHubPostPage(ctx context.Context, postID string) (bool, err
 	done := len(authors) < hubPostCleanupAuthorsPerCommit
 	if done {
 		if _, err := q.DeleteHubPostRepliesByPost(ctx, postID); err != nil {
+			return false, err
+		}
+		// A removed target shows no quotes, so its index rows go too.
+		if _, err := q.DeleteHubPostQuotesByPost(ctx, postID); err != nil {
 			return false, err
 		}
 		if rows, err := q.MarkHubPostCleanupDone(ctx, postID); err != nil {

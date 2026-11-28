@@ -44,3 +44,5 @@ UI specs come in T28.
 - Quotes, embeds, and the quotes page work against the T25 API.
 
 ## Carried over
+
+From T25: a quote post's `embed` may be `unavailable` for a short time after `create-quote` on a later read, until the owner's tenant records the quote; the portal must show "This post is not available" for that state.

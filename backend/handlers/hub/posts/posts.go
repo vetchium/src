@@ -29,6 +29,7 @@ import (
 	"backend/internal/dbvalue"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
+	"backend/internal/hubquotes"
 	"backend/internal/middleware"
 	"backend/internal/postid"
 	"backend/internal/postread"
@@ -145,6 +146,17 @@ func writePost(
 	post, err := ownPost(r.Context(), s, did, id)
 	if err != nil {
 		s.InternalError(r.Context(), w, "read written post", err)
+		return
+	}
+	page := []postsspec.Post{post}
+	if err := attachEmbeds(r.Context(), s, did, page, nil); err != nil {
+		s.InternalError(r.Context(), w, "attach embeds", err)
+		return
+	}
+	post = page[0]
+	if err := attachEmbeds(
+		r.Context(), s, did, []postsspec.Post{post}, nil); err != nil {
+		s.InternalError(r.Context(), w, "attach embeds", err)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
@@ -288,7 +300,27 @@ func Remove(s *hubruntime.Server) http.HandlerFunc {
 		}
 		ctx := r.Context()
 		identity, _ := middleware.HubIdentityFromContext(ctx)
-		row, err := s.Queries.RemoveHubPost(ctx, sqlc.RemoveHubPostParams{
+		tx, err := s.DB.Begin(ctx)
+		if err != nil {
+			s.InternalError(ctx, w, "begin post removal", err)
+			return
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		q := sqlc.New(tx)
+		// The lock holds the post live until the removal and its event commit.
+		ref, err := q.GetHubPostQuoteRefForRemoval(
+			ctx, sqlc.GetHubPostQuoteRefForRemovalParams{
+				PostID: string(request.PostID), AuthorHubUserDid: identity.UserDID,
+			})
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.Problem(ctx, w, hubproblem.HubPostNotFoundError)
+			return
+		}
+		if err != nil {
+			s.InternalError(ctx, w, "lock post", err)
+			return
+		}
+		row, err := q.RemoveHubPost(ctx, sqlc.RemoveHubPostParams{
 			PostID: string(request.PostID), AuthorHubUserDid: identity.UserDID,
 			TenantID: s.TenantID,
 		})
@@ -298,6 +330,23 @@ func Remove(s *hubruntime.Server) http.HandlerFunc {
 		}
 		if row.RemovedRows == 0 {
 			s.Problem(ctx, w, hubproblem.HubPostNotFoundError)
+			return
+		}
+		// An Opening quote enqueues no event (PST-QTE-011).
+		if ref.QuoteTargetType.Valid && ref.QuoteTargetType.VetchiumHubQuoteTargetType ==
+			sqlc.VetchiumHubQuoteTargetTypeTimelinePost {
+			if err := hubquotes.EnqueueUnquoted(ctx, q, hubquotes.Unquoted{
+				TargetOwnerDID: ref.QuoteOwnerDid,
+				TargetPostID:   ref.QuoteTargetID.String,
+				QuotePostID:    string(request.PostID),
+				QuoterDID:      identity.UserDID, Version: row.Version,
+			}); err != nil {
+				s.InternalError(ctx, w, "enqueue unquote", err)
+				return
+			}
+		}
+		if err := tx.Commit(ctx); err != nil {
+			s.InternalError(ctx, w, "commit post removal", err)
 			return
 		}
 		s.Empty(ctx, w, http.StatusNoContent)
@@ -421,6 +470,11 @@ func List(s *hubruntime.Server) http.HandlerFunc {
 				s.Problem(ctx, w, details)
 				return
 			}
+			if err := attachEmbeds(ctx, s, identity.UserDID, response.Posts,
+				ownerKnown(target, response.Posts)); err != nil {
+				s.InternalError(ctx, w, "attach embeds", err)
+				return
+			}
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(ctx, w, http.StatusOK, response)
@@ -528,8 +582,28 @@ func Get(s *hubruntime.Server) http.HandlerFunc {
 			s.Problem(ctx, w, details)
 			return
 		}
+		page := []postsspec.Post{post}
+		if err := attachEmbeds(ctx, s, identity.UserDID, page,
+			ownerKnown(target, page)); err != nil {
+			s.InternalError(ctx, w, "attach embeds", err)
+			return
+		}
 		w.Header().Set("Cache-Control", "no-store")
-		s.JSON(ctx, w, http.StatusOK, post)
+		s.JSON(ctx, w, http.StatusOK, page[0])
+	}
+}
+
+// ownerKnown names the owner of posts as already resolved: every post of one
+// list or read has that owner.
+func ownerKnown(target owner, posts []postsspec.Post) map[string]userLocation {
+	if len(posts) == 0 {
+		return nil
+	}
+	return map[string]userLocation{
+		string(posts[0].Owner.Handle): {
+			did:    hubspec.HubUserDID(dbvalue.FormatUUID(target.did)),
+			tenant: directoryspec.TenantID(target.tenantID),
+		},
 	}
 }
 

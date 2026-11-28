@@ -173,6 +173,82 @@ func (c *Client) PeerListAuthorReplies(
 	return read(ctx, c, endpoint, request, tlsConfig, validAuthorReplies)
 }
 
+// ReadQuoteTarget asks the local mesh-api whether a timeline post can be
+// quoted (PST-QTE-003).
+func (c *Client) ReadQuoteTarget(
+	ctx context.Context, request postsspec.MeshReadQuoteTargetRequest,
+) (Outcome[postsspec.MeshPost], error) {
+	return read(ctx, c, c.baseURL+"/mesh/posts/read-quote-target", request, nil,
+		func(response *postsspec.MeshPost) bool {
+			return validQuoteTarget(request, response)
+		})
+}
+
+// PeerReadQuoteTarget asks the post owner's home tenant over the mesh.
+func (c *Client) PeerReadQuoteTarget(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request postsspec.MeshReadQuoteTargetRequest,
+) (Outcome[postsspec.MeshPost], error) {
+	endpoint, tlsConfig, err := c.peer(tenant, "read-quote-target")
+	if err != nil {
+		return Outcome[postsspec.MeshPost]{}, err
+	}
+	return read(ctx, c, endpoint, request, tlsConfig,
+		func(response *postsspec.MeshPost) bool {
+			return validQuoteTarget(request, response)
+		})
+}
+
+// ReadEmbeds asks the local mesh-api for the targets of embeds.
+func (c *Client) ReadEmbeds(
+	ctx context.Context, request postsspec.MeshReadEmbedsRequest,
+) (Outcome[postsspec.MeshReadEmbedsResponse], error) {
+	return read(ctx, c, c.baseURL+"/mesh/posts/read-embeds", request, nil,
+		func(response *postsspec.MeshReadEmbedsResponse) bool {
+			return validEmbeds(request, response)
+		})
+}
+
+// PeerReadEmbeds asks the targets' home tenant over the mesh.
+func (c *Client) PeerReadEmbeds(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request postsspec.MeshReadEmbedsRequest,
+) (Outcome[postsspec.MeshReadEmbedsResponse], error) {
+	endpoint, tlsConfig, err := c.peer(tenant, "read-embeds")
+	if err != nil {
+		return Outcome[postsspec.MeshReadEmbedsResponse]{}, err
+	}
+	return read(ctx, c, endpoint, request, tlsConfig,
+		func(response *postsspec.MeshReadEmbedsResponse) bool {
+			return validEmbeds(request, response)
+		})
+}
+
+// ListQuotes asks the local mesh-api for one page of the quotes of a post.
+func (c *Client) ListQuotes(
+	ctx context.Context, request postsspec.MeshListQuotesRequest,
+) (Outcome[postsspec.MeshListQuotesResponse], error) {
+	return read(ctx, c, c.baseURL+"/mesh/posts/list-quotes", request, nil,
+		func(response *postsspec.MeshListQuotesResponse) bool {
+			return validQuotes(request, response)
+		})
+}
+
+// PeerListQuotes asks the post owner's home tenant over the mesh.
+func (c *Client) PeerListQuotes(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request postsspec.MeshListQuotesRequest,
+) (Outcome[postsspec.MeshListQuotesResponse], error) {
+	endpoint, tlsConfig, err := c.peer(tenant, "list-quotes")
+	if err != nil {
+		return Outcome[postsspec.MeshListQuotesResponse]{}, err
+	}
+	return read(ctx, c, endpoint, request, tlsConfig,
+		func(response *postsspec.MeshListQuotesResponse) bool {
+			return validQuotes(request, response)
+		})
+}
+
 func (c *Client) peer(
 	tenant directoryspec.TenantID, operation string,
 ) (string, *tls.Config, error) {
@@ -261,6 +337,63 @@ func validReply(
 		hubspec.IsHubHandle(response.AuthorHandle) &&
 		postsspec.IsThreadReplyState(response.State) &&
 		(response.ParentReplyID == nil || postsspec.IsPostID(*response.ParentReplyID))
+}
+
+func validQuoteTarget(
+	request postsspec.MeshReadQuoteTargetRequest, response *postsspec.MeshPost,
+) bool {
+	return response.PostID == request.TargetPostID &&
+		response.OwnerHubUserDID == request.OwnerHubUserDID
+}
+
+// validEmbeds holds the answer to the question: one result for each item,
+// in request order, and a post only for `post`.
+func validEmbeds(
+	request postsspec.MeshReadEmbedsRequest,
+	response *postsspec.MeshReadEmbedsResponse,
+) bool {
+	if len(response.Results) != len(request.Items) {
+		return false
+	}
+	for index, result := range response.Results {
+		item := request.Items[index]
+		if result.TargetPostID != item.TargetPostID ||
+			result.QuotePostID != item.QuotePostID {
+			return false
+		}
+		switch result.Status {
+		case postsspec.MeshEmbedPost:
+			if result.Post == nil || result.Post.PostID != item.TargetPostID ||
+				result.Post.OwnerHubUserDID != item.OwnerHubUserDID {
+				return false
+			}
+		case postsspec.MeshEmbedUnavailable:
+			if result.Post != nil {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func validQuotes(
+	request postsspec.MeshListQuotesRequest,
+	response *postsspec.MeshListQuotesResponse,
+) bool {
+	if response.Quotes == nil || len(response.Quotes) > int(request.EffectiveLimit()) {
+		return false
+	}
+	for _, item := range response.Quotes {
+		if !postsspec.IsPostID(item.QuotePostID) ||
+			!hubspec.IsHubUserDID(item.QuoterHubUserDID) ||
+			!hubspec.IsHubHandle(item.QuoterHandle) ||
+			!directoryspec.IsTenantID(item.QuoterTenantID) {
+			return false
+		}
+	}
+	return true
 }
 
 func validAuthorReplies(response *postsspec.MeshListAuthorRepliesResponse) bool {

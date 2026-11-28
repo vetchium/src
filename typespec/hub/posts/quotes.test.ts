@@ -133,6 +133,7 @@ test("list and detach quote requests bound the fields", () => {
 test("mesh quote requests validate identities and item counts", () => {
   assert.deepEqual(
     validateMeshReadQuoteTargetRequest({
+      owner_hub_user_did: did,
       target_post_id: id,
       viewer_hub_user_did: did,
       viewer_handle: handle,
@@ -141,13 +142,20 @@ test("mesh quote requests validate identities and item counts", () => {
   );
   assert.deepEqual(
     validateMeshReadQuoteTargetRequest({
+      owner_hub_user_did: "x",
       target_post_id: "x",
       viewer_hub_user_did: "x",
       viewer_handle: "x",
     }),
-    ["target_post_id", "viewer_hub_user_did", "viewer_handle"],
+    [
+      "owner_hub_user_did",
+      "target_post_id",
+      "viewer_hub_user_did",
+      "viewer_handle",
+    ],
   );
   const item = {
+    owner_hub_user_did: did,
     target_post_id: id,
     quote_post_id: id,
     quoter_hub_user_did: did,
@@ -163,9 +171,11 @@ test("mesh quote requests validate identities and item counts", () => {
   assert.deepEqual(embeds(Array(51).fill(item)), ["items"]);
   assert.deepEqual(embeds([]), ["items"]);
   assert.deepEqual(embeds([{ ...item, quoter_hub_user_did: "x" }]), ["items"]);
+  assert.deepEqual(embeds([{ ...item, owner_hub_user_did: "x" }]), ["items"]);
 
   assert.deepEqual(
     validateMeshListQuotesRequest({
+      owner_hub_user_did: did,
       post_id: id,
       viewer_hub_user_did: did,
       viewer_handle: handle,
@@ -174,11 +184,18 @@ test("mesh quote requests validate identities and item counts", () => {
   );
   assert.deepEqual(
     validateMeshListQuotesRequest({
+      owner_hub_user_did: "x",
       post_id: "x",
       viewer_hub_user_did: "x",
       viewer_handle: "x",
       limit: 51,
     }),
-    ["post_id", "viewer_hub_user_did", "viewer_handle", "limit"],
+    [
+      "owner_hub_user_did",
+      "post_id",
+      "viewer_hub_user_did",
+      "viewer_handle",
+      "limit",
+    ],
   );
 });

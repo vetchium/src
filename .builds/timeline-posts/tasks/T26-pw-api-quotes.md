@@ -45,3 +45,5 @@ PST-QTE-001 to PST-QTE-012, PST-POS-003, PST-BLK-002, PST-BLK-005, PST-RD-003
 - Every non-`5xx` response of each T23 operation maps to a named test.
 
 ## Carried over
+
+From T25: `read-quote-target`, `read-embeds` items, and `list-quotes` now carry `owner_hub_user_did` (the relay needs it to route). An embed reads the quote row in the target owner's tenant, so a new quote shows `unavailable` until `hub-post-quoted` is delivered; the `create-quote` response carries the embed directly. Mesh `read-embeds` makes only the items of a failed region `unavailable`. `list-quotes` reads each quoter tenant once and sets `partial` when one fails.

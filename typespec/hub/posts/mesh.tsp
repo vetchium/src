@@ -157,12 +157,14 @@ model MeshListAuthorRepliesResponse {
  * quoted (PST-QTE-003). The viewer is the quoter.
  */
 model MeshReadQuoteTargetRequest {
+  owner_hub_user_did: Vetchium.Hub.HubUserDID;
   target_post_id: PostID;
   viewer_hub_user_did: Vetchium.Hub.HubUserDID;
   viewer_handle: Vetchium.Hub.HubHandle;
 }
 
 model MeshEmbedReference {
+  owner_hub_user_did: Vetchium.Hub.HubUserDID;
   target_post_id: PostID;
   quote_post_id: PostID;
   quoter_hub_user_did: Vetchium.Hub.HubUserDID;
@@ -200,6 +202,7 @@ model MeshReadEmbedsResponse {
 }
 
 model MeshListQuotesRequest {
+  owner_hub_user_did: Vetchium.Hub.HubUserDID;
   post_id: PostID;
   viewer_hub_user_did: Vetchium.Hub.HubUserDID;
   viewer_handle: Vetchium.Hub.HubHandle;

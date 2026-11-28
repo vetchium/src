@@ -142,7 +142,9 @@ WITH target AS (
     RETURNING audit_event_id
 )
 SELECT (SELECT count(*) FROM removed)::bigint AS removed_rows,
-    (SELECT count(*) FROM audit)::bigint AS audit_rows;
+    (SELECT count(*) FROM audit)::bigint AS audit_rows,
+    COALESCE((SELECT max(removed.version) FROM removed), 0)::bigint
+        AS version;
 
 -- Changes the policies and the lock of a live post (PST-POS-005). A post that
 -- stays locked keeps its first lock time.

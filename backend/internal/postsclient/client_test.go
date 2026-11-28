@@ -137,3 +137,55 @@ func TestListRepliesRefusesAnswerForAnotherThread(t *testing.T) {
 		}
 	}
 }
+
+func embedsRequest() postsspec.MeshReadEmbedsRequest {
+	return postsspec.MeshReadEmbedsRequest{
+		ViewerHubUserDID: hubspec.HubUserDID(did), ViewerHandle: "viewer",
+		Items: []postsspec.MeshEmbedReference{{
+			OwnerHubUserDID: hubspec.HubUserDID(did), TargetPostID: postsspec.PostID(id),
+			QuotePostID: postsspec.PostID(id), QuoterHubUserDID: hubspec.HubUserDID(did),
+		}},
+	}
+}
+
+func TestReadEmbedsAcceptsMatchingResults(t *testing.T) {
+	t.Parallel()
+	client := serve(t, 200, "application/json", postsspec.MeshReadEmbedsResponse{
+		Results: []postsspec.MeshEmbedResult{{
+			Status:       postsspec.MeshEmbedUnavailable,
+			TargetPostID: postsspec.PostID(id), QuotePostID: postsspec.PostID(id),
+		}},
+	})
+	outcome, err := client.ReadEmbeds(context.Background(), embedsRequest())
+	if err != nil || outcome.Value == nil || len(outcome.Value.Results) != 1 {
+		t.Fatalf("ReadEmbeds = %+v, %v", outcome, err)
+	}
+}
+
+func TestReadEmbedsRefusesAPostForAnotherOwner(t *testing.T) {
+	t.Parallel()
+	other := hubspec.HubUserDID("0194f3a0-0000-7000-8000-000000000009")
+	client := serve(t, 200, "application/json", postsspec.MeshReadEmbedsResponse{
+		Results: []postsspec.MeshEmbedResult{{
+			Status:       postsspec.MeshEmbedPost,
+			TargetPostID: postsspec.PostID(id), QuotePostID: postsspec.PostID(id),
+			Post: &postsspec.MeshPost{
+				Post:            postsspec.Post{PostID: postsspec.PostID(id)},
+				OwnerHubUserDID: other,
+			},
+		}},
+	})
+	if _, err := client.ReadEmbeds(context.Background(), embedsRequest()); err == nil {
+		t.Fatal("ReadEmbeds accepted a post of another owner")
+	}
+}
+
+func TestReadEmbedsRefusesAShortResultList(t *testing.T) {
+	t.Parallel()
+	client := serve(t, 200, "application/json", postsspec.MeshReadEmbedsResponse{
+		Results: []postsspec.MeshEmbedResult{},
+	})
+	if _, err := client.ReadEmbeds(context.Background(), embedsRequest()); err == nil {
+		t.Fatal("ReadEmbeds accepted a short result list")
+	}
+}

@@ -43,6 +43,8 @@ var passed = map[string]problem.Body{
 	hubproblem.ProfileNotFoundError.Type:   hubproblem.ProfileNotFoundError,
 	hubproblem.HubPostNotFoundError.Type:   hubproblem.HubPostNotFoundError,
 	hubproblem.HubReplyNotFoundError.Type:  hubproblem.HubReplyNotFoundError,
+
+	hubproblem.HubPostQuoteRefusedError.Type: hubproblem.HubPostQuoteRefusedError,
 }
 
 func writeServed[Resp any](

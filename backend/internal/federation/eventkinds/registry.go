@@ -8,6 +8,7 @@ import (
 	"backend/internal/engagements"
 	"backend/internal/federation/events"
 	"backend/internal/hubapplications"
+	"backend/internal/hubquotes"
 	"backend/internal/hubreplies"
 )
 
@@ -17,5 +18,6 @@ func Registry() *events.Registry {
 	engagements.RegisterEvents(registry)
 	agencycontacts.RegisterEvents(registry)
 	hubreplies.RegisterEvents(registry)
+	hubquotes.RegisterEvents(registry)
 	return registry
 }

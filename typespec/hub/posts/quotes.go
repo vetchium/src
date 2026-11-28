@@ -208,6 +208,7 @@ func (r DetachQuoteRequest) Validate() []string {
 // MeshReadQuoteTargetRequest asks the owner's tenant whether the viewer, the
 // quoter, can quote a timeline post (PST-QTE-003). The response is a MeshPost.
 type MeshReadQuoteTargetRequest struct {
+	OwnerHubUserDID  hub.HubUserDID `json:"owner_hub_user_did"`
 	TargetPostID     PostID         `json:"target_post_id"`
 	ViewerHubUserDID hub.HubUserDID `json:"viewer_hub_user_did"`
 	ViewerHandle     hub.HubHandle  `json:"viewer_handle"`
@@ -217,6 +218,9 @@ func (r *MeshReadQuoteTargetRequest) Normalize() {}
 
 func (r MeshReadQuoteTargetRequest) Validate() []string {
 	fields := []string{}
+	if !hub.IsHubUserDID(r.OwnerHubUserDID) {
+		fields = append(fields, "owner_hub_user_did")
+	}
 	if !IsPostID(r.TargetPostID) {
 		fields = append(fields, "target_post_id")
 	}
@@ -224,6 +228,7 @@ func (r MeshReadQuoteTargetRequest) Validate() []string {
 }
 
 type MeshEmbedReference struct {
+	OwnerHubUserDID  hub.HubUserDID `json:"owner_hub_user_did"`
 	TargetPostID     PostID         `json:"target_post_id"`
 	QuotePostID      PostID         `json:"quote_post_id"`
 	QuoterHubUserDID hub.HubUserDID `json:"quoter_hub_user_did"`
@@ -243,7 +248,7 @@ func (r MeshReadEmbedsRequest) Validate() []string {
 	fields := validViewer(r.ViewerHubUserDID, r.ViewerHandle)
 	valid := len(r.Items) >= 1 && len(r.Items) <= MaxGetMany
 	for _, item := range r.Items {
-		if !IsPostID(item.TargetPostID) || !IsPostID(item.QuotePostID) ||
+		if !hub.IsHubUserDID(item.OwnerHubUserDID) || !IsPostID(item.TargetPostID) || !IsPostID(item.QuotePostID) ||
 			!hub.IsHubUserDID(item.QuoterHubUserDID) {
 			valid = false
 		}
@@ -276,6 +281,7 @@ type MeshReadEmbedsResponse struct {
 }
 
 type MeshListQuotesRequest struct {
+	OwnerHubUserDID  hub.HubUserDID        `json:"owner_hub_user_did"`
 	PostID           PostID                `json:"post_id"`
 	ViewerHubUserDID hub.HubUserDID        `json:"viewer_hub_user_did"`
 	ViewerHandle     hub.HubHandle         `json:"viewer_handle"`
@@ -291,6 +297,9 @@ func (r MeshListQuotesRequest) EffectiveLimit() int32 {
 
 func (r MeshListQuotesRequest) Validate() []string {
 	fields := []string{}
+	if !hub.IsHubUserDID(r.OwnerHubUserDID) {
+		fields = append(fields, "owner_hub_user_did")
+	}
 	if !IsPostID(r.PostID) {
 		fields = append(fields, "post_id")
 	}

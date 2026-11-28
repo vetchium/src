@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -16,8 +17,10 @@ import (
 	"github.com/vetchium/src/typespec/common"
 	directoryspec "github.com/vetchium/src/typespec/directory"
 	hubspec "github.com/vetchium/src/typespec/hub"
+	openingsspec "github.com/vetchium/src/typespec/hub/openings"
 	postsspec "github.com/vetchium/src/typespec/hub/posts"
 	profilespec "github.com/vetchium/src/typespec/hub/profile"
+	"github.com/vetchium/src/typespec/orgs"
 
 	"backend/internal/db/sqlc"
 )
@@ -132,7 +135,35 @@ func post(
 		editedAt := row.EditedAt.Time.UTC()
 		result.EditedAt = &editedAt
 	}
+	result.QuoteTarget = quoteTarget(row)
 	return result
+}
+
+// quoteTarget shapes the stored target of a quote post. The address of a
+// timeline target is the permanent handle (PST-OWN-004).
+func quoteTarget(row sqlc.GetHubPostsByIDsRow) *postsspec.QuoteTarget {
+	if !row.QuoteTargetType.Valid {
+		return nil
+	}
+	switch row.QuoteTargetType.VetchiumHubQuoteTargetType {
+	case sqlc.VetchiumHubQuoteTargetTypeTimelinePost:
+		return &postsspec.QuoteTarget{
+			Type:   postsspec.QuoteTargetTimelinePost,
+			Owner:  profilespec.ProfileAddress(row.QuoteOwnerAddress.String),
+			PostID: postsspec.PostID(row.QuoteTargetID.String),
+		}
+	case sqlc.VetchiumHubQuoteTargetTypeOpening:
+		number, err := strconv.Atoi(row.QuoteTargetID.String)
+		if err != nil {
+			return nil
+		}
+		return &postsspec.QuoteTarget{
+			Type:          postsspec.QuoteTargetOpening,
+			OrgDomain:     orgs.OrgDomain(row.QuoteOwnerAddress.String),
+			OpeningNumber: openingsspec.OpeningNumber(number),
+		}
+	}
+	return nil
 }
 
 // Get reads the live posts of one author this tenant homes. It returns

@@ -172,17 +172,17 @@ func TestQuoteListAndDetachRequests(t *testing.T) {
 func TestMeshQuoteRequests(t *testing.T) {
 	t.Parallel()
 	target := MeshReadQuoteTargetRequest{
-		TargetPostID: validID, ViewerHubUserDID: viewerDID, ViewerHandle: viewerHandle,
+		OwnerHubUserDID: viewerDID, TargetPostID: validID, ViewerHubUserDID: viewerDID, ViewerHandle: viewerHandle,
 	}
 	if got := target.Validate(); len(got) != 0 {
 		t.Fatalf("target: %v", got)
 	}
-	want := []string{"target_post_id", "viewer_hub_user_did", "viewer_handle"}
+	want := []string{"owner_hub_user_did", "target_post_id", "viewer_hub_user_did", "viewer_handle"}
 	if got := (MeshReadQuoteTargetRequest{TargetPostID: "x"}).Validate(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("bad target: %v", got)
 	}
 
-	item := MeshEmbedReference{TargetPostID: validID, QuotePostID: validID, QuoterHubUserDID: viewerDID}
+	item := MeshEmbedReference{OwnerHubUserDID: viewerDID, TargetPostID: validID, QuotePostID: validID, QuoterHubUserDID: viewerDID}
 	embeds := func(items []MeshEmbedReference) []string {
 		return MeshReadEmbedsRequest{
 			ViewerHubUserDID: viewerDID, ViewerHandle: viewerHandle, Items: items,
@@ -199,22 +199,23 @@ func TestMeshQuoteRequests(t *testing.T) {
 		}
 	}
 	for _, broken := range []MeshEmbedReference{
-		{TargetPostID: "x", QuotePostID: validID, QuoterHubUserDID: viewerDID},
-		{TargetPostID: validID, QuotePostID: "x", QuoterHubUserDID: viewerDID},
-		{TargetPostID: validID, QuotePostID: validID, QuoterHubUserDID: "x"},
+		{OwnerHubUserDID: "x", TargetPostID: validID, QuotePostID: validID, QuoterHubUserDID: viewerDID},
+		{OwnerHubUserDID: viewerDID, TargetPostID: "x", QuotePostID: validID, QuoterHubUserDID: viewerDID},
+		{OwnerHubUserDID: viewerDID, TargetPostID: validID, QuotePostID: "x", QuoterHubUserDID: viewerDID},
+		{OwnerHubUserDID: viewerDID, TargetPostID: validID, QuotePostID: validID, QuoterHubUserDID: "x"},
 	} {
 		if got := embeds([]MeshEmbedReference{broken}); !reflect.DeepEqual(got, []string{"items"}) {
 			t.Errorf("%#v: %v", broken, got)
 		}
 	}
 
-	list := MeshListQuotesRequest{PostID: validID, ViewerHubUserDID: viewerDID, ViewerHandle: viewerHandle}
+	list := MeshListQuotesRequest{OwnerHubUserDID: viewerDID, PostID: validID, ViewerHubUserDID: viewerDID, ViewerHandle: viewerHandle}
 	if got := list.Validate(); len(got) != 0 || list.EffectiveLimit() != DefaultLimit {
 		t.Fatalf("list: %v", got)
 	}
 	limit := int32(51)
 	bad := MeshListQuotesRequest{PostID: "x", Limit: &limit}
-	want = []string{"post_id", "viewer_hub_user_did", "viewer_handle", "limit"}
+	want = []string{"owner_hub_user_did", "post_id", "viewer_hub_user_did", "viewer_handle", "limit"}
 	if got := bad.Validate(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("bad list: %v", got)
 	}

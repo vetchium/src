@@ -206,6 +206,7 @@ export interface MeshListAuthorRepliesResponse {
 /** Asks the owner's tenant whether the viewer, the quoter, can quote a
  * timeline post (PST-QTE-003). The response is a `MeshPost`. */
 export interface MeshReadQuoteTargetRequest {
+  owner_hub_user_did: HubUserDID;
   target_post_id: PostID;
   viewer_hub_user_did: HubUserDID;
   viewer_handle: HubHandle;
@@ -215,6 +216,9 @@ export function validateMeshReadQuoteTargetRequest(
   request: MeshReadQuoteTargetRequest,
 ): string[] {
   const fields: string[] = [];
+  if (!isHubUserDID(request.owner_hub_user_did)) {
+    fields.push("owner_hub_user_did");
+  }
   if (!isPostID(request.target_post_id)) fields.push("target_post_id");
   return [
     ...fields,
@@ -223,6 +227,7 @@ export function validateMeshReadQuoteTargetRequest(
 }
 
 export interface MeshEmbedReference {
+  owner_hub_user_did: HubUserDID;
   target_post_id: PostID;
   quote_post_id: PostID;
   quoter_hub_user_did: HubUserDID;
@@ -246,6 +251,7 @@ export function validateMeshReadEmbedsRequest(
     request.items.length <= maxGetMany &&
     request.items.every(
       (item) =>
+        isHubUserDID(item.owner_hub_user_did) &&
         isPostID(item.target_post_id) &&
         isPostID(item.quote_post_id) &&
         isHubUserDID(item.quoter_hub_user_did),
@@ -272,6 +278,7 @@ export interface MeshReadEmbedsResponse {
 }
 
 export interface MeshListQuotesRequest {
+  owner_hub_user_did: HubUserDID;
   post_id: PostID;
   viewer_hub_user_did: HubUserDID;
   viewer_handle: HubHandle;
@@ -283,6 +290,9 @@ export function validateMeshListQuotesRequest(
   request: MeshListQuotesRequest,
 ): string[] {
   const fields: string[] = [];
+  if (!isHubUserDID(request.owner_hub_user_did)) {
+    fields.push("owner_hub_user_did");
+  }
   if (!isPostID(request.post_id)) fields.push("post_id");
   return [
     ...fields,

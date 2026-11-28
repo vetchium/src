@@ -23,19 +23,19 @@ import (
 // RegisterEvents adds the three reply event receivers to registry.
 func RegisterEvents(registry *events.Registry) {
 	registry.Register(federationspec.HubReplyEditedKind, applyEdited,
-		payloadOrigin("author_hub_user_did"))
+		PayloadOrigin("author_hub_user_did"))
 	registry.Register(federationspec.HubReplyRemovedKind, applyRemoved,
-		payloadOrigin("author_hub_user_did"))
+		PayloadOrigin("author_hub_user_did"))
 	// An edit delayed past a removal must not bring the copy back.
 	registry.ShareWatermark(federationspec.HubReplyRemovedKind,
 		federationspec.HubReplyEditedKind)
 	registry.Register(federationspec.HubPostRemovedKind, applyPostRemoved,
-		payloadOrigin("owner_hub_user_did"))
+		PayloadOrigin("owner_hub_user_did"))
 }
 
-// payloadOrigin names the Hub user in the payload field as the origin of the
+// PayloadOrigin names the Hub user in the payload field as the origin of the
 // event: only that user's home tenant may report on them (PST-RPL-015).
-func payloadOrigin(field string) events.Origin {
+func PayloadOrigin(field string) events.Origin {
 	return func(event events.Event) (events.Principal, bool) {
 		var payload map[string]json.RawMessage
 		if json.Unmarshal(event.Payload, &payload) != nil {
@@ -53,7 +53,8 @@ func payloadOrigin(field string) events.Origin {
 	}
 }
 
-func decodeEvent(event events.Event, target any) error {
+// DecodeEvent decodes the payload of event and refuses unknown fields.
+func DecodeEvent(event events.Event, target any) error {
 	decoder := json.NewDecoder(bytes.NewReader(event.Payload))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil ||
@@ -63,7 +64,9 @@ func decodeEvent(event events.Event, target any) error {
 	return nil
 }
 
-func checkEvent(
+// CheckEvent refuses an event for a destination, aggregate, or payload that
+// does not fit its kind. id is the aggregate ID the payload must name.
+func CheckEvent(
 	event events.Event, aggregate federationspec.AggregateType, id string,
 	fields []string,
 ) error {
@@ -113,10 +116,10 @@ func lockReply(
 // applyEdited updates the reply copy (PST-RPL-010).
 func applyEdited(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	var payload federationspec.HubReplyEditedPayload
-	if err := decodeEvent(event, &payload); err != nil {
+	if err := DecodeEvent(event, &payload); err != nil {
 		return err
 	}
-	if err := checkEvent(event, federationspec.AggregateHubReply,
+	if err := CheckEvent(event, federationspec.AggregateHubReply,
 		string(payload.ReplyID), payload.Validate()); err != nil {
 		return err
 	}
@@ -143,10 +146,10 @@ func applyEdited(ctx context.Context, tx pgx.Tx, event events.Event) error {
 // (PST-OWN-002, PST-RPL-014): only a reply that leaves live lowers a count.
 func applyRemoved(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	var payload federationspec.HubReplyRemovedPayload
-	if err := decodeEvent(event, &payload); err != nil {
+	if err := DecodeEvent(event, &payload); err != nil {
 		return err
 	}
-	if err := checkEvent(event, federationspec.AggregateHubReply,
+	if err := CheckEvent(event, federationspec.AggregateHubReply,
 		string(payload.ReplyID), payload.Validate()); err != nil {
 		return err
 	}
@@ -189,10 +192,10 @@ func applyRemoved(ctx context.Context, tx pgx.Tx, event events.Event) error {
 // the removed post (PST-RPL-013).
 func applyPostRemoved(ctx context.Context, tx pgx.Tx, event events.Event) error {
 	var payload federationspec.HubPostRemovedPayload
-	if err := decodeEvent(event, &payload); err != nil {
+	if err := DecodeEvent(event, &payload); err != nil {
 		return err
 	}
-	if err := checkEvent(event, federationspec.AggregateHubPost,
+	if err := CheckEvent(event, federationspec.AggregateHubPost,
 		string(payload.PostID), payload.Validate()); err != nil {
 		return err
 	}
