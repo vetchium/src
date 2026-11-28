@@ -53,21 +53,31 @@ func loadApplicationSeedSettings() (applicationSeedSettings, error) {
 		}
 		*target = strings.TrimRight(value, "/")
 	}
-	s.hubOrigins = map[string]string{}
-	for _, pair := range strings.Split(os.Getenv("DEV_SEED_HUB_ORIGINS"), ",") {
-		tenant, origin, ok := strings.Cut(strings.TrimSpace(pair), "=")
-		if !ok || tenant == "" || origin == "" {
-			return applicationSeedSettings{}, fmt.Errorf(
-				"DEV_SEED_HUB_ORIGINS must list tenant=origin pairs, got %q", pair)
-		}
-		s.hubOrigins[tenant] = strings.TrimRight(origin, "/")
-	}
-	for _, tenant := range applicationSeedTenants {
-		if s.hubOrigins[tenant] == "" {
-			return applicationSeedSettings{}, fmt.Errorf("no Hub origin for %s", tenant)
-		}
+	var err error
+	if s.hubOrigins, err = parseHubOrigins(os.Getenv("DEV_SEED_HUB_ORIGINS")); err != nil {
+		return applicationSeedSettings{}, err
 	}
 	return s, nil
+}
+
+// parseHubOrigins reads DEV_SEED_HUB_ORIGINS: tenant=origin pairs that must
+// name every seeded region.
+func parseHubOrigins(list string) (map[string]string, error) {
+	origins := map[string]string{}
+	for _, pair := range strings.Split(list, ",") {
+		tenant, origin, ok := strings.Cut(strings.TrimSpace(pair), "=")
+		if !ok || tenant == "" || origin == "" {
+			return nil, fmt.Errorf(
+				"DEV_SEED_HUB_ORIGINS must list tenant=origin pairs, got %q", pair)
+		}
+		origins[tenant] = strings.TrimRight(origin, "/")
+	}
+	for _, tenant := range applicationSeedTenants {
+		if origins[tenant] == "" {
+			return nil, fmt.Errorf("no Hub origin for %s", tenant)
+		}
+	}
+	return origins, nil
 }
 
 type seededApplicant struct {

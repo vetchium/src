@@ -21,7 +21,7 @@ Docker with Compose, GNU Make, Go 1.27.4, Node.js 22.13 or newer. Optional:
 
 ```bash
 make dev        # clean, then start the full stack with all four regions
-make dev-seed   # clean, start the stack, then seed Hub users, Orgs, and marketplace
+make dev-seed   # clean, start the stack, then seed Hub users, Orgs, posts, and marketplace
 make clean      # stop everything and delete volumes and dev secrets
 ```
 

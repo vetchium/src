@@ -70,7 +70,7 @@ DEV_SEED_MAILPIT_URL ?= http://127.0.0.1:18025
 serving_services = $$(docker compose -f $(1) config --services | \
 	grep -vE '^(workers|dev-seed)-')
 
-.PHONY: check fmt tools backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs dev-seed-applications dev-seed-marketplace dev-accounts sqlc sqlc-vet \
+.PHONY: check fmt tools backend dev dev-ai-models dev-secrets dev-seed dev-seed-hub-profiles dev-seed-orgs dev-seed-applications dev-seed-posts dev-seed-marketplace dev-accounts sqlc sqlc-vet \
 	sql-lint migration-check sql-check \
 	test test-dependencies test-environment test-stack test-static-ready \
 	test-go test-go-run test-go-static test-go-lint test-go-vuln \
@@ -141,6 +141,7 @@ dev-seed: dev
 	$(MAKE) --no-print-directory dev-seed-hub-profiles
 	$(MAKE) --no-print-directory dev-seed-orgs
 	$(MAKE) --no-print-directory dev-seed-applications
+	$(MAKE) --no-print-directory dev-seed-posts
 	$(MAKE) --no-print-directory dev-seed-marketplace
 	$(MAKE) --no-print-directory dev-accounts
 
@@ -183,6 +184,18 @@ dev-seed-applications: sqlc
 		echo "==> applications $$t"; \
 		(cd backend && DEV_SEED_MODE=applications DEV_SEED_TENANT=$$t \
 			DEV_SEED_ORGS_ORIGIN="http://$$t.api.vetchium.localhost" \
+			DEV_SEED_HUB_ORIGINS="sgp=http://sgp.api.vetchium.localhost,usa1=http://usa1.api.vetchium.localhost,deu=http://deu.api.vetchium.localhost,ind1=http://ind1.api.vetchium.localhost" \
+			DEV_SEED_HUB_PROFILES_DIR="$(CURDIR)/dev/hub-seed-profiles" \
+			go run ./cmd/dev-seed) || exit $$?; \
+	done
+
+# Gives each tenant's Hub users timeline posts, threads across two regions,
+# quotes of a post and of a published Opening, one block, and one mute. It
+# needs dev-seed-hub-profiles and dev-seed-orgs.
+dev-seed-posts: sqlc
+	@for t in sgp usa1 deu ind1; do \
+		echo "==> posts $$t"; \
+		(cd backend && DEV_SEED_MODE=posts DEV_SEED_TENANT=$$t \
 			DEV_SEED_HUB_ORIGINS="sgp=http://sgp.api.vetchium.localhost,usa1=http://usa1.api.vetchium.localhost,deu=http://deu.api.vetchium.localhost,ind1=http://ind1.api.vetchium.localhost" \
 			DEV_SEED_HUB_PROFILES_DIR="$(CURDIR)/dev/hub-seed-profiles" \
 			go run ./cmd/dev-seed) || exit $$?; \

@@ -147,8 +147,9 @@ privileges. A separate container then runs the Goose migrations.
   (`dev/hub-seed-profiles/`), `orgs` (hiring companies `org1` to
   `org3.<tenant>.test`), `applications` (pipeline templates and Hub users'
   applications in every state the portal APIs reach; run after the two
-  before it), or `marketplace` (MKT-TST-003; run last). The last four need a
-  fresh stack. `accounts` (`make dev-accounts`, the last step of
+  before it), `posts` (timeline posts, threads, quotes, a block, and a mute;
+  run after `applications`), or `marketplace` (MKT-TST-003; run last). The
+  last five need a fresh stack. `accounts` (`make dev-accounts`, the last step of
   `make dev-seed`) prints every account read back from the tenant databases;
   never keep a second list of seeded accounts. An expired offer and a removed application need the clock, so
   no fixture holds one.
