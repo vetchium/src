@@ -272,25 +272,34 @@ SELECT (SELECT count(*) FROM post)::bigint AS post_rows,
     (SELECT count(*) FROM parent)::bigint AS parent_rows;
 
 -- The owner hides or unhides a reply (PST-RPL-012). It returns the old and the
--- new state so the caller applies the count rule. Zero rows means the reply is
--- missing or not live or hidden.
+-- new state so the caller applies the count rule. A repeat writes no row, so
+-- the transaction needs no audit event. Zero rows means the reply is missing
+-- or not live or hidden.
 -- name: SetHubPostReplyState :one
 WITH target AS (
-    SELECT r.post_id, r.reply_id, r.state AS old_state
+    SELECT r.post_id, r.reply_id, r.state AS old_state, r.parent_reply_id
     FROM vetchium.hub_post_replies AS r
     WHERE r.post_id = sqlc.arg(post_id)
       AND r.reply_id = sqlc.arg(reply_id)
       AND r.state IN ('live', 'hidden_by_owner')
     FOR UPDATE
+),
+changed AS (
+    UPDATE vetchium.hub_post_replies AS r
+    SET state = sqlc.arg(new_state)::vetchium.hub_post_reply_state
+    FROM target
+    WHERE r.post_id = target.post_id
+      AND r.reply_id = target.reply_id
+      AND r.state <> sqlc.arg(new_state)::vetchium.hub_post_reply_state
+      AND sqlc.arg(new_state)::vetchium.hub_post_reply_state
+          IN ('live', 'hidden_by_owner')
 )
-UPDATE vetchium.hub_post_replies AS r
-SET state = sqlc.arg(new_state)::vetchium.hub_post_reply_state
+SELECT target.old_state,
+    sqlc.arg(new_state)::vetchium.hub_post_reply_state AS new_state,
+    target.parent_reply_id
 FROM target
-WHERE r.post_id = target.post_id
-  AND r.reply_id = target.reply_id
-  AND sqlc.arg(new_state)::vetchium.hub_post_reply_state
-      IN ('live', 'hidden_by_owner')
-RETURNING target.old_state, r.state AS new_state, r.parent_reply_id;
+WHERE sqlc.arg(new_state)::vetchium.hub_post_reply_state
+      IN ('live', 'hidden_by_owner');
 
 -- The reply author edited the reply (PST-RPL-010). A removed copy stays
 -- removed.

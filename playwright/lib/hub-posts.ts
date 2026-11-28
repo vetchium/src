@@ -10,6 +10,17 @@ import type {
   RemovePostRequest,
   SetPostPoliciesRequest,
 } from "typespec/hub/posts/posts";
+import type {
+  EditReplyRequest,
+  HideReplyRequest,
+  ListAuthorRepliesRequest,
+  ListAuthorRepliesResponse,
+  ListRepliesRequest,
+  ListRepliesResponse,
+  RemoveReplyRequest,
+  Reply,
+  ReplyRequest,
+} from "typespec/hub/posts/replies";
 import type { ReadCardsRequest } from "typespec/hub/profile/cards";
 import {
   cleanupHubAliasClaim,
@@ -91,6 +102,85 @@ export class HubPostsAPI {
   }
 }
 
+export type ReplyOperation =
+  | "/posts/reply"
+  | "/posts/edit-reply"
+  | "/posts/remove-reply"
+  | "/posts/hide-reply"
+  | "/posts/unhide-reply"
+  | "/posts/list-replies"
+  | "/posts/list-author-replies";
+
+/** Typed clients for the reply operations. Malformed input goes through
+ * `raw` and `rawJSON`. */
+export class HubRepliesAPI {
+  constructor(readonly hub: HubAPI) {}
+
+  reply(
+    body: ReplyRequest,
+    token: string,
+    idempotencyKey: string,
+  ): Promise<APIResponse> {
+    return this.hub.post("/posts/reply", body, {
+      token,
+      idempotencyKey,
+    });
+  }
+
+  edit(body: EditReplyRequest, token: string): Promise<APIResponse> {
+    return this.hub.post("/posts/edit-reply", body, { token });
+  }
+
+  remove(body: RemoveReplyRequest, token: string): Promise<APIResponse> {
+    return this.hub.post("/posts/remove-reply", body, { token });
+  }
+
+  hide(body: HideReplyRequest, token: string): Promise<APIResponse> {
+    return this.hub.post("/posts/hide-reply", body, { token });
+  }
+
+  unhide(body: HideReplyRequest, token: string): Promise<APIResponse> {
+    return this.hub.post("/posts/unhide-reply", body, { token });
+  }
+
+  list(body: ListRepliesRequest, token: string): Promise<APIResponse> {
+    return this.hub.post("/posts/list-replies", body, { token });
+  }
+
+  listByAuthor(
+    body: ListAuthorRepliesRequest,
+    token: string,
+  ): Promise<APIResponse> {
+    return this.hub.post("/posts/list-author-replies", body, { token });
+  }
+
+  /** A body of any shape, for validation cases. */
+  raw(
+    operation: ReplyOperation,
+    body: unknown,
+    token?: string,
+    idempotencyKey?: string,
+  ): Promise<APIResponse> {
+    return this.hub.post(operation, body, {
+      ...(token ? { token } : {}),
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+    });
+  }
+
+  /** A body that is not JSON. */
+  rawJSON(
+    operation: ReplyOperation,
+    body: string,
+    token?: string,
+    idempotencyKey?: string,
+  ): Promise<APIResponse> {
+    return this.hub.postRaw(operation, body, {
+      ...(token ? { token } : {}),
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+    });
+  }
+}
+
 export interface PostUser {
   tenant: TestTenant;
   email: string;
@@ -134,6 +224,13 @@ export class Cast {
     created.did = signedUp.hubUserDID;
     created.token = await login(this.request, tenant, email, signedUp.password);
     return created;
+  }
+
+  /** A fresh idempotency key that cleanup removes from the user's tenant. */
+  key(user: PostUser): string {
+    const key = hubIdempotencyKey();
+    user.keys.push(key);
+    return key;
   }
 
   /** Moves the user to a plan. Posting needs Silver or higher. */
@@ -232,4 +329,33 @@ export async function expectList(
   expect(response.status(), await response.text()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("no-store");
   return (await response.json()) as ListPostsResponse;
+}
+
+export async function expectReply(
+  response: APIResponse,
+  status: number,
+): Promise<Reply> {
+  expect(response.status(), await response.text()).toBe(status);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  return (await response.json()) as Reply;
+}
+
+export async function expectReplies(
+  response: APIResponse,
+): Promise<ListRepliesResponse> {
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  return (await response.json()) as ListRepliesResponse;
+}
+
+export async function expectAuthorReplies(
+  response: APIResponse,
+): Promise<ListAuthorRepliesResponse> {
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  return (await response.json()) as ListAuthorRepliesResponse;
+}
+
+export async function expectNoContent(response: APIResponse): Promise<void> {
+  expect(response.status(), await response.text()).toBe(204);
 }

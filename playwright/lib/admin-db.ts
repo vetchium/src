@@ -2350,6 +2350,115 @@ export function moveHubPostCreatedAtBack(
   );
 }
 
+/**
+ * Inserts live reply rows for one author, created now, to fill the 500-reply
+ * cap without 500 API calls. They point at no post and cascade away with the
+ * user.
+ */
+export function insertHubReplyTexts(
+  did: string,
+  tenant: TestTenant,
+  count: number,
+): void {
+  assertHubUserDID(did);
+  if (!Number.isInteger(count) || count < 1) {
+    throw new Error(`refusing to insert ${count} replies`);
+  }
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.hub_reply_texts (
+       reply_id, author_hub_user_did, post_owner_hub_user_did,
+       post_owner_handle, post_owner_tenant_id, post_id, body, state)
+     SELECT substr(md5(random()::text || n::text) ||
+         md5(random()::text || n::text), 1, 40),
+       ${sqlLiteral(did)}::uuid, gen_random_uuid(), 'filler', ${sqlLiteral(tenant)},
+       substr(md5(random()::text || n::text) ||
+         md5(random()::text || n::text), 1, 40),
+       'Filler ' || n, 'live'
+     FROM generate_series(1, ${count}) AS n;`,
+  );
+}
+
+function assertPostID(id: string): void {
+  if (!/^[0-9a-v]{20}[0-9a-z]{20}$/.test(id)) {
+    throw new Error(`refusing a malformed post or reply ID: ${id}`);
+  }
+}
+
+/** Moves one reply's creation time back in the author's tenant, to close the
+ * edit window. */
+export function moveHubReplyCreatedAtBack(
+  replyID: string,
+  tenant: TestTenant,
+  minutes: number,
+): void {
+  assertPostID(replyID);
+  if (!Number.isInteger(minutes) || minutes < 1) {
+    throw new Error(`refusing to move a reply back ${minutes} minutes`);
+  }
+  sqlScalarForTenant(
+    tenant,
+    `UPDATE vetchium.hub_reply_texts
+     SET created_at = created_at - make_interval(mins => ${minutes})
+     WHERE reply_id = ${sqlLiteral(replyID)};`,
+  );
+}
+
+export interface HubReplyRow {
+  state: string;
+  body: string | null;
+  revision: number;
+}
+
+function replyRow(sql: string, tenant: TestTenant): HubReplyRow | null {
+  const value = sqlScalarForTenant(tenant, sql);
+  return value === "" ? null : (JSON.parse(value) as HubReplyRow);
+}
+
+/** The reply as its author's tenant keeps it (`hub_reply_texts`). */
+export function hubReplyText(
+  replyID: string,
+  tenant: TestTenant,
+): HubReplyRow | null {
+  assertPostID(replyID);
+  return replyRow(
+    `SELECT json_build_object('state', state, 'body', body,
+       'revision', revision)::text
+     FROM vetchium.hub_reply_texts WHERE reply_id = ${sqlLiteral(replyID)};`,
+    tenant,
+  );
+}
+
+/** The reply copy and structure row in the post owner's tenant
+ * (`hub_post_replies`). */
+export function hubPostReply(
+  replyID: string,
+  tenant: TestTenant,
+): HubReplyRow | null {
+  assertPostID(replyID);
+  return replyRow(
+    `SELECT json_build_object('state', state, 'body', body,
+       'revision', revision)::text
+     FROM vetchium.hub_post_replies WHERE reply_id = ${sqlLiteral(replyID)};`,
+    tenant,
+  );
+}
+
+/** How many structure rows the post owner's tenant keeps for a post. */
+export function hubPostReplyRowCount(
+  postID: string,
+  tenant: TestTenant,
+): number {
+  assertPostID(postID);
+  return Number(
+    sqlScalarForTenant(
+      tenant,
+      `SELECT count(*) FROM vetchium.hub_post_replies
+       WHERE post_id = ${sqlLiteral(postID)};`,
+    ),
+  );
+}
+
 /** The database's own clock, so tests compute instants on the database's
  * clock rather than the test runner's. */
 export function databaseNow(tenant: TestTenant): Date {

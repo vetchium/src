@@ -187,7 +187,8 @@ alias MeshListRepliesResult =
       @body body: MeshListRepliesResponse;
     }
   | Vetchium.Problem.InvalidPaginationKeyErrorResponse
-  | MeshReplyErrors;
+  | MeshErrors
+  | Vetchium.Problem.HubPostNotFoundErrorResponse;
 
 alias MeshGetReplyResult =
   | {

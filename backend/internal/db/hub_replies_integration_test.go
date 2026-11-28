@@ -268,6 +268,14 @@ func TestHubPostReplyCountRuleAndCopy(t *testing.T) {
 	if err != nil || hid.OldState != sqlc.VetchiumHubPostReplyStateLive {
 		t.Fatalf("hide = %+v, %v", hid, err)
 	}
+	// A repeat reports no change, so the handler writes no audit event.
+	again, err := h.q.SetHubPostReplyState(h.ctx, sqlc.SetHubPostReplyStateParams{
+		PostID: postID, ReplyID: kid, NewState: sqlc.VetchiumHubPostReplyStateHiddenByOwner,
+	})
+	if err != nil || again.OldState != sqlc.VetchiumHubPostReplyStateHiddenByOwner ||
+		again.NewState != sqlc.VetchiumHubPostReplyStateHiddenByOwner {
+		t.Fatalf("repeat hide = %+v, %v", again, err)
+	}
 	adjust(-1, -1, -1)
 	var postCount, child, rows int32
 	if err := h.tx.QueryRow(h.ctx, `SELECT

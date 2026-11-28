@@ -54,3 +54,5 @@ UI specs come in T22.
 - Threads and the Replies tab work against the T19 API.
 
 ## Carried over
+
+From T19 (orchestrator): an `edit-reply` result carries `child_count` 0, because the author's tenant keeps no sub-reply counts. After an edit, keep the child count the thread already shows; take only `body`, `revision`, and `edited` from the result.
