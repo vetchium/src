@@ -5,6 +5,7 @@ package posts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/vetchium/src/typespec/common"
 	hubspec "github.com/vetchium/src/typespec/hub"
 	postsspec "github.com/vetchium/src/typespec/hub/posts"
 	profilespec "github.com/vetchium/src/typespec/hub/profile"
@@ -21,6 +23,7 @@ import (
 
 	"backend/handlers/hub/blocks"
 	"backend/internal/apiserver"
+	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	hubruntime "backend/internal/hub"
@@ -36,6 +39,43 @@ const (
 	dailyLimit = 100
 	window     = 24 * time.Hour
 )
+
+const listPurpose = "hub:posts:list"
+
+// listCursor wraps the position key of the owner's tenant. The signature
+// binds it to one owner, so a tampered or foreign key is refused here
+// before any read.
+type listCursor struct {
+	Owner string `json:"owner"`
+	Key   string `json:"key"`
+}
+
+func signListKey(
+	s *hubruntime.Server, ownerDID pgtype.UUID, key common.PaginationKey,
+) (common.PaginationKey, error) {
+	payload, err := json.Marshal(listCursor{
+		Owner: dbvalue.FormatUUID(ownerDID), Key: string(key),
+	})
+	if err != nil {
+		return "", err
+	}
+	return common.PaginationKey(credentials.SignValue(
+		s.CredentialSubkey("pagination"), listPurpose, payload)), nil
+}
+
+func verifyListKey(
+	s *hubruntime.Server, ownerDID pgtype.UUID, key common.PaginationKey,
+) (common.PaginationKey, bool) {
+	payload, valid := credentials.VerifySignedValue(
+		s.CredentialSubkey("pagination"), listPurpose, string(key))
+	var c listCursor
+	if !valid || json.Unmarshal(payload, &c) != nil ||
+		c.Owner != dbvalue.FormatUUID(ownerDID) {
+		return "", false
+	}
+	inner := common.PaginationKey(c.Key)
+	return inner, common.IsPaginationKey(inner)
+}
 
 func reader(s *hubruntime.Server) postread.Reader {
 	return postread.Reader{Queries: s.Queries, Pictures: s.PictureURLs}
@@ -373,6 +413,13 @@ func fill(
 	target owner, request postsspec.ListPostsRequest,
 	response *postsspec.ListPostsResponse,
 ) (problem.Body, error) {
+	if request.PaginationKey != nil {
+		inner, valid := verifyListKey(s, target.did, *request.PaginationKey)
+		if !valid {
+			return problem.InvalidPaginationKeyError, nil
+		}
+		request.PaginationKey = &inner
+	}
 	if target.local {
 		page, next, err := reader(s).List(
 			ctx, target.did, request.PaginationKey, request.EffectiveLimit(),
@@ -385,8 +432,8 @@ func fill(
 		case err != nil:
 			return nil, err
 		}
-		response.Posts, response.NextPaginationKey = page, next
-		return nil, nil
+		response.Posts = page
+		return nil, wrapNext(s, target.did, next, response)
 	}
 	viewerDID, viewerHandle, err := viewerFields(ctx, s, viewer)
 	if err != nil {
@@ -413,8 +460,24 @@ func fill(
 	for _, item := range outcome.List.Posts {
 		response.Posts = append(response.Posts, item.Post)
 	}
-	response.NextPaginationKey = outcome.List.NextPaginationKey
-	return nil, nil
+	return nil, wrapNext(
+		s, target.did, outcome.List.NextPaginationKey, response)
+}
+
+// wrapNext signs the owner tenant's next key for the browser.
+func wrapNext(
+	s *hubruntime.Server, ownerDID pgtype.UUID, next *common.PaginationKey,
+	response *postsspec.ListPostsResponse,
+) error {
+	if next == nil {
+		return nil
+	}
+	signed, err := signListKey(s, ownerDID, *next)
+	if err != nil {
+		return err
+	}
+	response.NextPaginationKey = &signed
+	return nil
 }
 
 func Get(s *hubruntime.Server) http.HandlerFunc {

@@ -75,3 +75,5 @@ to PST-RD-004, PST-GEN-004
 - Every T23 operation is routed; embeds appear on every post read.
 
 ## Carried over
+
+From T12 (orchestrator): the T12 `get-many` relay fails the whole call when one tenant fails. `list-quotes` and `read-embeds` must keep partial results. Call one tenant per `fanout.Do` read, or make the relay return a result for each tenant, so one failed region sets `partial` or gives `unavailable` embeds only for that region.

@@ -3,12 +3,38 @@ package posts
 import (
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
 	postsspec "github.com/vetchium/src/typespec/hub/posts"
 	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/db/sqlc"
+	hubruntime "backend/internal/hub"
 )
+
+func TestListKeyBindsOwner(t *testing.T) {
+	t.Parallel()
+	s := &hubruntime.Server{CredentialKey: [32]byte{1}}
+	owner := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
+	other := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
+	signed, err := signListKey(s, owner, "inner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inner, ok := verifyListKey(s, owner, signed); !ok || inner != "inner" {
+		t.Fatalf("verify = %q, %v", inner, ok)
+	}
+	if _, ok := verifyListKey(s, other, signed); ok {
+		t.Fatal("a foreign owner accepted the key")
+	}
+	if _, ok := verifyListKey(s, owner, signed+"x"); ok {
+		t.Fatal("a tampered key was accepted")
+	}
+	if _, ok := verifyListKey(s, owner, "inner"); ok {
+		t.Fatal("an unsigned key was accepted")
+	}
+}
 
 func TestEditProblemOrder(t *testing.T) {
 	t.Parallel()

@@ -264,8 +264,8 @@ type cardResolution struct {
 // RelayReadCards answers a local hub-api that reads the cards of handles
 // this tenant does not home (PST-THR-007). It resolves the handles in
 // parallel, groups them by home tenant, and reads each tenant once. A handle
-// whose tenant did not answer is `unavailable`; a handle that names no user
-// is in neither list.
+// that no tenant could read is `unavailable`, including a handle that names no
+// user.
 func RelayReadCards(s *meshapi.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !authenticateRelay(s.Runtime, w, r, s.Credential) {
@@ -327,9 +327,9 @@ func RelayReadCards(s *meshapi.Server) http.HandlerFunc {
 			}
 			result := resolved[handle]
 			switch {
-			case result.Err != nil:
+			case result.Err != nil || result.Value.notFound:
 				response.Unavailable = append(response.Unavailable, handle)
-			case !result.Value.notFound:
+			default:
 				groups[result.Value.tenant] = append(
 					groups[result.Value.tenant], handle)
 			}
@@ -357,10 +357,17 @@ func RelayReadCards(s *meshapi.Server) http.HandlerFunc {
 				response.Unavailable = append(response.Unavailable, handles...)
 				continue
 			}
+			read := map[hubspec.HubHandle]bool{}
 			for _, card := range answer.Value.Cards {
 				// A tenant answers only for the handles it was asked for.
 				if slices.Contains(handles, card.Handle) {
 					response.Cards = append(response.Cards, card)
+					read[card.Handle] = true
+				}
+			}
+			for _, handle := range handles {
+				if !read[handle] {
+					response.Unavailable = append(response.Unavailable, handle)
 				}
 			}
 		}

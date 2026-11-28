@@ -17,7 +17,7 @@ import (
 // ReadCards returns the display fields of up to 50 handles (PST-THR-007).
 // This tenant reads the users it homes. The local mesh relay reads the rest
 // from their home tenants and lists the handles it could not read as
-// unavailable. A handle that names no user is in neither list.
+// unavailable, including a handle that names no user.
 func ReadCards(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request profilespec.ReadCardsRequest

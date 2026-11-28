@@ -52,3 +52,5 @@ The two spec files above.
 - Every non-`5xx` response of each T10 operation maps to a named test.
 
 ## Carried over
+
+From T12 (orchestrator): T12 made post pagination keys unsigned base64 cursors. The nearest Hub code signs keys and binds them to the list (`backend/handlers/hub/messages/requests.go` `signRequests` and `verifyRequests`, `credentials.SignValue` with the `pagination` subkey). First change the T12 post list keys (`/api/hub/posts/list` and the mesh list) to the same signed shape, bound to the owner DID. A tampered or foreign key returns `invalid-pagination-key`. Then test it in `hub-posts.spec.ts`. Use the same signed shape for every later list key, including the fan-out cursor from T03 when a portal operation returns it.

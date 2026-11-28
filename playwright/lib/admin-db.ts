@@ -2307,6 +2307,49 @@ export function cleanupHubUserAuditEvents(
   );
 }
 
+/**
+ * Inserts live top-level posts for one author, created now, to fill the
+ * 24-hour post cap without 100 API calls. Posts cascade away with the user.
+ */
+export function insertHubPosts(
+  did: string,
+  tenant: TestTenant,
+  count: number,
+): void {
+  assertHubUserDID(did);
+  if (!Number.isInteger(count) || count < 1) {
+    throw new Error(`refusing to insert ${count} posts`);
+  }
+  sqlScalarForTenant(
+    tenant,
+    `INSERT INTO vetchium.hub_posts (post_id, author_hub_user_did, kind, body)
+     SELECT substr(md5(random()::text || n::text) ||
+         md5(random()::text || n::text), 1, 40),
+       ${sqlLiteral(did)}::uuid, 'post', 'Filler ' || n
+     FROM generate_series(1, ${count}) AS n;`,
+  );
+}
+
+/** Moves one post's creation time back, to close or open the edit window. */
+export function moveHubPostCreatedAtBack(
+  postID: string,
+  tenant: TestTenant,
+  minutes: number,
+): void {
+  if (!/^[0-9a-v]{20}[0-9a-z]{20}$/.test(postID)) {
+    throw new Error(`refusing to move a malformed post ID: ${postID}`);
+  }
+  if (!Number.isInteger(minutes) || minutes < 1) {
+    throw new Error(`refusing to move a post back ${minutes} minutes`);
+  }
+  sqlScalarForTenant(
+    tenant,
+    `UPDATE vetchium.hub_posts
+     SET created_at = created_at - make_interval(mins => ${minutes})
+     WHERE post_id = ${sqlLiteral(postID)};`,
+  );
+}
+
 /** The database's own clock, so tests compute instants on the database's
  * clock rather than the test runner's. */
 export function databaseNow(tenant: TestTenant): Date {
