@@ -99,6 +99,11 @@ const ProfileViewPage = lazy(() =>
     default: ProfileViewPage,
   })),
 );
+const TimelinePage = lazy(() =>
+  import("../pages/TimelinePage").then(({ TimelinePage }) => ({
+    default: TimelinePage,
+  })),
+);
 const ReauthenticatePage = lazy(() =>
   import("../pages/ReauthenticatePage").then(({ ReauthenticatePage }) => ({
     default: ReauthenticatePage,
@@ -284,6 +289,14 @@ export function App() {
             element={
               <Page>
                 <HomePage />
+              </Page>
+            }
+          />
+          <Route
+            path="timeline"
+            element={
+              <Page>
+                <TimelinePage />
               </Page>
             }
           />

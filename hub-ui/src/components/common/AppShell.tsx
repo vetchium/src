@@ -4,6 +4,7 @@ import {
   IdcardOutlined,
   MailOutlined,
   MessageOutlined,
+  ReadOutlined,
   SafetyOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -35,6 +36,7 @@ import { SubscriptionEndingAlert } from "../../features/subscriptions/Subscripti
 import { ProfileAvatar } from "./ProfileAvatar";
 
 const navigationPaths = [
+  "/timeline",
   "/openings",
   "/applications",
   "/messages",
@@ -88,12 +90,26 @@ export function AppShell() {
         : { ...current, preferred_language: language },
     );
   };
+  // The own profile and its posts belong to Timeline. Another user's profile
+  // or an Org page matches no entry, so nothing is selected.
+  const ownProfilePath = me === undefined ? undefined : `/u/${me.handle}`;
   const selectedKey =
-    navigationPaths.find(
-      (path) => path !== "/" && location.pathname.startsWith(path),
-    ) ?? "/";
+    location.pathname === "/"
+      ? "/"
+      : ownProfilePath !== undefined &&
+          (location.pathname === ownProfilePath ||
+            location.pathname.startsWith(`${ownProfilePath}/`))
+        ? "/timeline"
+        : (navigationPaths.find(
+            (path) => path !== "/" && location.pathname.startsWith(path),
+          ) ?? "");
   const navigationItems: ItemType[] = [
     { key: "/", icon: <HomeOutlined />, label: t("navigation.home") },
+    {
+      key: "/timeline",
+      icon: <ReadOutlined />,
+      label: t("navigation.timeline"),
+    },
     {
       key: "/openings",
       icon: <SearchOutlined />,

@@ -93,6 +93,9 @@ Each item: what is not done, and what must be decided first.
   reports, and appeals (the schema keeps `taken_down`); cleanup of posts and
   replies on account deletion; direct messages, Org timeline posts, and
   public post pages; reading old post revisions.
+- Hub post discovery: a Hub user reaches another user's posts only through
+  a reply, a quote, or the blocks list. A user with no interactions finds
+  nobody. Follows and the home feed close this gap.
 
 ## Orgs
 

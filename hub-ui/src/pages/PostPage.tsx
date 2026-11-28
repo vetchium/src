@@ -299,7 +299,7 @@ function PostView() {
         items={[
           {
             title: (
-              <Link to={`/u/${post.data.owner.handle}`}>
+              <Link to={`/u/${post.data.owner.handle}?tab=posts`}>
                 {post.data.owner.display_name}
               </Link>
             ),

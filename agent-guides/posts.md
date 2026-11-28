@@ -308,14 +308,15 @@ portal screens.
 
 ## Hub portal
 
-| Route | Shows and does |
-| --- | --- |
-| `/u/:address` | Tabs: Profile, Posts, Replies. The owner on Silver+ gets a composer on Posts. A menu has Block, Unblock, Mute, Unmute for another user. |
-| `/u/:address/posts/:postId` | A level-1 heading, the post, its embed, the author's policy, lock, edit, and remove controls, replies with Load more, sub-replies, the reply composer, and Hide and Unhide for the owner |
-| `/u/:address/posts/:postId/replies/:replyId` | The thread from the reply (PST-THR-009), scrolled to it, with the reply highlighted and a "Show all replies" link |
-| `/u/:address/posts/:postId/quotes` | Quote posts with Load more, a partial-page notice, and Detach for the target owner |
-| `/settings/blocks` | Blocked and muted users with Unblock and Unmute. Settings menu entry "Blocks and mutes". |
-| `/org/:domain/openings/:number` | A Quote button that opens the quote composer |
+| Route | Click path from Home | Shows and does |
+| --- | --- | --- |
+| `/timeline` | Sidebar "Timeline" | A level-1 heading, a link to the own Replies tab, and the own posts: the composer on Silver+, the upgrade prompt below Silver, Load more |
+| `/u/:address` | Own: Home "View as others see it". Another user: the author link on a post, reply, quote, or blocks list row | Tabs Profile, Posts, Replies, kept in `?tab=`. The owner on Silver+ gets a composer on Posts. A menu has Block, Unblock, Mute, Unmute for another user. |
+| `/u/:address/posts/:postId` | Timeline or a Posts tab, then a post's time or reply count | A level-1 heading, a breadcrumb to the owner's Posts tab, the post, its embed, the author's policy, lock, edit, and remove controls, replies with Load more, sub-replies, the reply composer, and Hide and Unhide for the owner |
+| `/u/:address/posts/:postId/replies/:replyId` | Timeline "See your replies", then a reply | The thread from the reply (PST-THR-009), scrolled to it, with the reply highlighted and a "Show all replies" link |
+| `/u/:address/posts/:postId/quotes` | A post's quote count | Quote posts with Load more, a partial-page notice, and Detach for the target owner |
+| `/settings/blocks` | Sidebar "Blocks and mutes" | Blocked and muted users with Unblock and Unmute |
+| `/org/:domain/openings/:number` | Home ideal-job match or sidebar "Openings", then an Opening | A Quote button that opens the quote composer |
 
 - **PST-UI-001** An alias in a post URL redirects to the handle URL.
 - **PST-UI-002** Show "edited" when `edited` is true.
@@ -331,3 +332,6 @@ portal screens.
 - **PST-UI-007** A reply that stays `202` after the polls shows that the post
   author's region has not answered. The composer keeps the words and the key,
   so Reply again replays.
+- **PST-UI-008** The sidebar entry "Timeline" opens `/timeline`. The sidebar
+  selects it on the signed-in user's own profile and post pages, and selects
+  nothing on another user's pages.

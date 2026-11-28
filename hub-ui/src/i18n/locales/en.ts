@@ -22,6 +22,7 @@ export const en = {
     titleCount: "({{count}}) ",
     menu: "Navigation",
     openMenu: "Open navigation",
+    timeline: "Timeline",
     home: "Home",
     profile: "My profile",
     plan: "Plan",
@@ -543,6 +544,13 @@ export const en = {
       muted: "You muted @{{handle}}.",
       unmuted: "You unmuted @{{handle}}.",
     },
+  },
+  timeline: {
+    title: "Timeline",
+    documentTitle: "Timeline | Vetchium",
+    description:
+      "Your posts, newest first. Other Hub users see them on your profile.",
+    replies: "See your replies",
   },
   posts: {
     title: "Post",

@@ -24,6 +24,7 @@ export const ta = {
     titleCount: "({{count}}) ",
     menu: "வழிசெலுத்தல்",
     openMenu: "வழிசெலுத்தலைத் திறக்கவும்",
+    timeline: "காலவரிசை",
     home: "முகப்பு",
     profile: "என் சுயவிவரம்",
     plan: "திட்டம்",
@@ -541,6 +542,13 @@ export const ta = {
       muted: "@{{handle}} ஐ முடக்கினீர்கள்.",
       unmuted: "@{{handle}} முடக்கத்தை நீக்கினீர்கள்.",
     },
+  },
+  timeline: {
+    title: "காலவரிசை",
+    documentTitle: "காலவரிசை | Vetchium",
+    description:
+      "உங்கள் இடுகைகள், புதியவை முதலில். மற்ற Hub பயனர்கள் இவற்றை உங்கள் சுயவிவரத்தில் பார்க்கிறார்கள்.",
+    replies: "உங்கள் பதில்களைப் பார்க்கவும்",
   },
   posts: {
     title: "இடுகை",

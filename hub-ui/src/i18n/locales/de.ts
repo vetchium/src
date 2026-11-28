@@ -24,6 +24,7 @@ export const de = {
     titleCount: "({{count}}) ",
     menu: "Navigation",
     openMenu: "Navigation öffnen",
+    timeline: "Timeline",
     home: "Startseite",
     profile: "Mein Profil",
     plan: "Tarif",
@@ -572,6 +573,13 @@ export const de = {
       muted: "Sie haben @{{handle}} stummgeschaltet.",
       unmuted: "Sie haben die Stummschaltung von @{{handle}} aufgehoben.",
     },
+  },
+  timeline: {
+    title: "Timeline",
+    documentTitle: "Timeline | Vetchium",
+    description:
+      "Ihre Beiträge, die neuesten zuerst. Andere Hub-Nutzer sehen sie in Ihrem Profil.",
+    replies: "Ihre Antworten ansehen",
   },
   posts: {
     title: "Beitrag",

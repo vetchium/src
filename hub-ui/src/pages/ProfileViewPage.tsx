@@ -23,7 +23,7 @@ import {
 } from "antd";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import type {
   EducationalQualification,
   LanguageAbility,
@@ -244,10 +244,31 @@ function BlockMenu({ profile }: { profile: PublicProfile }) {
   );
 }
 
+const profileTabs = ["profile", "posts", "replies"] as const;
+type ProfileTab = (typeof profileTabs)[number];
+
+function isProfileTab(value: string | null): value is ProfileTab {
+  return profileTabs.some((tab) => tab === value);
+}
+
 function ProfileContents({ profile }: { profile: PublicProfile }) {
   const { t } = useTranslation();
   const preferences = usePreferences();
   const { data: me } = useMyInfoQuery();
+  // The open tab lives in the URL so reload, back, and links keep it.
+  const [search, setSearch] = useSearchParams();
+  const requested = search.get("tab");
+  const tab: ProfileTab = isProfileTab(requested) ? requested : "profile";
+  const openTab = (key: string) =>
+    setSearch(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (key === "profile") next.delete("tab");
+        else next.set("tab", key);
+        return next;
+      },
+      { replace: true },
+    );
   const country =
     countryOptions(preferences.language).find(
       (option) => option.value === profile.resident_country,
@@ -355,6 +376,8 @@ function ProfileContents({ profile }: { profile: PublicProfile }) {
         </Flex>
       </Card>
       <Tabs
+        activeKey={tab}
+        onChange={openTab}
         items={[
           {
             key: "profile",
