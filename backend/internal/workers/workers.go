@@ -191,6 +191,11 @@ func New(
 			interval: config.CleanRemovedHubPostsTimer,
 			run:      w.cleanRemovedHubPosts,
 		},
+		{
+			name:     "purge-hub-posts",
+			interval: config.PurgeHubPostsTimer,
+			run:      w.purgeHubPosts,
+		},
 	}
 	if hubEmailDelivery != nil {
 		w.hubEmailDelivery = hubEmailDelivery

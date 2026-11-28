@@ -87,6 +87,7 @@ type Workers struct {
 	RefreshHubApplicationsTimer  time.Duration
 	ReapHubPendingRepliesTimer   time.Duration
 	CleanRemovedHubPostsTimer    time.Duration
+	PurgeHubPostsTimer           time.Duration
 	ReconcileHubSignupTimer      time.Duration
 	ReconcileHubEmailChangeTimer time.Duration
 	DriveFederationCommandsTimer time.Duration
@@ -289,6 +290,7 @@ type fileWorkers struct {
 	RefreshHubApplicationsTimer  string `json:"refreshHubApplicationsTimer"`
 	ReapHubPendingRepliesTimer   string `json:"reapHubPendingRepliesTimer"`
 	CleanRemovedHubPostsTimer    string `json:"cleanRemovedHubPostsTimer"`
+	PurgeHubPostsTimer           string `json:"purgeHubPostsTimer"`
 	ReconcileHubSignupTimer      string `json:"reconcileHubSignupTimer"`
 	ReconcileHubEmailChangeTimer string `json:"reconcileHubEmailChangeTimer"`
 	DriveFederationCommandsTimer string `json:"driveFederationCommandsTimer"`
@@ -724,6 +726,12 @@ func LoadFile(path string) (Config, error) {
 	if err != nil {
 		return Config{}, configError(path, err)
 	}
+	purgeHubPostsTimer, err := positiveDuration(
+		"workers.purgeHubPostsTimer", raw.Workers.PurgeHubPostsTimer,
+	)
+	if err != nil {
+		return Config{}, configError(path, err)
+	}
 	reconcileHubSignupTimer, err := positiveDuration(
 		"workers.reconcileHubSignupTimer",
 		raw.Workers.ReconcileHubSignupTimer,
@@ -830,6 +838,7 @@ func LoadFile(path string) (Config, error) {
 			RefreshHubApplicationsTimer:  refreshHubApplicationsTimer,
 			ReapHubPendingRepliesTimer:   reapHubPendingRepliesTimer,
 			CleanRemovedHubPostsTimer:    cleanRemovedHubPostsTimer,
+			PurgeHubPostsTimer:           purgeHubPostsTimer,
 			ReconcileHubSignupTimer:      reconcileHubSignupTimer,
 			ReconcileHubEmailChangeTimer: reconcileHubEmailChangeTimer,
 			DriveFederationCommandsTimer: driveFederationCommandsTimer,

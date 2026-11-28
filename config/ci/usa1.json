@@ -26,6 +26,7 @@
     "refreshHubApplicationsTimer": "1s",
     "reapHubPendingRepliesTimer": "1s",
     "cleanRemovedHubPostsTimer": "1s",
+    "purgeHubPostsTimer": "24h",
     "reconcileHubSignupTimer": "1s",
     "reconcileHubEmailChangeTimer": "1s",
     "driveFederationCommandsTimer": "1s",

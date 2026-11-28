@@ -1,7 +1,7 @@
 # Timeline posts build progress
 
 branch: timeline-posts
-current: T29
+current: T30
 phase: implement
 
 ## Tasks
@@ -51,7 +51,7 @@ T28 done Playwright: Test the Hub quote screens
 
 ### M6 Retention and fixtures
 
-T29 todo Workers: Purge posts after five years
+T29 done Workers: Purge posts after five years
 T30 todo Dev seed: Add posts, replies, quotes, and blocks
 T31 todo Build: Finish the timeline posts build
 
