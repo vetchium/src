@@ -75,3 +75,8 @@ PST-BLK-002, PST-BLK-005, PST-RD-003, PST-RD-004, PST-GEN-004
 - Every T16 operation is routed and returns only contract responses.
 
 ## Carried over
+
+- From T17: `GetHubReplyText` returns state, revision, version, and
+  `window_open` for the edit and remove handlers. `EditHubReplyText` and
+  `RemoveHubReplyText` write their own audit events and return the new
+  revision and version for the outbox event.

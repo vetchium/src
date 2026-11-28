@@ -90,3 +90,12 @@ PST-RPL-015, PST-POS-007 (cleanup), PST-GEN-004
   tested.
 
 ## Carried over
+
+- From T17: `SettleHubReplyTextLive`, `DeletePendingHubReplyText`,
+  `MarkHubRepliesPostRemoved`, and the post owner side queries carry no audit
+  CTE. The hook, handler, or job that calls them must write the audit event in
+  the same transaction. `DeleteHubReplyTextsByIDs` writes its own events.
+- From T17: `InsertHubPostReply` returns 0 rows on a redelivered command; skip
+  `AdjustHubPostReplyCounts` then. `SetHubPostReplyState` and
+  `ClearHubPostReplyCopy` return the old state for the count rule and
+  `sql.ErrNoRows` (`pgx.ErrNoRows`) when nothing changed.
