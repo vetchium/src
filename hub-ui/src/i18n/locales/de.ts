@@ -271,6 +271,19 @@ export const de = {
       "Die Änderung der E-Mail-Adresse konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
     planRequired:
       "Für diese Funktion ist ein kostenpflichtiger Tarif erforderlich.",
+    postNotFound: "Dieser Beitrag wurde nicht gefunden.",
+    postUnavailable:
+      "Dieser Beitrag ist vorübergehend nicht verfügbar. Versuchen Sie es erneut.",
+    postLimitReached:
+      "Sie haben Ihr Limit an Beiträgen für heute erreicht. Versuchen Sie es morgen erneut.",
+    postEditClosed: "Sie können einen Beitrag nur 30 Minuten lang bearbeiten.",
+    postConflict:
+      "Dieser Beitrag wurde anderswo geändert. Laden Sie neu und versuchen Sie es erneut.",
+    postRepliesClosed:
+      "Der Autor hat Antworten auf diesen Beitrag geschlossen.",
+    postReplyRefused: "Sie können hier nicht antworten.",
+    postQuoteRefused: "Sie können diesen Beitrag nicht zitieren.",
+    replyNotFound: "Diese Antwort wurde nicht gefunden.",
   },
   profile: {
     documentTitle: "Mein Profil | Vetchium",
@@ -560,7 +573,65 @@ export const de = {
       unmuted: "Sie haben die Stummschaltung von @{{handle}} aufgehoben.",
     },
   },
+  posts: {
+    title: "Beitrag",
+    documentTitle: "Beitrag von {{name}} | Vetchium",
+    pictureAlt: "Profilbild von {{name}}",
+    edited: "bearbeitet",
+    locked: "gesperrt",
+    replyCount_one: "{{count}} Antwort",
+    replyCount_other: "{{count}} Antworten",
+    quoteCount_one: "{{count}} Zitat",
+    quoteCount_other: "{{count}} Zitate",
+    replyPolicy: "Wer antworten darf",
+    quotePolicy: "Wer zitieren darf",
+    loading: "Beiträge werden geladen",
+    empty: "Noch keine Beiträge.",
+    more: "Mehr laden",
+    muted: "Sie haben diesen Nutzer stummgeschaltet",
+    composer: {
+      label: "Beitrag schreiben",
+      counter: "{{count}} von {{max}} Zeichen",
+      submit: "Veröffentlichen",
+    },
+    upgrade: {
+      title: "Beiträge erfordern den Silver-Tarif",
+      description:
+        "Wechseln Sie zu Silver, um Beiträge auf Ihrem Profil zu schreiben.",
+      link: "Tarife ansehen",
+    },
+    policy: {
+      everyone: "Alle",
+      nobody: "Niemand",
+      title: "Antworten, Zitate und Sperre",
+      help: "Eine Änderung gilt nur für neue Antworten und Zitate.",
+      lock: "Beitrag sperren",
+      save: "Speichern",
+      saved: "Ihre Änderungen wurden gespeichert.",
+    },
+    edit: {
+      button: "Bearbeiten",
+      label: "Beitrag bearbeiten",
+      save: "Änderungen speichern",
+    },
+    remove: {
+      button: "Entfernen",
+      title: "Diesen Beitrag entfernen?",
+      content:
+        "Der Text wird gelöscht. Das lässt sich nicht rückgängig machen.",
+      done: "Ihr Beitrag wurde entfernt.",
+    },
+    notFound: {
+      title: "Beitrag nicht gefunden",
+      description:
+        "Der Autor hat diesen Beitrag entfernt, oder er existiert nicht.",
+    },
+  },
   profileView: {
+    tabs: {
+      profile: "Profil",
+      posts: "Beiträge",
+    },
     edit: "Mein Profil bearbeiten",
     documentTitle: "{{name}} | Vetchium",
     pictureAlt: "Profilbild von {{name}}",

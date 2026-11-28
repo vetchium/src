@@ -93,7 +93,21 @@ import type {
   OperationStatus,
   PendingOperation,
 } from "typespec/hub/operations/operations";
+import type {
+  CreatePostRequest,
+  EditPostRequest,
+  GetPostRequest,
+  ListPostsRequest,
+  ListPostsResponse,
+  Post,
+  RemovePostRequest,
+  SetPostPoliciesRequest,
+} from "typespec/hub/posts/posts";
 import type { AliasState, SetAliasRequest } from "typespec/hub/profile/alias";
+import type {
+  ReadCardsRequest,
+  ReadCardsResponse,
+} from "typespec/hub/profile/cards";
 import type { PictureContentType } from "typespec/hub/profile/picture";
 import type {
   AddProfessionalEmailRequest,
@@ -450,6 +464,20 @@ export const hubAPI = {
     apiRequest<void>(`${base}/mutes/unmute`, { body }),
   listMutedUsers: (body: ListMutedUsersRequest) =>
     apiRequest<ListMutedUsersResponse>(`${base}/mutes/list`, { body }),
+  createPost: (body: CreatePostRequest) =>
+    apiRequest<Post>(`${base}/posts/create`, { body }),
+  editPost: (body: EditPostRequest) =>
+    apiRequest<Post>(`${base}/posts/edit`, { body }),
+  removePost: (body: RemovePostRequest) =>
+    apiRequest<void>(`${base}/posts/remove`, { body }),
+  setPostPolicies: (body: SetPostPoliciesRequest) =>
+    apiRequest<Post>(`${base}/posts/set-policies`, { body }),
+  listPosts: (body: ListPostsRequest) =>
+    apiRequest<ListPostsResponse>(`${base}/posts/list`, { body }),
+  getPost: (body: GetPostRequest) =>
+    apiRequest<Post>(`${base}/posts/get`, { body }),
+  readCards: (body: ReadCardsRequest) =>
+    apiRequest<ReadCardsResponse>(`${base}/profile/read-cards`, { body }),
   listProfessionalEmails: (body: ListProfessionalEmailsRequest) =>
     apiRequest<ListProfessionalEmailsResponse>(
       `${base}/profile/professional-email/list`,

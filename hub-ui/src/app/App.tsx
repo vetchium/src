@@ -69,6 +69,11 @@ const PlanPage = lazy(() =>
     default: PlanPage,
   })),
 );
+const PostPage = lazy(() =>
+  import("../pages/PostPage").then(({ PostPage }) => ({
+    default: PostPage,
+  })),
+);
 const BlocksPage = lazy(() =>
   import("../pages/BlocksPage").then(({ BlocksPage }) => ({
     default: BlocksPage,
@@ -314,6 +319,14 @@ export function App() {
             element={
               <Page>
                 <ProfileViewPage />
+              </Page>
+            }
+          />
+          <Route
+            path="u/:address/posts/:postId"
+            element={
+              <Page>
+                <PostPage />
               </Page>
             }
           />

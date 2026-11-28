@@ -4,11 +4,13 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { HubHandle } from "typespec/hub/types";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
+import { ProfileAvatar } from "../components/common/ProfileAvatar";
 import {
   useBlockActionMutation,
   useBlockedUsersQuery,
   useMutedUsersQuery,
 } from "../features/blocks/queries";
+import { useProfileCards } from "../features/posts/queries";
 
 interface Row {
   handle: HubHandle;
@@ -28,6 +30,9 @@ function UserSection({
     kind === "blocked" ? "unblock" : "unmute",
   );
   const users = query.data?.pages.flatMap((page) => page.users) ?? [];
+  // Handles render at once; names and pictures follow when the cards arrive
+  // (PST-BLK-007).
+  const cards = useProfileCards(users.map((user) => user.handle)).data;
   return (
     <Card title={t(`blocks.${kind}Title`)}>
       <Space orientation="vertical" className="full-width">
@@ -63,7 +68,19 @@ function UserSection({
                 </Button>,
               ]}
             >
-              <Link to={`/u/${user.handle}`}>@{user.handle}</Link>
+              <List.Item.Meta
+                avatar={
+                  cards?.get(user.handle) !== undefined ? (
+                    <ProfileAvatar
+                      size={40}
+                      displayName={cards.get(user.handle)?.display_name ?? ""}
+                      src={cards.get(user.handle)?.picture_url}
+                    />
+                  ) : undefined
+                }
+                title={<Link to={`/u/${user.handle}`}>@{user.handle}</Link>}
+                description={cards?.get(user.handle)?.display_name}
+              />
             </List.Item>
           )}
           loadMore={

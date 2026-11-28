@@ -1,7 +1,7 @@
 # Timeline posts build progress
 
 branch: timeline-posts
-current: T14
+current: T15
 phase: implement
 
 ## Tasks
@@ -27,7 +27,7 @@ T10 done Contracts: Add Hub timeline posts
 T11 done Database: Add Hub timeline posts
 T12 done Hub API: Serve timeline posts and profile cards
 T13 done Playwright: Test Hub timeline post APIs
-T14 todo Hub portal: Add the profile Posts tab and post page
+T14 done Hub portal: Add the profile Posts tab and post page
 T15 todo Playwright: Test the Hub timeline post screens
 
 ### M4 Replies
