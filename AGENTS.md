@@ -47,6 +47,7 @@ Read every guide that applies before changing files.
 | [`review.md`](agent-guides/review.md) | every change, before calling it done |
 | [`verification.md`](agent-guides/verification.md) | which commands to run |
 | [`glossary.md`](agent-guides/glossary.md) | product terms |
+| [`writing.md`](agent-guides/writing.md) | all text, replies to the developer included |
 | [`go.md`](agent-guides/go.md) | hand-written Go |
 | [`typescript.md`](agent-guides/typescript.md) | hand-written TypeScript |
 | [`typespec.md`](agent-guides/typespec.md) | contracts and wire types |
@@ -97,11 +98,8 @@ nearest one wins on conflict, and a specific guide wins over a general one.
     Read the other files only when a task names them.
 - Write guides tersely: imperative bullets, exact values, a reason only when a
   rule would otherwise be misapplied. No history, plans, or ledgers.
-- Write all text (guides, docs, comments, commits, pull requests, UI copy) in
-  a standard like ASD-STE100. Use short sentences: at most 20 words for an
-  instruction and 25 for a description. Use the active voice, one instruction
-  in each sentence, and one meaning for each word. Prefer tables and lists. No
-  filler, hype, hedging, or repetition.
+- Write all text, replies to the developer included, by
+  [`writing.md`](agent-guides/writing.md).
 
 ## Feature builds
 
