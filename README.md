@@ -21,7 +21,7 @@ Docker with Compose, GNU Make, Go 1.27.4, Node.js 22.13 or newer. Optional:
 
 ```bash
 make dev        # clean, then start the full stack with all four regions
-make dev-seed   # clean, start the stack, then seed Hub users, Orgs, and marketplace
+make dev-seed   # clean, start the stack, then seed Hub users, Orgs, posts, and marketplace
 make clean      # stop everything and delete volumes and dev secrets
 ```
 
@@ -118,6 +118,16 @@ Openings vary arrangement, remote eligibility, employment type, salary,
 experience, and education, so every Opening search filter and the ideal-job
 match sort return results in every region.
 
+Silver Hub users also have timeline posts: an open post, a post that takes no
+replies, and a locked post. The seed adds replies in the same region and
+across two regions, a hidden reply, quotes of a post and of a published
+Opening, one block, and one mute.
+
+The workers job `reap-hub-pending-replies` deletes stale pending replies.
+`clean-removed-hub-posts` cleans the rows of removed posts. `purge-hub-posts`
+deletes every post more than five years after creation. Each job has a timer
+in the region's `config.json`.
+
 Every seeded address ends in `.test`, such as `admin@sgp.test`,
 `wei.tan@sgp.test`, and `agent1@age1.sgp.test`. Hub signup accepts addresses at `<region>.test`; `sgp` also accepts
 `test1.test` to `test100.test`. Signup and reset emails arrive in Mailpit.
@@ -144,6 +154,12 @@ and API contract coverage. Narrower targets per area: `make test-go`,
 `make typespec-check`, `make hub-ui-check`, `make orgs-ui-check`,
 `make admin-ui-check`, `make portal-ui-check`, `make playwright-check`,
 `make sql-check`.
+
+To limit CPU use, set `JOBS`, `GOTESTFLAGS`, and `PLAYWRIGHT_WORKERS`:
+
+```bash
+PLAYWRIGHT_WORKERS=2 make test JOBS=2 GOTESTFLAGS='-p 2'
+```
 
 ## Build a feature with a coding agent
 

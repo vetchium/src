@@ -9,6 +9,7 @@ import (
 
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
+	"backend/internal/blocksclient"
 	"backend/internal/conversationclient"
 	"backend/internal/db"
 	"backend/internal/db/sqlc"
@@ -26,6 +27,7 @@ import (
 	"backend/internal/objectstorage"
 	"backend/internal/openingsearch"
 	"backend/internal/orgs/entitlements"
+	"backend/internal/postsclient"
 	"backend/internal/profileclient"
 	"backend/internal/providerwork"
 	"backend/internal/publicopeningclient"
@@ -79,6 +81,12 @@ func run(log *slog.Logger, address string) error {
 	profiles := profileclient.NewPeer(
 		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
 	)
+	blocks := blocksclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
+	posts := postsclient.NewPeer(
+		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
+	)
 	openings := publicopeningclient.NewPeer(
 		coordinatorTLS, cfg.GlobalCoordinator.RequestTimeout,
 	)
@@ -121,6 +129,8 @@ func run(log *slog.Logger, address string) error {
 		TenantID:     cfg.TenantID,
 		Directory:    directory,
 		Profiles:     profiles,
+		Blocks:       blocks,
+		Posts:        posts,
 		Openings:     openings,
 		Applications: applications,
 		PublicOpenings: publicopenings.Reader{

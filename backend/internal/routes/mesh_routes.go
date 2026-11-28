@@ -43,6 +43,10 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 		mesh.ResolveOrgDomain(s.Runtime, s.Directory, s.Credential),
 	)
 	mux.HandleFunc(
+		"POST /mesh/directory/resolve-profile-slug",
+		mesh.ResolveProfileSlug(s.Runtime, s.Directory, s.Credential),
+	)
+	mux.HandleFunc(
 		"POST /mesh/directory/resolve-principal",
 		mesh.ResolvePrincipal(s.Runtime, s.Directory, s.Credential),
 	)
@@ -63,6 +67,16 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 		mesh.ClaimOrgDomain(s.Runtime, s.Directory, s.Credential),
 	)
 	mux.HandleFunc("POST /mesh/profile/read", mesh.RelayReadProfile(s))
+	mux.HandleFunc("POST /mesh/blocks/check", mesh.RelayCheckBlock(s))
+	mux.HandleFunc("POST /mesh/posts/list", mesh.RelayListPosts(s))
+	mux.HandleFunc("POST /mesh/posts/get-many", mesh.RelayGetManyPosts(s))
+	mux.HandleFunc("POST /mesh/posts/list-replies", mesh.RelayListReplies(s))
+	mux.HandleFunc("POST /mesh/posts/get-reply", mesh.RelayGetReply(s))
+	mux.HandleFunc("POST /mesh/posts/list-author-replies", mesh.RelayListAuthorReplies(s))
+	mux.HandleFunc("POST /mesh/posts/read-quote-target", mesh.RelayReadQuoteTarget(s))
+	mux.HandleFunc("POST /mesh/posts/read-embeds", mesh.RelayReadEmbeds(s))
+	mux.HandleFunc("POST /mesh/posts/list-quotes", mesh.RelayListQuotes(s))
+	mux.HandleFunc("POST /mesh/profile/read-cards", mesh.RelayReadCards(s))
 	mux.HandleFunc("POST /mesh/org-openings/list", mesh.RelayListOrgOpenings(s))
 	mux.HandleFunc("POST /mesh/org-openings/get", mesh.RelayGetOrgOpening(s))
 	mux.HandleFunc("POST /mesh/org-openings/agencies", mesh.RelayListOpeningAgencies(s))
@@ -91,6 +105,16 @@ func RegisterMeshRoutes(mux *http.ServeMux, s *meshapi.Server) {
 func RegisterMeshPeerRoutes(mux *http.ServeMux, s *meshapi.Server) {
 	mux.HandleFunc("GET /healthz", apiserver.HealthCheck)
 	mux.HandleFunc("POST /api/mesh/profile/read", mesh.PeerReadProfile(s))
+	mux.HandleFunc("POST /api/mesh/blocks/check", mesh.PeerCheckBlock(s))
+	mux.HandleFunc("POST /api/mesh/posts/list", mesh.PeerListPosts(s))
+	mux.HandleFunc("POST /api/mesh/posts/get-many", mesh.PeerGetManyPosts(s))
+	mux.HandleFunc("POST /api/mesh/posts/list-replies", mesh.PeerListReplies(s))
+	mux.HandleFunc("POST /api/mesh/posts/get-reply", mesh.PeerGetReply(s))
+	mux.HandleFunc("POST /api/mesh/posts/list-author-replies", mesh.PeerListAuthorReplies(s))
+	mux.HandleFunc("POST /api/mesh/posts/read-quote-target", mesh.PeerReadQuoteTarget(s))
+	mux.HandleFunc("POST /api/mesh/posts/read-embeds", mesh.PeerReadEmbeds(s))
+	mux.HandleFunc("POST /api/mesh/posts/list-quotes", mesh.PeerListQuotes(s))
+	mux.HandleFunc("POST /api/mesh/profile/read-cards", mesh.PeerReadCards(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/list", mesh.PeerListOrgOpenings(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/get", mesh.PeerGetOrgOpening(s))
 	mux.HandleFunc("POST /api/mesh/org-openings/agencies", mesh.PeerListOpeningAgencies(s))

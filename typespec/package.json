@@ -37,6 +37,7 @@
     "./federation/events": "./federation/events.ts",
     "./federation/hiring": "./federation/hiring.ts",
     "./federation/marketplace": "./federation/marketplace.ts",
+    "./federation/posts": "./federation/posts.ts",
     "./hub/hub": "./hub/hub.ts",
     "./hub/applications/applications": "./hub/applications/applications.ts",
     "./hub/applications/federation": "./hub/applications/federation.ts",
@@ -59,6 +60,12 @@
     "./hub/subscriptions/plans": "./hub/subscriptions/plans.ts",
     "./hub/subscriptions/subscriptions": "./hub/subscriptions/subscriptions.ts",
     "./hub/messages/messages": "./hub/messages/messages.ts",
+    "./hub/blocks/blocks": "./hub/blocks/blocks.ts",
+    "./hub/posts/posts": "./hub/posts/posts.ts",
+    "./hub/posts/mesh": "./hub/posts/mesh.ts",
+    "./hub/posts/quotes": "./hub/posts/quotes.ts",
+    "./hub/posts/replies": "./hub/posts/replies.ts",
+    "./hub/profile/cards": "./hub/profile/cards.ts",
     "./hub/types": "./hub/types.ts",
     "./hub/users/profile": "./hub/users/profile.ts",
     "./orgs/orgs": "./orgs/orgs.ts",
@@ -134,7 +141,8 @@
     "./admin/ai-usage/usage": "./admin/ai-usage/usage.ts",
     "./problem/orgs/ai": "./problem/orgs/ai.ts",
     "./problem/admin/ai-usage": "./problem/admin/ai-usage.ts",
-    "./problem/hub/conversations": "./problem/hub/conversations.ts"
+    "./problem/hub/conversations": "./problem/hub/conversations.ts",
+    "./problem/hub/posts": "./problem/hub/posts.ts"
   },
   "files": [
     "admin/**/*.ts",
@@ -157,7 +165,7 @@
     "format:check": "biome check --config-path=../biome.json .",
     "test:contract-files": "node --test scripts/check-contract-files.test.mjs",
     "test:openapi": "node --experimental-strip-types --test scripts/openapi-extensions.test.ts",
-    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts directory/*.test.ts federation/*.test.ts hub/*.test.ts hub/applications/*.test.ts hub/operations/*.test.ts hub/profile/*.test.ts orgs/*.test.ts orgs/operations/*.test.ts",
+    "test:ts": "node --experimental-strip-types --test admin/*.test.ts common/*.test.ts directory/*.test.ts federation/*.test.ts hub/*.test.ts hub/applications/*.test.ts hub/blocks/*.test.ts hub/operations/*.test.ts hub/posts/*.test.ts hub/profile/*.test.ts orgs/*.test.ts orgs/operations/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -10,6 +10,7 @@ import (
 	subscriptionspec "github.com/vetchium/src/typespec/hub/subscriptions"
 
 	"backend/internal/apiserver"
+	"backend/internal/blocksclient"
 	"backend/internal/conversationclient"
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
@@ -20,6 +21,8 @@ import (
 	"backend/internal/hub/signupcompletion"
 	"backend/internal/hubapplicationclient"
 	"backend/internal/openingsearch"
+	"backend/internal/postread"
+	"backend/internal/postsclient"
 	"backend/internal/profileclient"
 	"backend/internal/profilepicture"
 	"backend/internal/publicopeningclient"
@@ -52,12 +55,16 @@ type Server struct {
 	Regions        *regions.Catalog
 	Directory      *directoryclient.Client
 	Profiles       *profileclient.Client
+	Blocks         *blocksclient.Client
+	Posts          *postsclient.Client
 	Openings       *publicopeningclient.Client
 	Applications   *hubapplicationclient.Client
 	Conversations  *conversationclient.Client
 	PublicOpenings publicopenings.Reader
 	OpeningSearch  openingsearch.Reader
 	Pictures       PictureStorage
+	// PictureURLs signs read URLs for the cards of users this tenant homes.
+	PictureURLs postread.PictureSigner
 	// OfferLetters signs the letters of local Orgs' offers to this tenant's
 	// applicants.
 	OfferLetters     OfferLetterSigner

@@ -63,6 +63,7 @@ Read every guide that applies before changing files.
 | [`hub-signup.md`](agent-guides/hub-signup.md) | Hub signup, region selection, account email |
 | [`hub-profile.md`](agent-guides/hub-profile.md) | Hub profiles, evidence, aliases, pictures |
 | [`hub-subscriptions.md`](agent-guides/hub-subscriptions.md) | Hub plans, subscriptions, payments |
+| [`posts.md`](agent-guides/posts.md) | Hub timeline posts, replies, quotes, blocks and mutes |
 | [`orgs.md`](agent-guides/orgs.md) | Org signup, sign-in, domain verification |
 | [`org-subscriptions.md`](agent-guides/org-subscriptions.md) | Org plans, billing, seats, user management, logo |
 | [`openings.md`](agent-guides/openings.md) | Openings: creation, approval, lifecycle, Org and Hub display |

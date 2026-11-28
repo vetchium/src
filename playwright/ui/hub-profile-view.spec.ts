@@ -68,6 +68,14 @@ async function signedIn(page: Page) {
       }),
     );
   }, ownHandle);
+  // Another user's profile reads the caller's block state for its menu.
+  await page.route("**/api/hub/blocks/state", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ blocked: false, muted: false }),
+    }),
+  );
   // The portal shell reads the subscription on every page to decide whether an
   // ending entitlement needs announcing.
   await page.route("**/api/hub/my-subscription", (route) =>

@@ -21,6 +21,11 @@
 //     revision changes them, and one interview with submitted feedback. It
 //     needs the Hub profiles and Orgs seeded first and runs via
 //     `make dev-seed-applications`.
+//   - "posts" gives each tenant's Hub users timeline posts, threads across
+//     two regions (one reply hidden, one post locked, one post closed to
+//     replies), quotes of a post and of a published Opening, one block, and
+//     one mute. It needs the Hub profiles and Orgs seeded and runs via
+//     `make dev-seed-posts`.
 //   - "accounts" prints every account the other modes and db-seed created,
 //     read back from each tenant database, for a developer to sign in with.
 //     `make dev-seed` ends with it; `make dev-accounts` prints it again.
@@ -57,6 +62,8 @@ func run() error {
 		return runOrgSeed()
 	case "applications":
 		return runApplicationSeed()
+	case "posts":
+		return runPostSeed()
 	case "marketplace":
 		return runMarketplaceSeed()
 	case "accounts":

@@ -9,6 +9,7 @@ import (
 
 	"backend/internal/apiserver"
 	"backend/internal/appconfig"
+	"backend/internal/blocksclient"
 	"backend/internal/conversationclient"
 	"backend/internal/db"
 	dbsqlc "backend/internal/db/sqlc"
@@ -24,6 +25,7 @@ import (
 	"backend/internal/middleware"
 	"backend/internal/objectstorage"
 	"backend/internal/openingsearch"
+	"backend/internal/postsclient"
 	"backend/internal/profileclient"
 	"backend/internal/publicopeningclient"
 	"backend/internal/publicopenings"
@@ -78,6 +80,14 @@ func run(log *slog.Logger, address string) error {
 		meshCredential, cfg.MeshAPIServer.RequestTimeout,
 	)
 	profiles := profileclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
+	blocks := blocksclient.NewRelay(
+		cfg.MeshAPIServer.BaseURL, meshCredential,
+		cfg.MeshAPIServer.RequestTimeout,
+	)
+	posts := postsclient.NewRelay(
 		cfg.MeshAPIServer.BaseURL, meshCredential,
 		cfg.MeshAPIServer.RequestTimeout,
 	)
@@ -152,6 +162,8 @@ func run(log *slog.Logger, address string) error {
 		Queries:       dbsqlc.New(pool),
 		Directory:     globalDirectory,
 		Profiles:      profiles,
+		Blocks:        blocks,
+		Posts:         posts,
 		Openings:      openings,
 		Applications:  applications,
 		Conversations: conversations,
@@ -163,6 +175,7 @@ func run(log *slog.Logger, address string) error {
 			TenantID: directoryspec.TenantID(cfg.TenantID),
 		},
 		Pictures:         pictures,
+		PictureURLs:      pictures,
 		OfferLetters:     pictures,
 		SignupCompletion: signupCompletion,
 		EmailChange:      emailChange,

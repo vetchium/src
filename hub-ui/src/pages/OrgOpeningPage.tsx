@@ -32,6 +32,7 @@ import {
   useOpeningTags,
   useOrgOpeningQuery,
 } from "../features/openings/queries";
+import { QuoteButton } from "../features/posts/QuoteComposer";
 import { countryName } from "../i18n/countries";
 import { applicationPath } from "./ApplicationsPage";
 
@@ -176,6 +177,23 @@ export function OrgOpeningPage() {
                       : t("orgPage.applyHelp")}
                   </Typography.Text>
                 )}
+                <QuoteButton
+                  title={t("posts.quote.openingTitle")}
+                  target={{
+                    type: "opening",
+                    org_domain: domain,
+                    opening_number: number,
+                  }}
+                  preview={
+                    <Card size="small">
+                      <Typography.Text strong>{title}</Typography.Text>
+                      <br />
+                      <Typography.Text type="secondary">
+                        {org.display_name}
+                      </Typography.Text>
+                    </Card>
+                  }
+                />
                 {suggestion !== null && applied === undefined && (
                   <Alert
                     type="info"

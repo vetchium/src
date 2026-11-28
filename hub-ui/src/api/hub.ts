@@ -51,6 +51,14 @@ import type {
 } from "typespec/hub/auth/totp";
 import type { AuthenticatedSessionResponse } from "typespec/hub/auth/types";
 import type {
+  BlockState,
+  BlockUserRequest,
+  ListBlockedUsersRequest,
+  ListBlockedUsersResponse,
+  ListMutedUsersRequest,
+  ListMutedUsersResponse,
+} from "typespec/hub/blocks/blocks";
+import type {
   AwaitingConversationCounts,
   DeleteMessageRequest,
   GetConversationRequest,
@@ -85,7 +93,40 @@ import type {
   OperationStatus,
   PendingOperation,
 } from "typespec/hub/operations/operations";
+import type {
+  CreatePostRequest,
+  EditPostRequest,
+  GetPostRequest,
+  ListPostsRequest,
+  ListPostsResponse,
+  Post,
+  RemovePostRequest,
+  SetPostPoliciesRequest,
+} from "typespec/hub/posts/posts";
+import type {
+  CreateQuoteRequest,
+  DetachQuoteRequest,
+  ListQuotesRequest,
+  ListQuotesResponse,
+} from "typespec/hub/posts/quotes";
+import type {
+  EditReplyRequest,
+  HideReplyRequest,
+  ListAuthorRepliesRequest,
+  ListAuthorRepliesResponse,
+  ListRepliesRequest,
+  ListRepliesResponse,
+  LocateReplyRequest,
+  LocateReplyResponse,
+  RemoveReplyRequest,
+  Reply,
+  ReplyRequest,
+} from "typespec/hub/posts/replies";
 import type { AliasState, SetAliasRequest } from "typespec/hub/profile/alias";
+import type {
+  ReadCardsRequest,
+  ReadCardsResponse,
+} from "typespec/hub/profile/cards";
 import type { PictureContentType } from "typespec/hub/profile/picture";
 import type {
   AddProfessionalEmailRequest,
@@ -428,6 +469,63 @@ export const hubAPI = {
       body: {},
       idempotencyKey,
     }),
+  blockUser: (body: BlockUserRequest) =>
+    apiRequest<void>(`${base}/blocks/block`, { body }),
+  unblockUser: (body: BlockUserRequest) =>
+    apiRequest<void>(`${base}/blocks/unblock`, { body }),
+  listBlockedUsers: (body: ListBlockedUsersRequest) =>
+    apiRequest<ListBlockedUsersResponse>(`${base}/blocks/list`, { body }),
+  blockState: (body: BlockUserRequest) =>
+    apiRequest<BlockState>(`${base}/blocks/state`, { body }),
+  muteUser: (body: BlockUserRequest) =>
+    apiRequest<void>(`${base}/mutes/mute`, { body }),
+  unmuteUser: (body: BlockUserRequest) =>
+    apiRequest<void>(`${base}/mutes/unmute`, { body }),
+  listMutedUsers: (body: ListMutedUsersRequest) =>
+    apiRequest<ListMutedUsersResponse>(`${base}/mutes/list`, { body }),
+  createPost: (body: CreatePostRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Post>(`${base}/posts/create`, { body, idempotencyKey }),
+  editPost: (body: EditPostRequest) =>
+    apiRequest<Post>(`${base}/posts/edit`, { body }),
+  removePost: (body: RemovePostRequest) =>
+    apiRequest<void>(`${base}/posts/remove`, { body }),
+  setPostPolicies: (body: SetPostPoliciesRequest) =>
+    apiRequest<Post>(`${base}/posts/set-policies`, { body }),
+  listPosts: (body: ListPostsRequest) =>
+    apiRequest<ListPostsResponse>(`${base}/posts/list`, { body }),
+  getPost: (body: GetPostRequest) =>
+    apiRequest<Post>(`${base}/posts/get`, { body }),
+  // A 202 means the post owner's tenant has not answered yet; replay the
+  // same call with the same key once the operation settles.
+  reply: (body: ReplyRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Reply | PendingOperation>(`${base}/posts/reply`, {
+      body,
+      idempotencyKey,
+    }),
+  editReply: (body: EditReplyRequest) =>
+    apiRequest<Reply>(`${base}/posts/edit-reply`, { body }),
+  removeReply: (body: RemoveReplyRequest) =>
+    apiRequest<void>(`${base}/posts/remove-reply`, { body }),
+  hideReply: (body: HideReplyRequest) =>
+    apiRequest<void>(`${base}/posts/hide-reply`, { body }),
+  unhideReply: (body: HideReplyRequest) =>
+    apiRequest<void>(`${base}/posts/unhide-reply`, { body }),
+  listReplies: (body: ListRepliesRequest) =>
+    apiRequest<ListRepliesResponse>(`${base}/posts/list-replies`, { body }),
+  locateReply: (body: LocateReplyRequest) =>
+    apiRequest<LocateReplyResponse>(`${base}/posts/locate-reply`, { body }),
+  listAuthorReplies: (body: ListAuthorRepliesRequest) =>
+    apiRequest<ListAuthorRepliesResponse>(`${base}/posts/list-author-replies`, {
+      body,
+    }),
+  createQuote: (body: CreateQuoteRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Post>(`${base}/posts/create-quote`, { body, idempotencyKey }),
+  listQuotes: (body: ListQuotesRequest) =>
+    apiRequest<ListQuotesResponse>(`${base}/posts/list-quotes`, { body }),
+  detachQuote: (body: DetachQuoteRequest) =>
+    apiRequest<void>(`${base}/posts/detach-quote`, { body }),
+  readCards: (body: ReadCardsRequest) =>
+    apiRequest<ReadCardsResponse>(`${base}/profile/read-cards`, { body }),
   listProfessionalEmails: (body: ListProfessionalEmailsRequest) =>
     apiRequest<ListProfessionalEmailsResponse>(
       `${base}/profile/professional-email/list`,

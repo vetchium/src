@@ -41,6 +41,17 @@ import {
   OrgUnavailableError,
 } from "typespec/problem/hub/openings";
 import {
+  HubPostConflictError,
+  HubPostEditClosedError,
+  HubPostLimitReachedError,
+  HubPostNotFoundError,
+  HubPostQuoteRefusedError,
+  HubPostRepliesClosedError,
+  HubPostReplyRefusedError,
+  HubPostUnavailableError,
+  HubReplyNotFoundError,
+} from "typespec/problem/hub/posts";
+import {
   ProfessionalEmailCodeRejectedError,
   ProfileConflictError,
   ProfileNotFoundError,
@@ -114,6 +125,15 @@ export const problemKeys: Record<string, string> = {
   [HubConversationOpenError.type]: "errors.conversationOpen",
   [HubConversationClosedError.type]: "errors.conversationClosed",
   [HubAgencyNotAssignedError.type]: "errors.agencyNotAssigned",
+  [HubPostNotFoundError.type]: "errors.postNotFound",
+  [HubPostUnavailableError.type]: "errors.postUnavailable",
+  [HubPostLimitReachedError.type]: "errors.postLimitReached",
+  [HubPostEditClosedError.type]: "errors.postEditClosed",
+  [HubPostConflictError.type]: "errors.postConflict",
+  [HubPostRepliesClosedError.type]: "errors.postRepliesClosed",
+  [HubPostReplyRefusedError.type]: "errors.postReplyRefused",
+  [HubPostQuoteRefusedError.type]: "errors.postQuoteRefused",
+  [HubReplyNotFoundError.type]: "errors.replyNotFound",
 };
 
 export function APIErrorAlert({ error }: { error: unknown }) {

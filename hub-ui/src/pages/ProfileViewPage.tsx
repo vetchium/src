@@ -2,18 +2,22 @@ import {
   BankOutlined,
   EnvironmentOutlined,
   IdcardOutlined,
+  MoreOutlined,
   QrcodeOutlined,
   SafetyCertificateOutlined,
   TranslationOutlined,
 } from "@ant-design/icons";
 import {
+  App,
   Button,
   Card,
+  Dropdown,
   Flex,
   List,
   Popover,
   QRCode,
   Space,
+  Tabs,
   Timeline,
   Typography,
 } from "antd";
@@ -38,6 +42,12 @@ import { usePreferences } from "../app/PreferencesContext";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
 import { NoIndex } from "../components/common/NoIndex";
 import { ProfileAvatar } from "../components/common/ProfileAvatar";
+import {
+  useBlockActionMutation,
+  useBlockStateQuery,
+} from "../features/blocks/queries";
+import { PostsTab } from "../features/posts/PostsTab";
+import { RepliesTab } from "../features/posts/RepliesTab";
 import { canonicalProfileURL } from "../features/profile/canonical";
 import {
   useMyInfoQuery,
@@ -158,6 +168,82 @@ function EducationTimeline({
   );
 }
 
+/** Block and mute controls for another user's profile (PST-BLK-008). */
+function BlockMenu({ profile }: { profile: PublicProfile }) {
+  const { t } = useTranslation();
+  const { message, modal } = App.useApp();
+  const state = useBlockStateQuery(profile.handle, true);
+  const block = useBlockActionMutation("block");
+  const unblock = useBlockActionMutation("unblock");
+  const mute = useBlockActionMutation("mute");
+  const unmute = useBlockActionMutation("unmute");
+  const mutations = [block, unblock, mute, unmute];
+  const pending = mutations.some((mutation) => mutation.isPending);
+  const run = (
+    mutation: typeof block,
+    done: "blocked" | "unblocked" | "muted" | "unmuted",
+  ) =>
+    mutation.mutate(profile.handle, {
+      onSuccess: () =>
+        void message.success(
+          t(`blocks.menu.${done}`, { handle: profile.handle }),
+        ),
+    });
+  if (state.data === undefined) return null;
+  return (
+    <>
+      <Dropdown
+        trigger={["click"]}
+        disabled={pending}
+        menu={{
+          items: [
+            state.data.blocked
+              ? {
+                  key: "unblock",
+                  label: t("blocks.menu.unblock"),
+                  onClick: () => run(unblock, "unblocked"),
+                }
+              : {
+                  key: "block",
+                  label: t("blocks.menu.block"),
+                  onClick: () =>
+                    modal.confirm({
+                      title: t("blocks.menu.confirmTitle", {
+                        handle: profile.handle,
+                      }),
+                      content: t("blocks.menu.confirmContent"),
+                      okText: t("blocks.menu.block"),
+                      cancelText: t("common.cancel"),
+                      okButtonProps: { danger: true },
+                      onOk: () => run(block, "blocked"),
+                    }),
+                },
+            state.data.muted
+              ? {
+                  key: "unmute",
+                  label: t("blocks.menu.unmute"),
+                  onClick: () => run(unmute, "unmuted"),
+                }
+              : {
+                  key: "mute",
+                  label: t("blocks.menu.mute"),
+                  onClick: () => run(mute, "muted"),
+                },
+          ],
+        }}
+      >
+        <Button
+          size="small"
+          icon={<MoreOutlined />}
+          loading={pending}
+          aria-label={t("blocks.menu.label")}
+        />
+      </Dropdown>
+      <APIErrorAlert error={mutations.find((m) => m.error)?.error} />
+    </>
+  );
+}
+
 function ProfileContents({ profile }: { profile: PublicProfile }) {
   const { t } = useTranslation();
   const preferences = usePreferences();
@@ -234,6 +320,8 @@ function ProfileContents({ profile }: { profile: PublicProfile }) {
               </Popover>
               {me?.handle === profile.handle ? (
                 <Link to="/settings/profile">{t("profileView.edit")}</Link>
+              ) : me !== undefined ? (
+                <BlockMenu profile={profile} />
               ) : null}
             </Space>
             {profile.biography !== undefined ? (
@@ -266,87 +354,123 @@ function ProfileContents({ profile }: { profile: PublicProfile }) {
           </Flex>
         </Flex>
       </Card>
-      <SectionCard
-        icon={<IdcardOutlined />}
-        title={t("profileView.workTitle")}
-        empty={profile.work_experiences.length === 0}
-      >
-        <WorkExperienceTimeline
-          entries={profile.work_experiences}
-          month={month}
-        />
-      </SectionCard>
-      <SectionCard
-        icon={<BankOutlined />}
-        title={t("profileView.educationTitle")}
-        empty={profile.educational_qualifications.length === 0}
-      >
-        <EducationTimeline
-          entries={profile.educational_qualifications}
-          month={month}
-        />
-      </SectionCard>
-      <SectionCard
-        icon={<SafetyCertificateOutlined />}
-        title={t("profileView.certificationsTitle")}
-        empty={profile.certifications.length === 0}
-      >
-        <List
-          itemLayout="horizontal"
-          dataSource={profile.certifications}
-          renderItem={(certification) => (
-            <List.Item>
-              <List.Item.Meta
-                avatar={<SafetyCertificateOutlined />}
-                title={
-                  isCredentialURL(certification.credential_url) ? (
-                    <a
-                      href={certification.credential_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {certification.title}
-                    </a>
-                  ) : (
-                    certification.title
-                  )
-                }
+      <Tabs
+        items={[
+          {
+            key: "profile",
+            label: t("profileView.tabs.profile"),
+            children: (
+              <Space orientation="vertical" size="large" className="full-width">
+                <SectionCard
+                  icon={<IdcardOutlined />}
+                  title={t("profileView.workTitle")}
+                  empty={profile.work_experiences.length === 0}
+                >
+                  <WorkExperienceTimeline
+                    entries={profile.work_experiences}
+                    month={month}
+                  />
+                </SectionCard>
+                <SectionCard
+                  icon={<BankOutlined />}
+                  title={t("profileView.educationTitle")}
+                  empty={profile.educational_qualifications.length === 0}
+                >
+                  <EducationTimeline
+                    entries={profile.educational_qualifications}
+                    month={month}
+                  />
+                </SectionCard>
+                <SectionCard
+                  icon={<SafetyCertificateOutlined />}
+                  title={t("profileView.certificationsTitle")}
+                  empty={profile.certifications.length === 0}
+                >
+                  <List
+                    itemLayout="horizontal"
+                    dataSource={profile.certifications}
+                    renderItem={(certification) => (
+                      <List.Item>
+                        <List.Item.Meta
+                          avatar={<SafetyCertificateOutlined />}
+                          title={
+                            isCredentialURL(certification.credential_url) ? (
+                              <a
+                                href={certification.credential_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {certification.title}
+                              </a>
+                            ) : (
+                              certification.title
+                            )
+                          }
+                        />
+                      </List.Item>
+                    )}
+                  />
+                </SectionCard>
+                <SectionCard
+                  icon={<TranslationOutlined />}
+                  title={t("profileView.languagesTitle")}
+                  empty={profile.language_abilities.length === 0}
+                >
+                  <Space
+                    orientation="vertical"
+                    size="middle"
+                    className="full-width"
+                  >
+                    {abilities
+                      .filter((ability) =>
+                        profile.language_abilities.some(
+                          (entry) => entry.ability === ability,
+                        ),
+                      )
+                      .map((ability) => (
+                        <div key={ability}>
+                          <Typography.Title level={5}>
+                            {t(`profileView.abilities.${ability}`)}
+                          </Typography.Title>
+                          <Space wrap>
+                            {profile.language_abilities
+                              .filter((entry) => entry.ability === ability)
+                              .map((entry) => (
+                                <Typography.Text key={entry.language_tag}>
+                                  {languageDisplay.of(entry.language_tag) ??
+                                    entry.language_tag}
+                                </Typography.Text>
+                              ))}
+                          </Space>
+                        </div>
+                      ))}
+                  </Space>
+                </SectionCard>
+              </Space>
+            ),
+          },
+          {
+            key: "posts",
+            label: t("profileView.tabs.posts"),
+            children: (
+              <PostsTab
+                handle={profile.handle}
+                isOwner={me?.handle === profile.handle}
               />
-            </List.Item>
-          )}
-        />
-      </SectionCard>
-      <SectionCard
-        icon={<TranslationOutlined />}
-        title={t("profileView.languagesTitle")}
-        empty={profile.language_abilities.length === 0}
-      >
-        <Space orientation="vertical" size="middle" className="full-width">
-          {abilities
-            .filter((ability) =>
-              profile.language_abilities.some(
-                (entry) => entry.ability === ability,
-              ),
-            )
-            .map((ability) => (
-              <div key={ability}>
-                <Typography.Title level={5}>
-                  {t(`profileView.abilities.${ability}`)}
-                </Typography.Title>
-                <Space wrap>
-                  {profile.language_abilities
-                    .filter((entry) => entry.ability === ability)
-                    .map((entry) => (
-                      <Typography.Text key={entry.language_tag}>
-                        {languageDisplay.of(entry.language_tag) ??
-                          entry.language_tag}
-                      </Typography.Text>
-                    ))}
-                </Space>
-              </div>
-            ))}
-        </Space>
-      </SectionCard>
+            ),
+          },
+          {
+            key: "replies",
+            label: t("profileView.tabs.replies"),
+            children: (
+              <RepliesTab
+                handle={profile.handle}
+                isOwner={me?.handle === profile.handle}
+              />
+            ),
+          },
+        ]}
+      />
     </Space>
   );
 }

@@ -1,6 +1,7 @@
 package handlerauth
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -48,6 +49,20 @@ func AuthenticationFailure[T any](
 // retry replays the same problem without repeating the mutation.
 func CommittedFailure[T any](details problem.Body) Result[T] {
 	return Result[T]{CommittedProblem: &Problem{Details: details}}
+}
+
+// Recorded tells, without a lock, whether a committed answer exists for key.
+// A handler reads another tenant before RunIdempotent only when it is false,
+// so a replay never depends on that tenant. RunIdempotent still decides.
+func Recorded(
+	ctx context.Context, s IdempotencyServer,
+	operation, bindingID string, key common.IdempotencyKey,
+) (bool, error) {
+	return sqlc.New(s.HandlerRuntime().DB).IdempotencyRecorded(
+		ctx, sqlc.IdempotencyRecordedParams{
+			Operation: operation, BindingID: bindingID,
+			IdempotencyKey: string(key),
+		})
 }
 
 func RunIdempotent[T any](

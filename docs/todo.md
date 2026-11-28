@@ -41,6 +41,19 @@ Each item: what is not done, and what must be decided first.
   applying an AI draft keeps the editor's tags (OPN-TAG-010); and the
   `check_opening_tag_oids` trigger is reached by no test, because the write
   statement refuses an unknown OID first (OPN-TAG-009).
+- Flaky Playwright specs under full-suite load. Each passes on a one-worker
+  rerun: `ui/orgs-opening-editor.spec.ts` (lines 240 and 966),
+  `ui/orgs-typed-pickers.spec.ts:125`,
+  `api/orgs-application-transitions.spec.ts:917` (409 version conflict),
+  `ui/hub-applications.spec.ts:419`, and `ui/hub-region-links.spec.ts:45`.
+  Two `ui/hub-plans.spec.ts` date tests fail when the local timezone has
+  passed midnight and UTC has not; they pass with `TZ=UTC`. Find each cause.
+- Coverage recorder race: `api-coverage-report` can fail with "missing problem
+  type POST /api/orgs/list-openings 403". In `ui/orgs-openings.spec.ts` "a
+  suspended organization cannot open Opening pages", the page navigates before
+  `observeBrowserResponse` (`playwright/lib/admin-fixtures.ts`) reads the
+  body. The report once also saw a `list-engagements` 403 with no problem
+  type in that test. Fix the recorder, then check that contract gap.
 
 ## Hub
 
@@ -74,6 +87,12 @@ Each item: what is not done, and what must be decided first.
   `BrowserRouter`. The Preferences ideal-job editor shows "Unsaved changes"
   but does not block leaving. Decide whether hub-ui moves to a data router or
   the guard moves to `portal-ui`.
+- Timeline posts, not built: follows, the home feed, and the `following`
+  reply and quote policy; communities, tags, votes, moderators, and rank;
+  reactions, media in posts, mentions, and notifications; Admin takedown,
+  reports, and appeals (the schema keeps `taken_down`); cleanup of posts and
+  replies on account deletion; direct messages, Org timeline posts, and
+  public post pages; reading old post revisions.
 
 ## Orgs
 

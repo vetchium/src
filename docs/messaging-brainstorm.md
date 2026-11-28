@@ -8,6 +8,7 @@
 > tables and lists where possible. Do not write long, complex sentences.
 
 Status: working file for discussion across sessions. It is not a rule yet.
+`agent-guides/posts.md` is the rule for build order steps 1–5 (section 9).
 
 - Record each settled decision in sections 1–9.
 - Remove each settled decision from section 10.
@@ -75,7 +76,8 @@ P1–P7 apply to family C only. Family B keeps the Conversation design and its
 exception to P1 (section 7, D10). Family A keeps its existing designs.
 
 - **P1** The author's home tenant stores the author's words. This includes
-  posts, replies, comments, and quotes.
+  posts, replies, comments, and quotes. The post owner's tenant also keeps a
+  reply copy for speed (`PST-OWN-001`).
 - **P2** The tenant that owns a post stores the structure of that post. The
   structure is the reply list, order, nesting, counts, policy, and hidden
   state.
@@ -84,7 +86,8 @@ exception to P1 (section 7, D10). Family A keeps its existing designs.
   reference is (owner address, ID).
 - **P4** A cross-region read fans out by region, never by item. A page makes
   at most one call to each region in each round.
-- **P5** No tenant and no CDN keeps copies of another tenant's words.
+- **P5** No tenant and no CDN keeps copies of another tenant's words, except
+  the reply copy in the post owner's tenant (`PST-OWN-001`).
 - **P6** Each tenant applies its own user's preferences (blocks, mutes) when
   it reads.
 - **P7** A partial page is acceptable. If a region is down, only that region's
@@ -516,12 +519,12 @@ ledger, transport, or recovery code.
 
 ## 9. Build order
 
-1. ID helper, region fan-out read helper, and command framework hooks.
-2. Blocks and mutes between Hub users (D21). P6 needs them.
-3. Timeline posts (local to the author).
+1. ID helper, region fan-out read helper, and command framework hooks (built).
+2. Blocks and mutes between Hub users (D21). P6 needs them (built).
+3. Timeline posts (local to the author) (built).
 4. Replies (structure, words, command, events). Policies `everyone` and
-   `nobody` only.
-5. Quotes of timeline posts. Policies `everyone` and `nobody` only.
+   `nobody` only (built).
+5. Quotes of timeline posts. Policies `everyone` and `nobody` only (built).
 6. Follow and home feed. Add the `following` reply and quote policy (D20).
 7. Communities (tags, list from all regions, votes, moderation).
 8. Quotes of community posts. These need no new work after step 7, because
@@ -535,31 +538,19 @@ questions at the end of the table with the next ID.
 
 | ID | Question | Current lean |
 | --- | --- | --- |
-| D1 | Random part: mixed case (about 119 bits) or lowercase only (about 103 bits, no case problems in URLs) | Lowercase only |
 | D2 | Community tags: reuse the Opening tag OIDs or make a new catalog | Open |
 | D3 | Maximum tags on a community post | 3 |
 | D4 | Community moderators: who they are, and their scope (global or one region) | Open |
 | D5 | Votes: kept by the post owner's tenant (the voter DID goes to another region), or by the voter's tenant with count updates | Post owner's tenant |
 | D6 | Maximum nesting depth for community comments | Open |
-| D7 | Edits: time window, revision history, effect on quotes | Short window, keep revisions |
 | D8 | Audience: signed-in users only, or the public web. Public pages conflict with P5 (section 8). | Signed-in only first |
 | D9 | Org authors on the timeline (pattern 11) | Later. References carry the principal type now. |
 | D10 | Direct messages: option (a) or (b) in section 7. Numbers or IDs. | Open |
 | D11 | Account deletion. The home tenant first deletes the user's words. Remote reads then return `not-found` and show placeholders. Then it sends cleanup events for remote structure rows. The event receiver checks the origin. `resolve-principal` must stay active-only. Proposal: a separate origin check that also accepts a `deleting` principal. The directory keeps a `deleting` entry for a fixed time (D28), then deletes it. After that time, the workers stop the events that they did not deliver. | Proposed |
-| D12 | Takedown of words: by the Admins of the author's region. Hiding structure in a thread: by the post owner or by moderators. | Proposed |
+| D12 | Takedown of words: by the Admins of the author's region. Hiding structure in a thread: by the post owner or by moderators. | Deferred |
 | D13 | Community rank formula and cursor stability across regions. A fixed `now` does not stop drift from new votes. Accept repeats and skips, or use a snapshot of scores for each list session. | Open |
 | D14 | Reply and comment counts on lists: from structure rows only, or with a per-region read | Structure rows only |
 | D15 | Reactions on timeline posts: the same storage as votes (D5) | Open |
-| D16 | Is P1 (words stay in the author's region) a product promise to users? If not, a thread can keep all replies in the post owner's tenant. That is simpler and has 1 hop fewer. | P1 is a promise |
-| D17 | Thread ownership: keep the split in section 5 (structure with the post owner, words with the author), or keep everything with the post owner | Split |
-| D18 | Timeout for each region in a fan-out read, and the notice text for a partial page | Open |
-| D19 | Rate limits for posts, replies, comments, and quotes for each Hub user | Open |
 | D20 | Restricted reply and quote policy: `following` (people the post author follows) or `followers` (people who follow the post author). The follower's tenant owns a follow edge (`hub-signup.md`). `following` is a local check in the post owner's tenant. `followers` needs a follower projection there, and a new follower cannot reply until the event arrives. | `following` |
-| D21 | Blocks and mutes between Hub users: the scope, and which tenant applies each one. The reply handler knows only the post owner's blocks. A user that the parent reply author blocked can still reply below that reply. The blocker does not see it (P6). Is that enough? | Open |
 | D22 | Media (images) in posts: the plan rules, and the storage from `object-storage.md` | Later |
-| D23 | Quote of an Opening (pattern 13): does the Org's tenant keep a quote index (counts, list), or does the quote keep only the reference? | Reference only |
-| D24 | Short pages after block and mute filters: accept them, or send the viewer's block list with each read. The block list then goes to other regions. | Accept short pages |
-| D25 | Add the `Prepare` and `Settle` hooks to the command framework (section 6). Without them, the reply flow needs extra commits, an event to make words `live`, and a reaper for lost rows. | Add the hooks |
-| D26 | Quotes of replies and comments. The words and the structure are in different tenants. Which tenant keeps the quote index and applies the policy? | Not allowed for now |
-| D27 | When a post owner removes a post, what does the reply author see on the "Replies" tab? The words stay in the reply author's tenant (P1). | Show the reply with "The post was removed" |
 | D28 | How long the directory keeps a `deleting` entry (D11) | Open |

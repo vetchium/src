@@ -12,6 +12,7 @@ import (
 	"backend/internal/hubconsent"
 	"backend/internal/hubinterview"
 	"backend/internal/huboffer"
+	"backend/internal/hubreplies"
 	"backend/internal/hubwithdraw"
 	"backend/internal/providerwork"
 )
@@ -26,5 +27,6 @@ func Registry() *commands.Registry {
 	engagements.Register(registry)
 	providerwork.Register(registry)
 	agencyconversations.Register(registry)
+	hubreplies.Register(registry)
 	return registry
 }

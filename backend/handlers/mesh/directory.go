@@ -29,6 +29,9 @@ type Directory interface {
 	ResolveOrgDomain(
 		context.Context, directoryspec.ResolveOrgDomainRequest,
 	) (directoryspec.ResolveOrgDomainResponse, *problem.Details, error)
+	ResolveProfileSlug(
+		context.Context, directoryspec.ResolveProfileSlugRequest,
+	) (directoryspec.ResolveProfileSlugResponse, *problem.Details, error)
 	ResolvePrincipal(
 		context.Context, directoryspec.ResolvePrincipalRequest,
 	) (directoryspec.ResolvePrincipalResponse, *problem.Details, error)
@@ -62,6 +65,13 @@ func ResolveOrgDomain(
 	runtime *apiserver.Runtime, directory Directory, credential string,
 ) http.HandlerFunc {
 	return relayRead(runtime, credential, directory.ResolveOrgDomain)
+}
+
+// ResolveProfileSlug relays a local API's lookup of a handle or alias.
+func ResolveProfileSlug(
+	runtime *apiserver.Runtime, directory Directory, credential string,
+) http.HandlerFunc {
+	return relayRead(runtime, credential, directory.ResolveProfileSlug)
 }
 
 // ResolvePrincipal relays a local API's lookup of where a principal lives.

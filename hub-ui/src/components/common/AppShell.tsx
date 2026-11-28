@@ -7,6 +7,7 @@ import {
   SafetyOutlined,
   SearchOutlined,
   SettingOutlined,
+  StopOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -40,6 +41,7 @@ const navigationPaths = [
   "/settings/profile",
   "/settings/security",
   "/settings/preferences",
+  "/settings/blocks",
   "/settings/work-emails",
   "/plan",
   "/",
@@ -166,6 +168,11 @@ export function AppShell() {
           key: "/settings/preferences",
           icon: <SettingOutlined />,
           label: t("navigation.preferences"),
+        },
+        {
+          key: "/settings/blocks",
+          icon: <StopOutlined />,
+          label: t("navigation.blocks"),
         },
         {
           key: "/settings/work-emails",

@@ -5,9 +5,11 @@ import (
 
 	hubapplications "backend/handlers/hub/applications"
 	hubauth "backend/handlers/hub/auth"
+	hubblocks "backend/handlers/hub/blocks"
 	hubmessages "backend/handlers/hub/messages"
 	hubopenings "backend/handlers/hub/openings"
 	huboperations "backend/handlers/hub/operations"
+	hubposts "backend/handlers/hub/posts"
 	hubprofile "backend/handlers/hub/profile"
 	hubsubscriptions "backend/handlers/hub/subscriptions"
 	hubusers "backend/handlers/hub/users"
@@ -79,6 +81,35 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		"POST /api/hub/regenerate-totp-recovery-codes",
 		hubAuth(recentAuth(hubauth.RegenerateTOTPRecoveryCodes(s))),
 	)
+	for path, handler := range map[string]http.HandlerFunc{
+		"POST /api/hub/blocks/block":              hubblocks.Block(s),
+		"POST /api/hub/blocks/unblock":            hubblocks.Unblock(s),
+		"POST /api/hub/blocks/list":               hubblocks.ListBlocks(s),
+		"POST /api/hub/blocks/state":              hubblocks.State(s),
+		"POST /api/hub/mutes/mute":                hubblocks.Mute(s),
+		"POST /api/hub/mutes/unmute":              hubblocks.Unmute(s),
+		"POST /api/hub/mutes/list":                hubblocks.ListMutes(s),
+		"POST /api/hub/posts/create":              hubposts.Create(s),
+		"POST /api/hub/posts/edit":                hubposts.Edit(s),
+		"POST /api/hub/posts/remove":              hubposts.Remove(s),
+		"POST /api/hub/posts/set-policies":        hubposts.SetPolicies(s),
+		"POST /api/hub/posts/list":                hubposts.List(s),
+		"POST /api/hub/posts/get":                 hubposts.Get(s),
+		"POST /api/hub/posts/reply":               hubposts.Reply(s),
+		"POST /api/hub/posts/edit-reply":          hubposts.EditReply(s),
+		"POST /api/hub/posts/remove-reply":        hubposts.RemoveReply(s),
+		"POST /api/hub/posts/hide-reply":          hubposts.HideReply(s),
+		"POST /api/hub/posts/unhide-reply":        hubposts.UnhideReply(s),
+		"POST /api/hub/posts/list-replies":        hubposts.ListReplies(s),
+		"POST /api/hub/posts/locate-reply":        hubposts.LocateReply(s),
+		"POST /api/hub/posts/list-author-replies": hubposts.ListAuthorReplies(s),
+		"POST /api/hub/posts/create-quote":        hubposts.CreateQuote(s),
+		"POST /api/hub/posts/list-quotes":         hubposts.ListQuotes(s),
+		"POST /api/hub/posts/detach-quote":        hubposts.DetachQuote(s),
+		"POST /api/hub/profile/read-cards":        hubprofile.ReadCards(s),
+	} {
+		mux.Handle(path, hubAuth(handler))
+	}
 	mux.Handle("GET /api/hub/my-info", hubAuth(hubusers.MyInfo(s)))
 	mux.Handle("POST /api/hub/set-preferred-job-countries", hubAuth(hubusers.SetPreferredJobCountries(s)))
 	mux.Handle(
