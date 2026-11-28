@@ -15,16 +15,20 @@ export function PolicySelect({
   onChange,
   label,
   disabled,
+  id,
 }: {
   value: ReplyPolicy | QuotePolicy;
   onChange: (value: ReplyPolicy | QuotePolicy) => void;
   label: string;
   disabled?: boolean;
+  /** Links the label to the select for assistive technology and tests. */
+  id: string;
 }) {
   const { t } = useTranslation();
   return (
-    <Form.Item label={label} style={{ marginBottom: 0 }}>
+    <Form.Item label={label} htmlFor={id} style={{ marginBottom: 0 }}>
       <Select
+        id={id}
         value={value}
         disabled={disabled}
         onChange={onChange}
@@ -57,9 +61,11 @@ export function PostComposer() {
       <Flex vertical gap="small">
         <Form.Item
           label={t("posts.composer.label")}
+          htmlFor="post-body"
           style={{ marginBottom: 0 }}
         >
           <Input.TextArea
+            id="post-body"
             value={body}
             rows={4}
             onChange={(event) => setBody(event.target.value)}
@@ -74,12 +80,14 @@ export function PostComposer() {
         </Typography.Text>
         <Flex gap="middle" wrap align="end">
           <PolicySelect
+            id="post-reply-policy"
             label={t("posts.replyPolicy")}
             value={replyPolicy}
             onChange={(value) => setReplyPolicy(value)}
             disabled={create.isPending}
           />
           <PolicySelect
+            id="post-quote-policy"
             label={t("posts.quotePolicy")}
             value={quotePolicy}
             onChange={(value) => setQuotePolicy(value)}

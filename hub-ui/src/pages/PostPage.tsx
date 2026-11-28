@@ -54,8 +54,13 @@ function EditForm({ post, onDone }: { post: Post; onDone: () => void }) {
       }
     >
       <Flex vertical gap="small">
-        <Form.Item label={t("posts.edit.label")} style={{ marginBottom: 0 }}>
+        <Form.Item
+          label={t("posts.edit.label")}
+          htmlFor="post-edit-body"
+          style={{ marginBottom: 0 }}
+        >
           <Input.TextArea
+            id="post-edit-body"
             value={body}
             rows={4}
             onChange={(event) => setBody(event.target.value)}
@@ -114,20 +119,23 @@ function PolicyForm({ post }: { post: Post }) {
           </Typography.Text>
           <Flex gap="middle" wrap align="end">
             <PolicySelect
+              id="policy-reply"
               label={t("posts.replyPolicy")}
               value={replyPolicy}
               onChange={(value) => setReplyPolicy(value)}
             />
             <PolicySelect
+              id="policy-quote"
               label={t("posts.quotePolicy")}
               value={quotePolicy}
               onChange={(value) => setQuotePolicy(value)}
             />
             <Form.Item
               label={t("posts.policy.lock")}
+              htmlFor="policy-lock"
               style={{ marginBottom: 0 }}
             >
-              <Switch checked={locked} onChange={setLocked} />
+              <Switch id="policy-lock" checked={locked} onChange={setLocked} />
             </Form.Item>
             <Button type="primary" htmlType="submit" loading={save.isPending}>
               {t("posts.policy.save")}
