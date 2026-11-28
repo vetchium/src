@@ -201,10 +201,7 @@ function ReplyActions({
   // Edit controls show only inside the 30-minute window (PST-UI-005).
   const canEdit = own && !placeholder && insideEditWindow(reply.created_at);
   const canHide = ctx.isPostOwner && reply.state === "live";
-  // A reply hidden from the post owner shows as a placeholder, so the owner
-  // can unhide a placeholder as well.
-  const canUnhide =
-    ctx.isPostOwner && (reply.state === "hidden" || placeholder);
+  const canUnhide = ctx.isPostOwner && reply.state === "hidden";
   const canReplyTo = top && ctx.canReply && reply.state === "live";
   return (
     <Flex vertical gap="small">
@@ -348,7 +345,11 @@ function ReplyItem({
                   <time dateTime={reply.created_at}>{when}</time>
                   {reply.edited ? <Tag>{t("posts.edited")}</Tag> : null}
                   {reply.state === "hidden" ? (
-                    <Tag>{t("posts.thread.hidden")}</Tag>
+                    <Tag>
+                      {ctx.isPostOwner
+                        ? t("posts.thread.hiddenLabel")
+                        : t("posts.thread.hidden")}
+                    </Tag>
                   ) : null}
                 </Space>
                 {editing ? (
@@ -499,13 +500,11 @@ export function Thread({
     isPostOwner: viewer !== undefined && viewer === post.owner.handle,
     canReply: !post.locked && post.reply_policy === "everyone",
     focusID,
-    focusParent: locate.data,
+    focusParent: locate.data === false ? undefined : locate.data,
   };
   return (
     <Flex vertical gap="middle">
-      {focusID !== undefined &&
-      locate.isSuccess &&
-      locate.data === undefined ? (
+      {focusID !== undefined && locate.data === false ? (
         <Alert type="info" showIcon title={t("posts.thread.replyGone")} />
       ) : null}
       <PostReplyComposer ctx={ctx} />

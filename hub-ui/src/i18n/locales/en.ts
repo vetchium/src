@@ -610,6 +610,7 @@ export const en = {
       hide: "Hide",
       unhide: "Unhide",
       hidden: "Hidden by the post author",
+      hiddenLabel: "Hidden",
       unavailable: "This reply is not available",
       showReplies_one: "Show {{count}} reply",
       showReplies_other: "Show {{count}} replies",

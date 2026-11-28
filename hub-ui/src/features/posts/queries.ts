@@ -1,4 +1,6 @@
 import {
+  type InfiniteData,
+  type QueryClient,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -18,6 +20,7 @@ import {
 import {
   type EditReplyRequest,
   type HideReplyRequest,
+  type ListRepliesResponse,
   normalizeEditReplyRequest,
   normalizeReplyRequest,
   type Reply,
@@ -158,8 +161,9 @@ export function useRepliesQuery(
 
 /**
  * Finds the parent of a reply that a link names. It returns `null` for a
- * top-level reply, the parent ID for a sub-reply, and `undefined` when no
- * page holds the reply. The thread has no read for one reply, so it pages.
+ * top-level reply, the parent ID for a sub-reply, and `false` when no page
+ * holds the reply (a query cannot hold `undefined`). The thread has no read
+ * for one reply, so it pages.
  */
 export function useLocateReply(
   owner: string,
@@ -168,8 +172,8 @@ export function useLocateReply(
 ) {
   return useQuery({
     queryKey: [...repliesQueryKey, "locate", owner, postID, replyID ?? ""],
-    queryFn: async (): Promise<string | null | undefined> => {
-      if (replyID === undefined) return undefined;
+    queryFn: async (): Promise<string | null | false> => {
+      if (replyID === undefined) return false;
       const parents: string[] = [];
       const scan = async (parent: string | undefined) => {
         let key: PaginationKey | undefined;
@@ -199,7 +203,7 @@ export function useLocateReply(
       for (const parent of parents) {
         if (await scan(parent)) return parent;
       }
-      return undefined;
+      return false;
     },
     retry: false,
     staleTime: Infinity,
@@ -256,24 +260,72 @@ function isPending(
 }
 
 /**
- * An edit answers with `child_count` 0, because the author's tenant keeps no
- * sub-reply counts. The thread reloads instead, so it keeps the real count.
+ * The post owner's tenant learns of an edit or a removal after the author's
+ * tenant answers, so a thread read right after the write can still show the
+ * old words. These writes patch the cached threads instead of reloading them.
  */
-export function useEditReplyMutation() {
-  const invalidate = usePostsInvalidation();
-  return useMutation({
-    mutationFn: (request: EditReplyRequest) =>
-      hubAPI.editReply(normalizeEditReplyRequest(request)),
-    onSuccess: invalidate,
+function patchThreads(
+  queryClient: QueryClient,
+  replyID: string,
+  patch: (reply: Reply) => Reply | null,
+): void {
+  queryClient.setQueriesData<InfiniteData<ListRepliesResponse>>(
+    { queryKey: [...repliesQueryKey, "list"] },
+    (data) =>
+      data && {
+        ...data,
+        pages: data.pages.map((page) => ({
+          ...page,
+          replies: page.replies.flatMap((reply) => {
+            if (reply.reply_id !== replyID) return [reply];
+            const next = patch(reply);
+            return next === null ? [] : [next];
+          }),
+        })),
+      },
+  );
+}
+
+/** Reloads what the author's tenant answers at once, but not the threads. */
+function refreshOutsideThreads(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({
+    queryKey: postsQueryKey,
+    predicate: (query) => query.queryKey[2] !== "replies",
   });
 }
 
+/** An edit answers with `child_count` 0, so the patch keeps the real count. */
+export function useEditReplyMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: EditReplyRequest) =>
+      hubAPI.editReply(normalizeEditReplyRequest(request)),
+    onSuccess: (edited) => {
+      patchThreads(queryClient, edited.reply_id, (reply) => ({
+        ...reply,
+        body: edited.body,
+        revision: edited.revision,
+        edited: edited.edited,
+      }));
+      return refreshOutsideThreads(queryClient);
+    },
+  });
+}
+
+/** A removed reply with sub-replies stays as a placeholder (PST-THR-004). */
 export function useRemoveReplyMutation() {
-  const invalidate = usePostsInvalidation();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (reply: Reply) =>
       hubAPI.removeReply({ reply_id: reply.reply_id }),
-    onSuccess: invalidate,
+    onSuccess: (_, reply) => {
+      patchThreads(queryClient, reply.reply_id, (shown) => {
+        if (shown.child_count === 0) return null;
+        const { body: _body, ...rest } = shown;
+        return { ...rest, state: "placeholder", revision: 1, edited: false };
+      });
+      return refreshOutsideThreads(queryClient);
+    },
   });
 }
 

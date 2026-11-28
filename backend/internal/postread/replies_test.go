@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	author = pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
-	viewer = pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
+	author    = pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
+	viewer    = pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
+	postOwner = pgtype.UUID{Bytes: [16]byte{3}, Valid: true}
 )
 
 func row(state sqlc.VetchiumHubPostReplyState, childRows int32) sqlc.ListHubPostRepliesRow {
@@ -39,12 +40,13 @@ func TestShapeReply(t *testing.T) {
 	}{
 		"live":                          {row(live, 0), viewer, true, postsspec.ThreadReplyLive, true},
 		"hidden shows words to author":  {row(hidden, 0), author, true, postsspec.ThreadReplyHidden, true},
+		"hidden shows words to owner":   {row(hidden, 0), postOwner, true, postsspec.ThreadReplyHidden, true},
 		"hidden to others, no children": {row(hidden, 0), viewer, false, "", false},
 		"hidden to others, children":    {row(hidden, 2), viewer, true, postsspec.ThreadReplyPlaceholder, false},
 		"removed, no children":          {row(removed, 0), viewer, false, "", false},
 		"removed, children":             {row(removed, 1), author, true, postsspec.ThreadReplyPlaceholder, false},
 	} {
-		got, ok := ShapeReply(validID, tc.viewer, tc.row)
+		got, ok := ShapeReply(validID, postOwner, tc.viewer, tc.row)
 		if ok != tc.shown {
 			t.Errorf("%s: shown = %v", name, ok)
 			continue

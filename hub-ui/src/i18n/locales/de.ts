@@ -643,6 +643,7 @@ export const de = {
       hide: "Ausblenden",
       unhide: "Einblenden",
       hidden: "Vom Autor des Beitrags ausgeblendet",
+      hiddenLabel: "Ausgeblendet",
       unavailable: "Diese Antwort ist nicht verfügbar",
       showReplies_one: "{{count}} Antwort anzeigen",
       showReplies_other: "{{count}} Antworten anzeigen",

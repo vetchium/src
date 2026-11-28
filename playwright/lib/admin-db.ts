@@ -2404,6 +2404,25 @@ export function moveHubReplyCreatedAtBack(
   );
 }
 
+/** Moves the post owner's tenant's structure row of one reply back, so the
+ * thread shows the reply as older. */
+export function moveHubPostReplyCreatedAtBack(
+  replyID: string,
+  tenant: TestTenant,
+  minutes: number,
+): void {
+  assertPostID(replyID);
+  if (!Number.isInteger(minutes) || minutes < 1) {
+    throw new Error(`refusing to move a reply back ${minutes} minutes`);
+  }
+  sqlScalarForTenant(
+    tenant,
+    `UPDATE vetchium.hub_post_replies
+     SET created_at = created_at - make_interval(mins => ${minutes})
+     WHERE reply_id = ${sqlLiteral(replyID)};`,
+  );
+}
+
 export interface HubReplyRow {
   state: string;
   body: string | null;

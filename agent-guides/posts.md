@@ -168,7 +168,9 @@ portal screens.
   Sub-replies of one reply list the same way, one page at a time. The portal
   shows "Load more" while a next key exists.
 - **PST-THR-003** A `live` row shows its words. A `hidden_by_owner` row shows
-  its words with the label "Hidden by the post author" only to its author.
+  its words only to its author, with the label "Hidden by the post author",
+  and to the post owner, with the label "Hidden" and Unhide. Others see it
+  as PST-THR-004 says.
 - **PST-THR-004** Any other row shows as a placeholder only when its child row
   count is more than 0. Otherwise the page leaves it out.
 - **PST-THR-005** The viewer's tenant filters out replies by users the viewer

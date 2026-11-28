@@ -802,7 +802,7 @@ for (const scenario of scenarios) {
     }
   });
 
-  test(`hide-reply and unhide-reply (${scenario.name}) show a hidden reply only to its author, keep a placeholder over sub-replies, and move the counts once`, async ({
+  test(`hide-reply and unhide-reply (${scenario.name}) show a hidden reply only to its author and the post owner, keep a placeholder over sub-replies, and move the counts once`, async ({
     request,
   }) => {
     const cast = new Cast(request);
@@ -854,7 +854,8 @@ for (const scenario of scenarios) {
       );
 
       // r1 has a sub-reply, so others see a placeholder; r2 has none, so
-      // others do not see it at all. The author sees both with words.
+      // others do not see it at all. The author and the post owner see both
+      // with words.
       await expectNoContent(
         await w.at.replies.hide(
           { ...target, reply_id: r1.reply_id },
@@ -869,7 +870,13 @@ for (const scenario of scenarios) {
       );
       expect(await ids(viewer)).toEqual([`${r1.reply_id}:placeholder`]);
       expect(await ids(w.owner, w.at.replies)).toEqual([
-        `${r1.reply_id}:placeholder`,
+        `${r1.reply_id}:hidden`,
+        `${r2.reply_id}:hidden`,
+      ]);
+      const seen = (await thread(w, w.at.replies, w.owner)).replies;
+      expect(seen.map((reply) => reply.body)).toEqual([
+        "has a child",
+        "no child",
       ]);
       expect(await ids(w.replier)).toEqual([
         `${r1.reply_id}:hidden`,

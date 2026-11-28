@@ -608,6 +608,7 @@ export const ta = {
       hide: "மறை",
       unhide: "மறைப்பை நீக்கு",
       hidden: "பதிவின் ஆசிரியர் மறைத்தார்",
+      hiddenLabel: "மறைக்கப்பட்டது",
       unavailable: "இந்தப் பதில் கிடைக்கவில்லை",
       showReplies_one: "{{count}} பதிலைக் காட்டு",
       showReplies_other: "{{count}} பதில்களைக் காட்டு",

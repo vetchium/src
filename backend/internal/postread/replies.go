@@ -25,9 +25,10 @@ var (
 )
 
 // ShapeReply shapes one structure row for one viewer (PST-THR-003,
-// PST-THR-004). ok is false when the page leaves the row out.
+// PST-THR-004). ok is false when the page leaves the row out. A hidden row
+// keeps its words for its author and for the post owner.
 func ShapeReply(
-	postID string, viewer pgtype.UUID, row sqlc.ListHubPostRepliesRow,
+	postID string, owner, viewer pgtype.UUID, row sqlc.ListHubPostRepliesRow,
 ) (postsspec.MeshReply, bool) {
 	reply := postsspec.Reply{
 		ReplyID:      postsspec.PostID(row.ReplyID),
@@ -46,7 +47,8 @@ func ShapeReply(
 	case row.State == sqlc.VetchiumHubPostReplyStateLive && row.Body.Valid:
 		reply.State = postsspec.ThreadReplyLive
 	case row.State == sqlc.VetchiumHubPostReplyStateHiddenByOwner &&
-		row.Body.Valid && row.AuthorHubUserDid == viewer:
+		row.Body.Valid &&
+		(row.AuthorHubUserDid == viewer || owner == viewer):
 		reply.State = postsspec.ThreadReplyHidden
 	case row.ChildRowCount > 0:
 		// A placeholder holds no words, so it holds no edit state either.
@@ -125,7 +127,7 @@ func (r Reader) Thread(
 			next = &encoded
 			break
 		}
-		if reply, ok := ShapeReply(postID, viewer, row); ok {
+		if reply, ok := ShapeReply(postID, owner, viewer, row); ok {
 			replies = append(replies, reply)
 		}
 	}

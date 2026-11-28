@@ -40,3 +40,8 @@ T21 behaviors
 - Every T21 behavior maps to a named test.
 
 ## Carried over
+
+From T21 (orchestrator): PST-THR-003 now also shows a `hidden_by_owner` reply with its words to the post owner. Before the UI tests, do this:
+1. In `backend/internal/postread/replies.go` `ShapeReply`, return `hidden` with the body when the viewer is the reply author or the post owner. Pass the post owner DID in.
+2. In the thread UI, show the post owner a hidden reply with the label "Hidden" and Unhide. The reply author still sees "Hidden by the post author". Add the strings to `en.ts`, `de.ts`, and `ta.ts`.
+3. Add a Go unit test in `postread/replies_test.go`, an API test in `hub-post-replies.spec.ts` (the owner reads a hidden reply with no children; a third user does not), and the UI test (the owner hides a reply with no sub-replies, still sees it, and unhides it).
