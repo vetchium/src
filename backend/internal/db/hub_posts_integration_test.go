@@ -343,3 +343,26 @@ func TestHubPostChecks(t *testing.T) {
 		t.Fatalf("512 code points refused: %v", err)
 	}
 }
+
+// A taken-down post exists in the schema but no query sets it (PST-POS-012).
+// Reads treat it as gone (PST-POS-010).
+func TestHubPostTakenDownIsHiddenFromReads(t *testing.T) {
+	h := newPostsHarness(t)
+	u := h.user("post-taken-down")
+	h.setPlan(u, "hub-silver-tier")
+	id, _ := h.create(u, "words")
+	if _, err := h.tx.Exec(h.ctx,
+		`UPDATE vetchium.hub_posts SET state = 'taken_down', body = NULL WHERE post_id = $1`, id); err != nil {
+		t.Fatalf("taken_down state refused: %v", err)
+	}
+	list, err := h.q.ListHubPostsByAuthor(h.ctx, sqlc.ListHubPostsByAuthorParams{
+		AuthorHubUserDid: u, PageLimit: 10})
+	if err != nil || len(list) != 0 {
+		t.Fatalf("list = %+v, %v", list, err)
+	}
+	got, err := h.q.GetHubPostsByIDs(h.ctx, sqlc.GetHubPostsByIDsParams{
+		AuthorHubUserDid: u, PostIds: []string{id}})
+	if err != nil || len(got) != 0 {
+		t.Fatalf("by ids = %+v, %v", got, err)
+	}
+}
