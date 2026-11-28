@@ -12,6 +12,7 @@ import "./federation/commands.tsp";
 import "./federation/events.tsp";
 import "./federation/hiring.tsp";
 import "./federation/marketplace.tsp";
+import "./federation/posts.tsp";
 
 using TypeSpec.Http;
 

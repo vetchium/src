@@ -82,7 +82,9 @@ alias PeerReadCardsResult =
       @header("Cache-Control") cache_control: "no-store";
       @body body: ReadCardsResponse;
     }
-  | ReadCardsErrors;
+  | ReadCardsErrors
+  | Vetchium.Problem.HubProfileNotFoundErrorResponse
+  | Vetchium.Problem.HubProfileUnavailableErrorResponse;
 
 @route("/mesh/profile")
 @tag("Tenant-local profile card relay")
