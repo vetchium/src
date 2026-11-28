@@ -2926,3 +2926,36 @@ export async function waitForBlockedBy(
   }
   throw new Error(`fewer than ${n} backends blocked by PID ${holderPID}`);
 }
+
+export interface HubPostQuoteRow {
+  detached: boolean;
+}
+
+/** The quote index row in the target owner's tenant (`hub_post_quotes`). */
+export function hubPostQuoteRow(
+  quotePostID: string,
+  tenant: TestTenant,
+): HubPostQuoteRow | null {
+  assertPostID(quotePostID);
+  const value = sqlScalarForTenant(
+    tenant,
+    `SELECT json_build_object('detached', detached_at IS NOT NULL)::text
+     FROM vetchium.hub_post_quotes
+     WHERE quote_post_id = ${sqlLiteral(quotePostID)};`,
+  );
+  return value === "" ? null : (JSON.parse(value) as HubPostQuoteRow);
+}
+
+/** Deletes the quote index row only, as if `hub-post-quoted` had not arrived
+ * yet. The quote count stays as it is. */
+export function deleteHubPostQuoteRow(
+  quotePostID: string,
+  tenant: TestTenant,
+): void {
+  assertPostID(quotePostID);
+  sqlScalarForTenant(
+    tenant,
+    `DELETE FROM vetchium.hub_post_quotes
+     WHERE quote_post_id = ${sqlLiteral(quotePostID)};`,
+  );
+}

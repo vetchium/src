@@ -69,7 +69,8 @@ func (r Reader) QuoteTarget(
 
 // Embeds reads the targets of embeds this tenant homes (PST-QTE-009). An
 // item is `unavailable` when the target is not live, the quote row is
-// missing or detached, or the quoter does not match.
+// detached, or the quoter does not match. A missing row means the quoted
+// event has not arrived, so the quote policy and the owner's block decide.
 func (r Reader) Embeds(
 	ctx context.Context, items []postsspec.MeshEmbedReference,
 ) ([]postsspec.MeshEmbedResult, error) {
@@ -87,7 +88,8 @@ func (r Reader) Embeds(
 		if err != nil {
 			return nil, err
 		}
-		if _, err := r.liveTarget(ctx, owner, string(item.TargetPostID)); err != nil {
+		target, err := r.liveTarget(ctx, owner, string(item.TargetPostID))
+		if err != nil {
 			if errors.Is(err, ErrPostNotFound) {
 				continue
 			}
@@ -97,13 +99,27 @@ func (r Reader) Embeds(
 			TargetPostID: string(item.TargetPostID),
 			QuotePostID:  string(item.QuotePostID),
 		})
-		if errors.Is(err, pgx.ErrNoRows) {
-			continue
-		}
-		if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			// The hub-post-quoted event has not arrived yet. Apply the
+			// checks the receiver applies (PST-QTE-005), so a fresh quote
+			// does not show as unavailable.
+			if target.QuotePolicy != sqlc.VetchiumHubPostPolicyEveryone {
+				continue
+			}
+			blocked, err := r.Queries.HubUserBlockExists(ctx,
+				sqlc.HubUserBlockExistsParams{
+					BlockerHubUserDid: owner, BlockedHubUserDid: quoter,
+				})
+			if err != nil {
+				return nil, err
+			}
+			if blocked {
+				continue
+			}
+		case err != nil:
 			return nil, err
-		}
-		if quote.DetachedAt.Valid || quote.QuoterHubUserDid != quoter {
+		case quote.DetachedAt.Valid || quote.QuoterHubUserDid != quoter:
 			continue
 		}
 		found, err := r.Get(ctx, owner, []postsspec.PostID{item.TargetPostID})

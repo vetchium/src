@@ -11,6 +11,12 @@ import type {
   SetPostPoliciesRequest,
 } from "typespec/hub/posts/posts";
 import type {
+  CreateQuoteRequest,
+  DetachQuoteRequest,
+  ListQuotesRequest,
+  ListQuotesResponse,
+} from "typespec/hub/posts/quotes";
+import type {
   EditReplyRequest,
   HideReplyRequest,
   ListAuthorRepliesRequest,
@@ -178,6 +184,47 @@ export class HubRepliesAPI {
       ...(token ? { token } : {}),
       ...(idempotencyKey ? { idempotencyKey } : {}),
     });
+  }
+}
+
+export type QuoteOperation =
+  | "/posts/create-quote"
+  | "/posts/list-quotes"
+  | "/posts/detach-quote";
+
+/** Typed clients for the quote operations. Malformed input goes through
+ * `raw` and `rawJSON`. */
+export class HubQuotesAPI {
+  constructor(readonly hub: HubAPI) {}
+
+  create(body: CreateQuoteRequest, token: string): Promise<APIResponse> {
+    return this.hub.post("/posts/create-quote", body, { token });
+  }
+
+  list(body: ListQuotesRequest, token: string): Promise<APIResponse> {
+    return this.hub.post("/posts/list-quotes", body, { token });
+  }
+
+  detach(body: DetachQuoteRequest, token: string): Promise<APIResponse> {
+    return this.hub.post("/posts/detach-quote", body, { token });
+  }
+
+  /** A body of any shape, for validation cases. */
+  raw(
+    operation: QuoteOperation,
+    body: unknown,
+    token?: string,
+  ): Promise<APIResponse> {
+    return this.hub.post(operation, body, token ? { token } : {});
+  }
+
+  /** A body that is not JSON. */
+  rawJSON(
+    operation: QuoteOperation,
+    body: string,
+    token?: string,
+  ): Promise<APIResponse> {
+    return this.hub.postRaw(operation, body, token ? { token } : {});
   }
 }
 
@@ -354,6 +401,14 @@ export async function expectAuthorReplies(
   expect(response.status(), await response.text()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("no-store");
   return (await response.json()) as ListAuthorRepliesResponse;
+}
+
+export async function expectQuotes(
+  response: APIResponse,
+): Promise<ListQuotesResponse> {
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  return (await response.json()) as ListQuotesResponse;
 }
 
 export async function expectNoContent(response: APIResponse): Promise<void> {
