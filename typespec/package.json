@@ -63,6 +63,7 @@
     "./hub/blocks/blocks": "./hub/blocks/blocks.ts",
     "./hub/posts/posts": "./hub/posts/posts.ts",
     "./hub/posts/mesh": "./hub/posts/mesh.ts",
+    "./hub/posts/quotes": "./hub/posts/quotes.ts",
     "./hub/posts/replies": "./hub/posts/replies.ts",
     "./hub/profile/cards": "./hub/profile/cards.ts",
     "./hub/types": "./hub/types.ts",

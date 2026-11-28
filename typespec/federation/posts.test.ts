@@ -6,14 +6,18 @@ import { isAggregateType, isEventKind } from "./events.ts";
 import {
   AggregateHubPost,
   AggregateHubReply,
+  HubPostQuotedKind,
   HubPostRemovedKind,
   HubPostReplyRegisterKind,
   type HubPostReplyRegisterPayload,
+  HubPostUnquotedKind,
   HubReplyEditedKind,
   HubReplyRemovedKind,
   normalizeHubPostReplyRegisterPayload,
+  validateHubPostQuotedPayload,
   validateHubPostRemovedPayload,
   validateHubPostReplyRegisterPayload,
+  validateHubPostUnquotedPayload,
   validateHubReplyEditedPayload,
   validateHubReplyRemovedPayload,
 } from "./posts.ts";
@@ -35,6 +39,8 @@ test("post kinds are command and event kinds", () => {
     HubReplyEditedKind,
     HubReplyRemovedKind,
     HubPostRemovedKind,
+    HubPostQuotedKind,
+    HubPostUnquotedKind,
   ]) {
     assert.equal(isEventKind(kind), true);
   }
@@ -127,5 +133,46 @@ test("event payloads validate", () => {
   assert.deepEqual(
     validateHubPostRemovedPayload({ post_id: "x", owner_hub_user_did: "x" }),
     ["post_id", "owner_hub_user_did"],
+  );
+});
+
+test("quote event payloads carry the quoter DID", () => {
+  const quoted = {
+    target_post_id: id,
+    quote_post_id: id,
+    quoter_hub_user_did: payload.replier_hub_user_did,
+    quoter_handle: payload.replier_handle,
+    created_at: "2026-01-02T03:04:05Z",
+  };
+  assert.deepEqual(validateHubPostQuotedPayload(quoted), []);
+  assert.deepEqual(
+    validateHubPostQuotedPayload({
+      target_post_id: "x",
+      quote_post_id: "x",
+      quoter_hub_user_did: "x",
+      quoter_handle: "x",
+      created_at: "no",
+    }),
+    [
+      "target_post_id",
+      "quote_post_id",
+      "quoter_hub_user_did",
+      "quoter_handle",
+      "created_at",
+    ],
+  );
+  const unquoted = {
+    target_post_id: id,
+    quote_post_id: id,
+    quoter_hub_user_did: quoted.quoter_hub_user_did,
+  };
+  assert.deepEqual(validateHubPostUnquotedPayload(unquoted), []);
+  assert.deepEqual(
+    validateHubPostUnquotedPayload({
+      target_post_id: "x",
+      quote_post_id: "x",
+      quoter_hub_user_did: "x",
+    }),
+    ["target_post_id", "quote_post_id", "quoter_hub_user_did"],
   );
 });

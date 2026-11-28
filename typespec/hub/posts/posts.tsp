@@ -12,6 +12,7 @@ import "../../problem/hub/profile.tsp";
 import "../../problem/hub/subscriptions.tsp";
 import "../types.tsp";
 import "../profile/public.tsp";
+import "./quotes.tsp";
 
 using TypeSpec.Http;
 
@@ -48,8 +49,11 @@ model PostOwner {
   picture_url?: url;
 }
 
-// T23 adds quote_target and embed.
-model Post {
+/**
+ * A post as an embed shows it: the `Post` fields without its own `embed`
+ * (PST-QTE-010). A quote inside an embed keeps only `quote_target`.
+ */
+model EmbeddedPost {
   post_id: PostID;
   owner: PostOwner;
   kind: PostKind;
@@ -63,6 +67,18 @@ model Post {
   edited: boolean;
   created_at: utcDateTime;
   edited_at?: utcDateTime;
+
+  /** Set when `kind` is `quote`. The `owner` of a timeline target is the
+   * permanent handle. */
+  quote_target?: QuoteTarget;
+}
+
+model Post {
+  ...EmbeddedPost;
+
+  /** The target of a quote, read at response time (PST-QTE-009). Absent
+   * when `kind` is `post`. */
+  embed?: PostEmbed;
 }
 
 model CreatePostRequest {

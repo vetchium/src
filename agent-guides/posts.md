@@ -216,7 +216,8 @@ portal screens.
   `detached_at` is `NULL`.
 - **PST-QTE-007** `hub-post-quoted` and `hub-post-unquoted` use aggregate type
   `hub_post`, the quote post ID, and the quote post's `version`. They share a
-  watermark. Their origin is the quoter.
+  watermark. Their origin is the quoter, so each payload carries
+  `quoter_hub_user_did`.
 - **PST-QTE-008** The target post owner detaches a quote. The owner's tenant
   sets `detached_at` and reduces the quote count, only where `detached_at` is
   `NULL`.

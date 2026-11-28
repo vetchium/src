@@ -78,3 +78,28 @@ model HubPostRemovedPayload {
   /** The origin: the post owner, whom the sending tenant must home. */
   owner_hub_user_did: Vetchium.Hub.HubUserDID;
 }
+
+/**
+ * The payload of the `hub-post-quoted` event. Its origin is the quoter's
+ * tenant; the destination is the target post owner. Aggregate type
+ * `hub_post`, aggregate id the quote post ID, version the quote post's
+ * `version`. It shares a watermark with `hub-post-unquoted` (PST-QTE-007).
+ */
+model HubPostQuotedPayload {
+  target_post_id: Vetchium.Hub.Posts.PostID;
+  quote_post_id: Vetchium.Hub.Posts.PostID;
+
+  /** The origin: the quoter, whom the sending tenant must home. */
+  quoter_hub_user_did: Vetchium.Hub.HubUserDID;
+  quoter_handle: Vetchium.Hub.HubHandle;
+  created_at: utcDateTime;
+}
+
+/** The payload of the `hub-post-unquoted` event; aggregate as for a quote. */
+model HubPostUnquotedPayload {
+  target_post_id: Vetchium.Hub.Posts.PostID;
+  quote_post_id: Vetchium.Hub.Posts.PostID;
+
+  /** The origin: the quoter, whom the sending tenant must home. */
+  quoter_hub_user_did: Vetchium.Hub.HubUserDID;
+}

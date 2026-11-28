@@ -152,3 +152,63 @@ func (p HubPostRemovedPayload) Validate() []string {
 	}
 	return fields
 }
+
+// HubPostQuotedKind is the event the quoter's tenant enqueues for the target
+// post owner's tenant, which records the quote (PST-QTE-005). Aggregate type
+// AggregateHubPost, aggregate id the quote post ID, version the quote post's
+// version. It shares a watermark with HubPostUnquotedKind (PST-QTE-007).
+const HubPostQuotedKind EventKind = "hub-post-quoted"
+
+type HubPostQuotedPayload struct {
+	TargetPostID hubposts.PostID `json:"target_post_id"`
+	QuotePostID  hubposts.PostID `json:"quote_post_id"`
+	// QuoterHubUserDID is the event's origin: the quoter.
+	QuoterHubUserDID hub.HubUserDID `json:"quoter_hub_user_did"`
+	QuoterHandle     hub.HubHandle  `json:"quoter_handle"`
+	CreatedAt        time.Time      `json:"created_at"`
+}
+
+func (p HubPostQuotedPayload) Validate() []string {
+	fields := []string{}
+	if !hubposts.IsPostID(p.TargetPostID) {
+		fields = append(fields, "target_post_id")
+	}
+	if !hubposts.IsPostID(p.QuotePostID) {
+		fields = append(fields, "quote_post_id")
+	}
+	if !hub.IsHubUserDID(p.QuoterHubUserDID) {
+		fields = append(fields, "quoter_hub_user_did")
+	}
+	if !hub.IsHubHandle(p.QuoterHandle) {
+		fields = append(fields, "quoter_handle")
+	}
+	if p.CreatedAt.IsZero() {
+		fields = append(fields, "created_at")
+	}
+	return fields
+}
+
+// HubPostUnquotedKind is the event the quoter's tenant enqueues after a quote
+// post is removed (PST-QTE-006). Aggregate as for HubPostQuotedKind.
+const HubPostUnquotedKind EventKind = "hub-post-unquoted"
+
+type HubPostUnquotedPayload struct {
+	TargetPostID hubposts.PostID `json:"target_post_id"`
+	QuotePostID  hubposts.PostID `json:"quote_post_id"`
+	// QuoterHubUserDID is the event's origin: the quoter.
+	QuoterHubUserDID hub.HubUserDID `json:"quoter_hub_user_did"`
+}
+
+func (p HubPostUnquotedPayload) Validate() []string {
+	fields := []string{}
+	if !hubposts.IsPostID(p.TargetPostID) {
+		fields = append(fields, "target_post_id")
+	}
+	if !hubposts.IsPostID(p.QuotePostID) {
+		fields = append(fields, "quote_post_id")
+	}
+	if !hub.IsHubUserDID(p.QuoterHubUserDID) {
+		fields = append(fields, "quoter_hub_user_did")
+	}
+	return fields
+}

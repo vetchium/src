@@ -14,7 +14,10 @@ export const HubPostReplyRegisterKind: CommandKind = "hub-post-reply-register";
 /** Versions hub-reply-edited and hub-reply-removed by the reply's version. */
 export const AggregateHubReply: AggregateType = "hub_reply";
 
-/** Versions hub-post-removed by the post's version. */
+/**
+ * Versions hub-post-removed by the post's version and hub-post-quoted and
+ * hub-post-unquoted by the quote post's version.
+ */
 export const AggregateHubPost: AggregateType = "hub_post";
 
 export interface HubPostReplyRegisterPayload {
@@ -129,5 +132,52 @@ export function validateHubPostRemovedPayload(
   if (!isPostID(payload.post_id)) fields.push("post_id");
   if (!isHubUserDID(payload.owner_hub_user_did))
     fields.push("owner_hub_user_did");
+  return fields;
+}
+
+/**
+ * The event the quoter's tenant enqueues for the target post owner's tenant
+ * (PST-QTE-005). It shares a watermark with hub-post-unquoted.
+ */
+export const HubPostQuotedKind: EventKind = "hub-post-quoted";
+
+export interface HubPostQuotedPayload {
+  target_post_id: PostID;
+  quote_post_id: PostID;
+  quoter_hub_user_did: HubUserDID;
+  quoter_handle: HubHandle;
+  created_at: string;
+}
+
+export function validateHubPostQuotedPayload(
+  payload: HubPostQuotedPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isPostID(payload.target_post_id)) fields.push("target_post_id");
+  if (!isPostID(payload.quote_post_id)) fields.push("quote_post_id");
+  if (!isHubUserDID(payload.quoter_hub_user_did))
+    fields.push("quoter_hub_user_did");
+  if (!isHubHandle(payload.quoter_handle)) fields.push("quoter_handle");
+  if (!isTimestamp(payload.created_at)) fields.push("created_at");
+  return fields;
+}
+
+/** The event the quoter's tenant enqueues after a quote post is removed. */
+export const HubPostUnquotedKind: EventKind = "hub-post-unquoted";
+
+export interface HubPostUnquotedPayload {
+  target_post_id: PostID;
+  quote_post_id: PostID;
+  quoter_hub_user_did: HubUserDID;
+}
+
+export function validateHubPostUnquotedPayload(
+  payload: HubPostUnquotedPayload,
+): string[] {
+  const fields: string[] = [];
+  if (!isPostID(payload.target_post_id)) fields.push("target_post_id");
+  if (!isPostID(payload.quote_post_id)) fields.push("quote_post_id");
+  if (!isHubUserDID(payload.quoter_hub_user_did))
+    fields.push("quoter_hub_user_did");
   return fields;
 }

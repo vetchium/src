@@ -4,6 +4,7 @@ import { isPaginationKey } from "../../common/pagination.ts";
 import type { HubAlias } from "../../directory/directory.ts";
 import { isProfileAddress, type ProfileAddress } from "../profile/public.ts";
 import type { HubHandle } from "../types.ts";
+import type { PostEmbed, QuoteTarget } from "./quotes.ts";
 
 export const defaultLimit = 20;
 export const maxLimit = 50;
@@ -51,7 +52,11 @@ export interface PostOwner {
 }
 
 // T23 adds quote_target and embed.
-export interface Post {
+/**
+ * A post as an embed shows it: no `embed` of its own (PST-QTE-010). A quote
+ * inside an embed keeps only `quote_target`.
+ */
+export interface EmbeddedPost {
   post_id: PostID;
   owner: PostOwner;
   kind: PostKind;
@@ -65,6 +70,13 @@ export interface Post {
   edited: boolean;
   created_at: string;
   edited_at?: string;
+  /** Set when `kind` is `quote`. */
+  quote_target?: QuoteTarget;
+}
+
+export interface Post extends EmbeddedPost {
+  /** The quote target as read at response time (PST-QTE-009). */
+  embed?: PostEmbed;
 }
 
 export interface CreatePostRequest {

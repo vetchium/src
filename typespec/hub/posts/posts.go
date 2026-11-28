@@ -73,7 +73,8 @@ type PostOwner struct {
 	PictureURL  *string             `json:"picture_url,omitempty"`
 }
 
-// Post is a timeline post. T23 adds the quote target and the embed.
+// Post is a timeline post or a quote. QuoteTarget is set when Kind is
+// `quote`; Embed is the target as read at response time (PST-QTE-009).
 type Post struct {
 	PostID      PostID      `json:"post_id"`
 	Owner       PostOwner   `json:"owner"`
@@ -88,6 +89,9 @@ type Post struct {
 	Edited      bool        `json:"edited"`
 	CreatedAt   time.Time   `json:"created_at"`
 	EditedAt    *time.Time  `json:"edited_at,omitempty"`
+
+	QuoteTarget *QuoteTarget `json:"quote_target,omitempty"`
+	Embed       *PostEmbed   `json:"embed,omitempty"`
 }
 
 type CreatePostRequest struct {

@@ -10,6 +10,7 @@ import "../../problem/hub/profile.tsp";
 import "../../directory/directory.tsp";
 import "../types.tsp";
 import "./posts.tsp";
+import "./quotes.tsp";
 import "./replies.tsp";
 
 using TypeSpec.Http;
@@ -151,6 +152,81 @@ model MeshListAuthorRepliesResponse {
   next_pagination_key?: Vetchium.PaginationKey;
 }
 
+/**
+ * The quoter's tenant asks the owner's tenant whether a timeline post can be
+ * quoted (PST-QTE-003). The viewer is the quoter.
+ */
+model MeshReadQuoteTargetRequest {
+  target_post_id: PostID;
+  viewer_hub_user_did: Vetchium.Hub.HubUserDID;
+  viewer_handle: Vetchium.Hub.HubHandle;
+}
+
+model MeshEmbedReference {
+  target_post_id: PostID;
+  quote_post_id: PostID;
+  quoter_hub_user_did: Vetchium.Hub.HubUserDID;
+}
+
+/** An embed read, batched by region (PST-QTE-009). */
+model MeshReadEmbedsRequest {
+  viewer_hub_user_did: Vetchium.Hub.HubUserDID;
+  viewer_handle: Vetchium.Hub.HubHandle;
+
+  @minItems(1)
+  @maxItems(50)
+  items: MeshEmbedReference[];
+}
+
+model MeshEmbedFound {
+  status: "post";
+  target_post_id: PostID;
+  quote_post_id: PostID;
+  post: MeshPost;
+}
+
+/** A detached, removed, or missing target. */
+model MeshEmbedUnavailable {
+  status: "unavailable";
+  target_post_id: PostID;
+  quote_post_id: PostID;
+}
+
+alias MeshEmbedResult = MeshEmbedFound | MeshEmbedUnavailable;
+
+model MeshReadEmbedsResponse {
+  /** One result for each item, in request order. */
+  results: MeshEmbedResult[];
+}
+
+model MeshListQuotesRequest {
+  post_id: PostID;
+  viewer_hub_user_did: Vetchium.Hub.HubUserDID;
+  viewer_handle: Vetchium.Hub.HubHandle;
+  pagination_key?: Vetchium.PaginationKey;
+
+  /** Default 20. */
+  @minValue(1)
+  @maxValue(50)
+  limit?: int32;
+}
+
+/** Where to read one quote post. It holds no words. */
+model MeshQuoteReference {
+  quoter_hub_user_did: Vetchium.Hub.HubUserDID;
+  quoter_handle: Vetchium.Hub.HubHandle;
+  quoter_tenant_id: Vetchium.Directory.TenantID;
+  quote_post_id: PostID;
+  created_at: utcDateTime;
+}
+
+model MeshListQuotesResponse {
+  /** Not detached, newest first. */
+  quotes: MeshQuoteReference[];
+
+  next_pagination_key?: Vetchium.PaginationKey;
+}
+
 alias MeshErrors =
   | Vetchium.Problem.InvalidJSONErrorResponse
   | Vetchium.Problem.ValidationFailedErrorResponse
@@ -198,6 +274,34 @@ alias MeshGetReplyResult =
     }
   | MeshReplyErrors;
 
+alias MeshReadQuoteTargetResult =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: MeshPost;
+    }
+  | MeshErrors
+  | Vetchium.Problem.HubPostNotFoundErrorResponse
+  | Vetchium.Problem.HubPostQuoteRefusedErrorResponse;
+
+alias MeshReadEmbedsResult =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: MeshReadEmbedsResponse;
+    }
+  | MeshErrors;
+
+alias MeshListQuotesResult =
+  | {
+      @statusCode status_code: 200;
+      @header("Cache-Control") cache_control: "no-store";
+      @body body: MeshListQuotesResponse;
+    }
+  | Vetchium.Problem.InvalidPaginationKeyErrorResponse
+  | MeshErrors
+  | Vetchium.Problem.HubPostNotFoundErrorResponse;
+
 alias MeshListAuthorRepliesResult =
   | {
       @statusCode status_code: 200;
@@ -240,6 +344,24 @@ interface PostRelayOperations {
   listAuthorReplies(@body request: MeshListAuthorRepliesRequest):
     | MeshListAuthorRepliesResult
     | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+  @route("/read-quote-target")
+  @post
+  readQuoteTarget(@body request: MeshReadQuoteTargetRequest):
+    | MeshReadQuoteTargetResult
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+  @route("/read-embeds")
+  @post
+  readEmbeds(@body request: MeshReadEmbedsRequest):
+    | MeshReadEmbedsResult
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
+
+  @route("/list-quotes")
+  @post
+  listQuotes(@body request: MeshListQuotesRequest):
+    | MeshListQuotesResult
+    | Vetchium.Problem.MeshRelayAuthenticationRequiredErrorResponse;
 }
 
 @route("/api/mesh/posts")
@@ -267,4 +389,18 @@ interface PostPeerOperations {
   listAuthorReplies(
     @body request: MeshListAuthorRepliesRequest,
   ): MeshListAuthorRepliesResult;
+
+  @route("/read-quote-target")
+  @post
+  readQuoteTarget(
+    @body request: MeshReadQuoteTargetRequest,
+  ): MeshReadQuoteTargetResult;
+
+  @route("/read-embeds")
+  @post
+  readEmbeds(@body request: MeshReadEmbedsRequest): MeshReadEmbedsResult;
+
+  @route("/list-quotes")
+  @post
+  listQuotes(@body request: MeshListQuotesRequest): MeshListQuotesResult;
 }

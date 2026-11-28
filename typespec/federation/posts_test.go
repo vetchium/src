@@ -31,6 +31,8 @@ func TestPostKindsAreCommandAndEventKinds(t *testing.T) {
 		HubReplyEditedKind:  "hub-reply-edited",
 		HubReplyRemovedKind: "hub-reply-removed",
 		HubPostRemovedKind:  "hub-post-removed",
+		HubPostQuotedKind:   "hub-post-quoted",
+		HubPostUnquotedKind: "hub-post-unquoted",
 	}
 	for kind, want := range events {
 		if !IsEventKind(kind) || string(kind) != want {
@@ -100,5 +102,37 @@ func TestReplyAndPostEventPayloads(t *testing.T) {
 	}
 	if got := (HubPostRemovedPayload{}).Validate(); !reflect.DeepEqual(got, []string{"post_id", "owner_hub_user_did"}) {
 		t.Fatalf("bad post removed: %v", got)
+	}
+}
+
+func TestHubPostQuoteEventPayloads(t *testing.T) {
+	t.Parallel()
+	quoted := HubPostQuotedPayload{
+		TargetPostID: postID, QuotePostID: postID,
+		QuoterHubUserDID: "01987aef-1234-7abc-8abc-123456789abc",
+		QuoterHandle:     "abcde000-123456789ab",
+		CreatedAt:        time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+	}
+	if got := quoted.Validate(); len(got) != 0 {
+		t.Fatalf("valid quoted refused: %v", got)
+	}
+	want := []string{
+		"target_post_id", "quote_post_id", "quoter_hub_user_did",
+		"quoter_handle", "created_at",
+	}
+	if got := (HubPostQuotedPayload{}).Validate(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("empty quoted: %v", got)
+	}
+
+	unquoted := HubPostUnquotedPayload{
+		TargetPostID: postID, QuotePostID: postID,
+		QuoterHubUserDID: quoted.QuoterHubUserDID,
+	}
+	if got := unquoted.Validate(); len(got) != 0 {
+		t.Fatalf("valid unquoted refused: %v", got)
+	}
+	want = []string{"target_post_id", "quote_post_id", "quoter_hub_user_did"}
+	if got := (HubPostUnquotedPayload{}).Validate(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("empty unquoted: %v", got)
 	}
 }

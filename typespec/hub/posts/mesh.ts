@@ -202,3 +202,105 @@ export interface MeshListAuthorRepliesResponse {
   replies: AuthorReply[];
   next_pagination_key?: PaginationKey;
 }
+
+/** Asks the owner's tenant whether the viewer, the quoter, can quote a
+ * timeline post (PST-QTE-003). The response is a `MeshPost`. */
+export interface MeshReadQuoteTargetRequest {
+  target_post_id: PostID;
+  viewer_hub_user_did: HubUserDID;
+  viewer_handle: HubHandle;
+}
+
+export function validateMeshReadQuoteTargetRequest(
+  request: MeshReadQuoteTargetRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isPostID(request.target_post_id)) fields.push("target_post_id");
+  return [
+    ...fields,
+    ...validateViewer(request.viewer_hub_user_did, request.viewer_handle),
+  ];
+}
+
+export interface MeshEmbedReference {
+  target_post_id: PostID;
+  quote_post_id: PostID;
+  quoter_hub_user_did: HubUserDID;
+}
+
+export interface MeshReadEmbedsRequest {
+  viewer_hub_user_did: HubUserDID;
+  viewer_handle: HubHandle;
+  items: MeshEmbedReference[];
+}
+
+export function validateMeshReadEmbedsRequest(
+  request: MeshReadEmbedsRequest,
+): string[] {
+  const fields = validateViewer(
+    request.viewer_hub_user_did,
+    request.viewer_handle,
+  );
+  const valid =
+    request.items.length >= 1 &&
+    request.items.length <= maxGetMany &&
+    request.items.every(
+      (item) =>
+        isPostID(item.target_post_id) &&
+        isPostID(item.quote_post_id) &&
+        isHubUserDID(item.quoter_hub_user_did),
+    );
+  if (!valid) fields.push("items");
+  return fields;
+}
+
+export type MeshEmbedResult =
+  | {
+      status: "post";
+      target_post_id: PostID;
+      quote_post_id: PostID;
+      post: MeshPost;
+    }
+  | {
+      status: "unavailable";
+      target_post_id: PostID;
+      quote_post_id: PostID;
+    };
+
+export interface MeshReadEmbedsResponse {
+  results: MeshEmbedResult[];
+}
+
+export interface MeshListQuotesRequest {
+  post_id: PostID;
+  viewer_hub_user_did: HubUserDID;
+  viewer_handle: HubHandle;
+  pagination_key?: PaginationKey;
+  limit?: number;
+}
+
+export function validateMeshListQuotesRequest(
+  request: MeshListQuotesRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isPostID(request.post_id)) fields.push("post_id");
+  return [
+    ...fields,
+    ...validateViewer(request.viewer_hub_user_did, request.viewer_handle),
+    ...validatePage(request.pagination_key, request.limit),
+  ];
+}
+
+/** Where one quote post lives. It holds no words. */
+export interface MeshQuoteReference {
+  quoter_hub_user_did: HubUserDID;
+  quoter_handle: HubHandle;
+  quoter_tenant_id: TenantID;
+  quote_post_id: PostID;
+  created_at: string;
+}
+
+export interface MeshListQuotesResponse {
+  quotes: MeshQuoteReference[];
+  next_pagination_key?: PaginationKey;
+}
