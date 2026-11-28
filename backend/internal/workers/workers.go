@@ -71,6 +71,7 @@ type Worker struct {
 	engagementExpiryDB                *pgxpool.Pool
 	contactRetentionDB                *pgxpool.Pool
 	chatRequestExpiryDB               *pgxpool.Pool
+	hubPostDB                         *pgxpool.Pool
 	orgQueries                        orgEmailQueries
 	orgs                              *orgJobs
 	orgAI                             *orgAIJobs
@@ -121,6 +122,7 @@ func New(
 		engagementExpiryDB:                db,
 		contactRetentionDB:                db,
 		chatRequestExpiryDB:               db,
+		hubPostDB:                         db,
 		orgQueries:                        queries,
 	}
 	w.jobs = []periodicJob{
@@ -178,6 +180,16 @@ func New(
 			name:     "refresh-hub-applications",
 			interval: config.RefreshHubApplicationsTimer,
 			run:      w.refreshHubApplications,
+		},
+		{
+			name:     "reap-hub-pending-replies",
+			interval: config.ReapHubPendingRepliesTimer,
+			run:      w.reapHubPendingReplies,
+		},
+		{
+			name:     "clean-removed-hub-posts",
+			interval: config.CleanRemovedHubPostsTimer,
+			run:      w.cleanRemovedHubPosts,
 		},
 	}
 	if hubEmailDelivery != nil {

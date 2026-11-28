@@ -74,6 +74,7 @@ export interface HubReplyEditedPayload {
   reply_id: PostID;
   body: string;
   revision: number;
+  author_hub_user_did: HubUserDID;
 }
 
 export function validateHubReplyEditedPayload(
@@ -85,6 +86,8 @@ export function validateHubReplyEditedPayload(
   if (!isBody(payload.body)) fields.push("body");
   if (!Number.isInteger(payload.revision) || payload.revision < 1)
     fields.push("revision");
+  if (!isHubUserDID(payload.author_hub_user_did))
+    fields.push("author_hub_user_did");
   return fields;
 }
 
@@ -94,6 +97,7 @@ export const HubReplyRemovedKind: EventKind = "hub-reply-removed";
 export interface HubReplyRemovedPayload {
   post_id: PostID;
   reply_id: PostID;
+  author_hub_user_did: HubUserDID;
 }
 
 export function validateHubReplyRemovedPayload(
@@ -102,6 +106,8 @@ export function validateHubReplyRemovedPayload(
   const fields: string[] = [];
   if (!isPostID(payload.post_id)) fields.push("post_id");
   if (!isPostID(payload.reply_id)) fields.push("reply_id");
+  if (!isHubUserDID(payload.author_hub_user_did))
+    fields.push("author_hub_user_did");
   return fields;
 }
 
@@ -113,10 +119,15 @@ export const HubPostRemovedKind: EventKind = "hub-post-removed";
 
 export interface HubPostRemovedPayload {
   post_id: PostID;
+  owner_hub_user_did: HubUserDID;
 }
 
 export function validateHubPostRemovedPayload(
   payload: HubPostRemovedPayload,
 ): string[] {
-  return isPostID(payload.post_id) ? [] : ["post_id"];
+  const fields: string[] = [];
+  if (!isPostID(payload.post_id)) fields.push("post_id");
+  if (!isHubUserDID(payload.owner_hub_user_did))
+    fields.push("owner_hub_user_did");
+  return fields;
 }

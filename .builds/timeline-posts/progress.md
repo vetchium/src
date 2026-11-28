@@ -1,7 +1,7 @@
 # Timeline posts build progress
 
 branch: timeline-posts
-current: T18
+current: T19
 phase: implement
 
 ## Tasks
@@ -34,7 +34,7 @@ T15 done Playwright: Test the Hub timeline post screens
 
 T16 done Contracts: Add Hub post replies
 T17 done Database: Add Hub post replies
-T18 todo Federation: Register replies across tenants
+T18 done Federation: Register replies across tenants
 T19 todo Hub API: Serve replies and the Replies tab
 T20 todo Playwright: Test Hub reply APIs
 T21 todo Hub portal: Add threads and the Replies tab

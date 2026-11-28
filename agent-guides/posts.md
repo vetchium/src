@@ -152,9 +152,11 @@ portal screens.
   child row count never goes down.
 - **PST-RPL-015** `hub-reply-edited` and `hub-reply-removed` use aggregate
   type `hub_reply`, the reply ID, and the reply's `version`. They share a
-  watermark (`Registry.ShareWatermark`). Their origin is the reply author.
+  watermark (`Registry.ShareWatermark`). Their origin is the reply author,
+  named in the payload field `author_hub_user_did`.
   `hub-post-removed` uses aggregate type `hub_post`, the post ID, and the
-  post's `version`. Its origin is the post owner.
+  post's `version`. Its origin is the post owner, named in the payload field
+  `owner_hub_user_did`.
 
 ## Threads
 

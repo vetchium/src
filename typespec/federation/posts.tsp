@@ -53,12 +53,18 @@ model HubReplyEditedPayload {
   reply_id: Vetchium.Hub.Posts.PostID;
   body: Vetchium.Hub.Posts.PostBody;
   revision: int32;
+
+  /** The origin: the reply author, whom the sending tenant must home. */
+  author_hub_user_did: Vetchium.Hub.HubUserDID;
 }
 
 /** The payload of the `hub-reply-removed` event; aggregate as for an edit. */
 model HubReplyRemovedPayload {
   post_id: Vetchium.Hub.Posts.PostID;
   reply_id: Vetchium.Hub.Posts.PostID;
+
+  /** The origin: the reply author, whom the sending tenant must home. */
+  author_hub_user_did: Vetchium.Hub.HubUserDID;
 }
 
 /**
@@ -68,4 +74,7 @@ model HubReplyRemovedPayload {
  */
 model HubPostRemovedPayload {
   post_id: Vetchium.Hub.Posts.PostID;
+
+  /** The origin: the post owner, whom the sending tenant must home. */
+  owner_hub_user_did: Vetchium.Hub.HubUserDID;
 }

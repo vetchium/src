@@ -5,6 +5,20 @@
 -- carries no audit CTE; the caller writes the event. The audit never holds
 -- words.
 
+-- Writes one audit event for a statement that carries no audit CTE. The
+-- payload never holds words.
+-- name: InsertHubPostAuditEvent :exec
+INSERT INTO vetchium.audit_events (
+    tenant_id, action, entity_type, entity_id, actor_type, actor_id,
+    subject_hub_user_did, source, idempotency_key, payload
+)
+VALUES (
+    sqlc.arg(tenant_id), sqlc.arg(action)::text, sqlc.arg(entity_type)::text,
+    sqlc.arg(entity_id)::text, sqlc.arg(actor_type)::text,
+    sqlc.arg(actor_id)::text, sqlc.arg(subject_hub_user_did), sqlc.arg(source)::text,
+    sqlc.narg(idempotency_key)::text, sqlc.arg(payload)::jsonb
+);
+
 -- ---------------------------------------------------------------------------
 -- Replier side
 -- ---------------------------------------------------------------------------
@@ -342,12 +356,21 @@ WHERE r.post_id = sqlc.arg(post_id)
 -- ---------------------------------------------------------------------------
 
 -- name: ListRemovedHubPostsForCleanup :many
-SELECT p.post_id, p.author_hub_user_did, p.version
+SELECT p.post_id, p.author_hub_user_did, p.version, p.cleanup_author_cursor
 FROM vetchium.hub_posts AS p
 WHERE p.state <> 'live'
   AND p.cleanup_done_at IS NULL
 ORDER BY p.removed_at NULLS LAST, p.post_id
 LIMIT sqlc.arg(page_limit);
+
+-- Locks the post for one cleanup commit, so two workers never enqueue the same
+-- page.
+-- name: GetHubPostForCleanup :one
+SELECT p.post_id, p.author_hub_user_did, p.state, p.version,
+    p.cleanup_author_cursor, p.cleanup_done_at
+FROM vetchium.hub_posts AS p
+WHERE p.post_id = sqlc.arg(post_id)
+FOR UPDATE;
 
 -- One page of distinct reply authors, ordered by DID. Authors whose replies
 -- are all author_removed hold no words to mark and are left out.
@@ -363,6 +386,15 @@ WHERE r.post_id = sqlc.arg(post_id)
     )
 ORDER BY r.author_hub_user_did, r.created_at DESC
 LIMIT sqlc.arg(page_limit);
+
+-- Records the last reply author a cleanup commit enqueued for, so a later run
+-- resumes after it.
+-- name: SetHubPostCleanupCursor :execrows
+UPDATE vetchium.hub_posts AS p
+SET cleanup_author_cursor = sqlc.arg(cleanup_author_cursor)
+WHERE p.post_id = sqlc.arg(post_id)
+  AND p.state <> 'live'
+  AND p.cleanup_done_at IS NULL;
 
 -- name: DeleteHubPostRepliesByPost :execrows
 DELETE FROM vetchium.hub_post_replies AS r

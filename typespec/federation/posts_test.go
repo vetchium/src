@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vetchium/src/typespec/hub"
 	hubposts "github.com/vetchium/src/typespec/hub/posts"
 )
 
@@ -80,23 +81,24 @@ func TestHubPostReplyRegisterPayload(t *testing.T) {
 
 func TestReplyAndPostEventPayloads(t *testing.T) {
 	t.Parallel()
-	if got := (HubReplyEditedPayload{PostID: postID, ReplyID: postID, Body: "a", Revision: 2}).Validate(); len(got) != 0 {
+	did := hub.HubUserDID("01987aef-1234-7abc-8abc-123456789abc")
+	if got := (HubReplyEditedPayload{PostID: postID, ReplyID: postID, Body: "a", Revision: 2, AuthorHubUserDID: did}).Validate(); len(got) != 0 {
 		t.Fatalf("edited: %v", got)
 	}
 	got := HubReplyEditedPayload{Body: "a\x00"}.Validate()
-	if !reflect.DeepEqual(got, []string{"post_id", "reply_id", "body", "revision"}) {
+	if !reflect.DeepEqual(got, []string{"post_id", "reply_id", "body", "revision", "author_hub_user_did"}) {
 		t.Fatalf("bad edited: %v", got)
 	}
-	if got := (HubReplyRemovedPayload{PostID: postID, ReplyID: postID}).Validate(); len(got) != 0 {
+	if got := (HubReplyRemovedPayload{PostID: postID, ReplyID: postID, AuthorHubUserDID: did}).Validate(); len(got) != 0 {
 		t.Fatalf("removed: %v", got)
 	}
-	if got := (HubReplyRemovedPayload{}).Validate(); !reflect.DeepEqual(got, []string{"post_id", "reply_id"}) {
+	if got := (HubReplyRemovedPayload{}).Validate(); !reflect.DeepEqual(got, []string{"post_id", "reply_id", "author_hub_user_did"}) {
 		t.Fatalf("bad removed: %v", got)
 	}
-	if got := (HubPostRemovedPayload{PostID: postID}).Validate(); len(got) != 0 {
+	if got := (HubPostRemovedPayload{PostID: postID, OwnerHubUserDID: did}).Validate(); len(got) != 0 {
 		t.Fatalf("post removed: %v", got)
 	}
-	if got := (HubPostRemovedPayload{}).Validate(); !reflect.DeepEqual(got, []string{"post_id"}) {
+	if got := (HubPostRemovedPayload{}).Validate(); !reflect.DeepEqual(got, []string{"post_id", "owner_hub_user_did"}) {
 		t.Fatalf("bad post removed: %v", got)
 	}
 }

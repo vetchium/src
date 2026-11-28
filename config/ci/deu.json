@@ -24,6 +24,8 @@
     "retainOrgContactsTimer": "1s",
     "expireChatRequestsTimer": "1s",
     "refreshHubApplicationsTimer": "1s",
+    "reapHubPendingRepliesTimer": "1s",
+    "cleanRemovedHubPostsTimer": "1s",
     "reconcileHubSignupTimer": "1s",
     "reconcileHubEmailChangeTimer": "1s",
     "driveFederationCommandsTimer": "1s",

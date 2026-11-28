@@ -80,3 +80,16 @@ PST-BLK-002, PST-BLK-005, PST-RD-003, PST-RD-004, PST-GEN-004
   `window_open` for the edit and remove handlers. `EditHubReplyText` and
   `RemoveHubReplyText` write their own audit events and return the new
   revision and version for the outbox event.
+- From T18: `hubreplies.Prepare(tenantID, now, hubreplies.NewReply{ReplierDID,
+  ReplyID, Post: PostRef{OwnerDID, OwnerHandle, OwnerTenantID, PostID},
+  ParentReplyID *string, Body})` returns the `Request.Prepare` hook. It
+  locks the replier, enforces the 500 cap, inserts the pending row, and
+  audits. The caller sends the payload with the same body, trimmed.
+- From T18: `hubreplies.EnqueueEdited(ctx, q, hubreplies.Edited{...})` and
+  `EnqueueRemoved(ctx, q, hubreplies.Removed{...})` take the post owner DID
+  (destination), the author DID (origin, also in the payload), and the reply
+  text version returned by `EditHubReplyText` or `RemoveHubReplyText`. Call
+  them in the same transaction as that statement.
+- From T18: the three reply event payloads now carry the origin user:
+  `author_hub_user_did` (edited, removed) and `owner_hub_user_did`
+  (post-removed). The commit changed the contract and its companions.

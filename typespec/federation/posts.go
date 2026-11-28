@@ -81,6 +81,8 @@ type HubReplyEditedPayload struct {
 	ReplyID  hubposts.PostID `json:"reply_id"`
 	Body     string          `json:"body"`
 	Revision int32           `json:"revision"`
+	// AuthorHubUserDID is the event's origin: the reply author.
+	AuthorHubUserDID hub.HubUserDID `json:"author_hub_user_did"`
 }
 
 func (p HubReplyEditedPayload) Validate() []string {
@@ -97,6 +99,9 @@ func (p HubReplyEditedPayload) Validate() []string {
 	if p.Revision < 1 {
 		fields = append(fields, "revision")
 	}
+	if !hub.IsHubUserDID(p.AuthorHubUserDID) {
+		fields = append(fields, "author_hub_user_did")
+	}
 	return fields
 }
 
@@ -108,6 +113,8 @@ const HubReplyRemovedKind EventKind = "hub-reply-removed"
 type HubReplyRemovedPayload struct {
 	PostID  hubposts.PostID `json:"post_id"`
 	ReplyID hubposts.PostID `json:"reply_id"`
+	// AuthorHubUserDID is the event's origin: the reply author.
+	AuthorHubUserDID hub.HubUserDID `json:"author_hub_user_did"`
 }
 
 func (p HubReplyRemovedPayload) Validate() []string {
@@ -117,6 +124,9 @@ func (p HubReplyRemovedPayload) Validate() []string {
 	}
 	if !hubposts.IsPostID(p.ReplyID) {
 		fields = append(fields, "reply_id")
+	}
+	if !hub.IsHubUserDID(p.AuthorHubUserDID) {
+		fields = append(fields, "author_hub_user_did")
 	}
 	return fields
 }
@@ -128,11 +138,17 @@ const HubPostRemovedKind EventKind = "hub-post-removed"
 
 type HubPostRemovedPayload struct {
 	PostID hubposts.PostID `json:"post_id"`
+	// OwnerHubUserDID is the event's origin: the post owner.
+	OwnerHubUserDID hub.HubUserDID `json:"owner_hub_user_did"`
 }
 
 func (p HubPostRemovedPayload) Validate() []string {
+	fields := []string{}
 	if !hubposts.IsPostID(p.PostID) {
-		return []string{"post_id"}
+		fields = append(fields, "post_id")
 	}
-	return []string{}
+	if !hub.IsHubUserDID(p.OwnerHubUserDID) {
+		fields = append(fields, "owner_hub_user_did")
+	}
+	return fields
 }

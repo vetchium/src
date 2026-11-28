@@ -87,6 +87,7 @@ test("event payloads validate", () => {
       reply_id: id,
       body: "a",
       revision: 2,
+      author_hub_user_did: payload.replier_hub_user_did,
     }),
     [],
   );
@@ -96,19 +97,35 @@ test("event payloads validate", () => {
       reply_id: "x",
       body: "",
       revision: 0,
+      author_hub_user_did: "x",
     }),
-    ["post_id", "reply_id", "body", "revision"],
+    ["post_id", "reply_id", "body", "revision", "author_hub_user_did"],
   );
   assert.deepEqual(
-    validateHubReplyRemovedPayload({ post_id: id, reply_id: id }),
+    validateHubReplyRemovedPayload({
+      post_id: id,
+      reply_id: id,
+      author_hub_user_did: payload.replier_hub_user_did,
+    }),
     [],
   );
   assert.deepEqual(
-    validateHubReplyRemovedPayload({ post_id: "x", reply_id: "x" }),
-    ["post_id", "reply_id"],
+    validateHubReplyRemovedPayload({
+      post_id: "x",
+      reply_id: "x",
+      author_hub_user_did: "x",
+    }),
+    ["post_id", "reply_id", "author_hub_user_did"],
   );
-  assert.deepEqual(validateHubPostRemovedPayload({ post_id: id }), []);
-  assert.deepEqual(validateHubPostRemovedPayload({ post_id: "x" }), [
-    "post_id",
-  ]);
+  assert.deepEqual(
+    validateHubPostRemovedPayload({
+      post_id: id,
+      owner_hub_user_did: payload.replier_hub_user_did,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    validateHubPostRemovedPayload({ post_id: "x", owner_hub_user_did: "x" }),
+    ["post_id", "owner_hub_user_did"],
+  );
 });

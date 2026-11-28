@@ -4066,6 +4066,9 @@ CREATE TABLE vetchium.hub_posts (
     removed_at timestamptz,
     -- Set when post cleanup finished (PST-RPL-013).
     cleanup_done_at timestamptz,
+    -- The last reply author whose hub-post-removed event a cleanup commit
+    -- enqueued; the next commit resumes after it.
+    cleanup_author_cursor uuid,
     -- A live body holds 1 to 512 code points with no surrounding whitespace
     -- (PST-GEN-003); a removed body is NULL (PST-POS-007).
     CHECK (
