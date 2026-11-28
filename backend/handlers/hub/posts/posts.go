@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
+	directoryspec "github.com/vetchium/src/typespec/directory"
 	hubspec "github.com/vetchium/src/typespec/hub"
 	postsspec "github.com/vetchium/src/typespec/hub/posts"
 	profilespec "github.com/vetchium/src/typespec/hub/profile"
@@ -50,31 +51,43 @@ type listCursor struct {
 	Key   string `json:"key"`
 }
 
-func signListKey(
-	s *hubruntime.Server, ownerDID pgtype.UUID, key common.PaginationKey,
+// signKey signs the position key of another tenant for one list. scope
+// names what the key may page: a purpose and a scope the browser cannot
+// change, so a key never moves to another list.
+func signKey(
+	s *hubruntime.Server, purpose, scope string, key common.PaginationKey,
 ) (common.PaginationKey, error) {
-	payload, err := json.Marshal(listCursor{
-		Owner: dbvalue.FormatUUID(ownerDID), Key: string(key),
-	})
+	payload, err := json.Marshal(listCursor{Owner: scope, Key: string(key)})
 	if err != nil {
 		return "", err
 	}
 	return common.PaginationKey(credentials.SignValue(
-		s.CredentialSubkey("pagination"), listPurpose, payload)), nil
+		s.CredentialSubkey("pagination"), purpose, payload)), nil
+}
+
+func verifyKey(
+	s *hubruntime.Server, purpose, scope string, key common.PaginationKey,
+) (common.PaginationKey, bool) {
+	payload, valid := credentials.VerifySignedValue(
+		s.CredentialSubkey("pagination"), purpose, string(key))
+	var c listCursor
+	if !valid || json.Unmarshal(payload, &c) != nil || c.Owner != scope {
+		return "", false
+	}
+	inner := common.PaginationKey(c.Key)
+	return inner, common.IsPaginationKey(inner)
+}
+
+func signListKey(
+	s *hubruntime.Server, ownerDID pgtype.UUID, key common.PaginationKey,
+) (common.PaginationKey, error) {
+	return signKey(s, listPurpose, dbvalue.FormatUUID(ownerDID), key)
 }
 
 func verifyListKey(
 	s *hubruntime.Server, ownerDID pgtype.UUID, key common.PaginationKey,
 ) (common.PaginationKey, bool) {
-	payload, valid := credentials.VerifySignedValue(
-		s.CredentialSubkey("pagination"), listPurpose, string(key))
-	var c listCursor
-	if !valid || json.Unmarshal(payload, &c) != nil ||
-		c.Owner != dbvalue.FormatUUID(ownerDID) {
-		return "", false
-	}
-	inner := common.PaginationKey(c.Key)
-	return inner, common.IsPaginationKey(inner)
+	return verifyKey(s, listPurpose, dbvalue.FormatUUID(ownerDID), key)
 }
 
 func reader(s *hubruntime.Server) postread.Reader {
@@ -324,6 +337,9 @@ func SetPolicies(s *hubruntime.Server) http.HandlerFunc {
 type owner struct {
 	did   pgtype.UUID
 	local bool
+	// handle is the permanent handle when the address was one, else empty.
+	handle   string
+	tenantID string
 }
 
 // resolveOwner finds the post owner. A failure is reported as the
@@ -343,9 +359,14 @@ func resolveOwner(
 	if err != nil {
 		return owner{}, unavailable
 	}
-	return owner{
+	target := owner{
 		did: did, local: string(resolved.HomeTenantID) == s.TenantID,
-	}, nil
+		tenantID: string(resolved.HomeTenantID),
+	}
+	if resolved.Kind == directoryspec.ProfileSlugKindHandle {
+		target.handle = resolved.Slug
+	}
+	return target, nil
 }
 
 func viewerFields(

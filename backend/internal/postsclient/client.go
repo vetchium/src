@@ -18,6 +18,7 @@ import (
 	"time"
 
 	directoryspec "github.com/vetchium/src/typespec/directory"
+	hubspec "github.com/vetchium/src/typespec/hub"
 	postsspec "github.com/vetchium/src/typespec/hub/posts"
 	"github.com/vetchium/src/typespec/problem"
 )
@@ -35,6 +36,12 @@ type ListOutcome struct {
 // GetManyOutcome is a tenant's answer to a get-many.
 type GetManyOutcome struct {
 	Results *postsspec.MeshGetManyPostsResponse
+	Problem *problem.Details
+}
+
+// Outcome is a tenant's answer to a reply read: the response or a Problem.
+type Outcome[T any] struct {
+	Value   *T
 	Problem *problem.Details
 }
 
@@ -95,6 +102,77 @@ func (c *Client) PeerGetMany(
 	return c.getMany(ctx, endpoint, request, tlsConfig)
 }
 
+// ListReplies asks the local mesh-api for one page of a thread.
+func (c *Client) ListReplies(
+	ctx context.Context, request postsspec.MeshListRepliesRequest,
+) (Outcome[postsspec.MeshListRepliesResponse], error) {
+	return read(ctx, c, c.baseURL+"/mesh/posts/list-replies", request, nil,
+		func(response *postsspec.MeshListRepliesResponse) bool {
+			return validReplies(request, response)
+		})
+}
+
+// PeerListReplies asks the post owner's home tenant over the mesh.
+func (c *Client) PeerListReplies(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request postsspec.MeshListRepliesRequest,
+) (Outcome[postsspec.MeshListRepliesResponse], error) {
+	endpoint, tlsConfig, err := c.peer(tenant, "list-replies")
+	if err != nil {
+		return Outcome[postsspec.MeshListRepliesResponse]{}, err
+	}
+	return read(ctx, c, endpoint, request, tlsConfig,
+		func(response *postsspec.MeshListRepliesResponse) bool {
+			return validReplies(request, response)
+		})
+}
+
+// GetReply asks the local mesh-api who wrote one reply (PST-RPL-004).
+func (c *Client) GetReply(
+	ctx context.Context, request postsspec.MeshGetReplyRequest,
+) (Outcome[postsspec.MeshGetReplyResponse], error) {
+	return read(ctx, c, c.baseURL+"/mesh/posts/get-reply", request, nil,
+		func(response *postsspec.MeshGetReplyResponse) bool {
+			return validReply(request, response)
+		})
+}
+
+// PeerGetReply asks the post owner's home tenant over the mesh.
+func (c *Client) PeerGetReply(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request postsspec.MeshGetReplyRequest,
+) (Outcome[postsspec.MeshGetReplyResponse], error) {
+	endpoint, tlsConfig, err := c.peer(tenant, "get-reply")
+	if err != nil {
+		return Outcome[postsspec.MeshGetReplyResponse]{}, err
+	}
+	return read(ctx, c, endpoint, request, tlsConfig,
+		func(response *postsspec.MeshGetReplyResponse) bool {
+			return validReply(request, response)
+		})
+}
+
+// ListAuthorReplies asks the local mesh-api for one page of a user's
+// replies.
+func (c *Client) ListAuthorReplies(
+	ctx context.Context, request postsspec.MeshListAuthorRepliesRequest,
+) (Outcome[postsspec.MeshListAuthorRepliesResponse], error) {
+	return read(ctx, c, c.baseURL+"/mesh/posts/list-author-replies", request,
+		nil, validAuthorReplies)
+}
+
+// PeerListAuthorReplies asks the author's home tenant over the mesh.
+func (c *Client) PeerListAuthorReplies(
+	ctx context.Context, tenant directoryspec.TenantID,
+	request postsspec.MeshListAuthorRepliesRequest,
+) (Outcome[postsspec.MeshListAuthorRepliesResponse], error) {
+	endpoint, tlsConfig, err := c.peer(tenant, "list-author-replies")
+	if err != nil {
+		return Outcome[postsspec.MeshListAuthorRepliesResponse]{}, err
+	}
+	return read(ctx, c, endpoint, request, tlsConfig, validAuthorReplies)
+}
+
 func (c *Client) peer(
 	tenant directoryspec.TenantID, operation string,
 ) (string, *tls.Config, error) {
@@ -148,6 +226,75 @@ func validGetMany(
 		}
 	}
 	return true
+}
+
+// validReplies holds the answer to the question: replies of the asked post
+// and parent, with the fields the viewer's tenant relies on.
+func validReplies(
+	request postsspec.MeshListRepliesRequest,
+	response *postsspec.MeshListRepliesResponse,
+) bool {
+	if response.Replies == nil || len(response.Replies) > int(request.EffectiveLimit()) {
+		return false
+	}
+	for _, item := range response.Replies {
+		if !postsspec.IsPostID(item.ReplyID) || item.PostID != request.PostID ||
+			!hubspec.IsHubUserDID(item.AuthorHubUserDID) ||
+			!hubspec.IsHubHandle(item.AuthorHandle) ||
+			!postsspec.IsThreadReplyState(item.State) ||
+			(item.State == postsspec.ThreadReplyPlaceholder) != (item.Body == nil) ||
+			(item.ParentReplyID == nil) != (request.ParentReplyID == nil) ||
+			(item.ParentReplyID != nil && *item.ParentReplyID != *request.ParentReplyID) {
+			return false
+		}
+	}
+	return true
+}
+
+func validReply(
+	request postsspec.MeshGetReplyRequest,
+	response *postsspec.MeshGetReplyResponse,
+) bool {
+	return response.ReplyID == request.ReplyID && response.PostID == request.PostID &&
+		hubspec.IsHubUserDID(response.AuthorHubUserDID) &&
+		directoryspec.IsTenantID(response.AuthorTenantID) &&
+		hubspec.IsHubHandle(response.AuthorHandle) &&
+		postsspec.IsThreadReplyState(response.State) &&
+		(response.ParentReplyID == nil || postsspec.IsPostID(*response.ParentReplyID))
+}
+
+func validAuthorReplies(response *postsspec.MeshListAuthorRepliesResponse) bool {
+	if response.Replies == nil {
+		return false
+	}
+	for _, item := range response.Replies {
+		if !postsspec.IsPostID(item.ReplyID) || !postsspec.IsPostID(item.PostID) ||
+			!hubspec.IsHubHandle(item.PostOwnerHandle) ||
+			!postsspec.IsAuthorReplyState(item.State) {
+			return false
+		}
+	}
+	return true
+}
+
+// read posts a request and decodes the typed answer. valid is the question
+// the decoded answer must satisfy.
+func read[T any](
+	ctx context.Context, c *Client, endpoint string, request any,
+	tlsConfig *tls.Config, valid func(*T) bool,
+) (Outcome[T], error) {
+	body, details, err := c.exchange(ctx, endpoint, request, tlsConfig)
+	if err != nil || details != nil {
+		return Outcome[T]{Problem: details}, err
+	}
+	var response T
+	if err := decode(body, &response); err != nil {
+		return Outcome[T]{}, err
+	}
+	if !valid(&response) {
+		return Outcome[T]{}, fmt.Errorf("%w: unexpected content", ErrInvalidResponse)
+	}
+	return Outcome[T]{Value: &response}, nil
 }
 
 // exchange posts the request. It returns the body of a 200 answer, or the

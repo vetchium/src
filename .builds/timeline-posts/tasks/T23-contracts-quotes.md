@@ -69,3 +69,5 @@ PST-QTE-001 to PST-QTE-012, PST-OWN-004, PST-RD-003
 - Contracts compile; quote kinds and payloads exist.
 
 ## Carried over
+
+From T18 (orchestrator): an event `Origin` reads only the event, so `hub-post-quoted` and `hub-post-unquoted` payloads must carry `quoter_hub_user_did`. Name it in PST-QTE-007, as T18 did for PST-RPL-015.

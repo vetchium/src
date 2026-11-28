@@ -16,6 +16,8 @@ import (
 const (
 	did = "01987aef-1234-7abc-8abc-123456789abc"
 	id  = "0123456789abcdefghij0123456789abcdefghij"
+
+	handle = "abcd1234-abcdefghjkm"
 )
 
 func serve(t *testing.T, status int, mediaType string, body any) *Client {
@@ -97,5 +99,41 @@ func TestListRefusesMissingPostsArray(t *testing.T) {
 	client := serve(t, 200, "application/json", map[string]any{})
 	if _, err := client.List(context.Background(), postsspec.MeshListPostsRequest{}); err == nil {
 		t.Fatal("List accepted a response without posts")
+	}
+}
+
+func TestListRepliesRefusesAnswerForAnotherThread(t *testing.T) {
+	t.Parallel()
+	body := "words"
+	request := postsspec.MeshListRepliesRequest{
+		OwnerHubUserDID: hubspec.HubUserDID(did), PostID: id,
+		ViewerHubUserDID: hubspec.HubUserDID(did), ViewerHandle: handle,
+	}
+	reply := func(post postsspec.PostID, state postsspec.ThreadReplyState,
+		text *string,
+	) postsspec.MeshListRepliesResponse {
+		return postsspec.MeshListRepliesResponse{Replies: []postsspec.MeshReply{{
+			Reply: postsspec.Reply{
+				ReplyID: id, PostID: post, AuthorHandle: handle,
+				State: state, Body: text,
+			},
+			AuthorHubUserDID: hubspec.HubUserDID(did),
+		}}}
+	}
+	good := serve(t, http.StatusOK, "application/json",
+		reply(id, postsspec.ThreadReplyLive, &body))
+	if outcome, err := good.ListReplies(context.Background(), request); err != nil ||
+		len(outcome.Value.Replies) != 1 {
+		t.Fatalf("good answer = %+v, %v", outcome, err)
+	}
+	for name, answer := range map[string]postsspec.MeshListRepliesResponse{
+		"other post":           reply("abcdefghij0123456789abcdefghij0123456789", postsspec.ThreadReplyLive, &body),
+		"placeholder has body": reply(id, postsspec.ThreadReplyPlaceholder, &body),
+		"live has no body":     reply(id, postsspec.ThreadReplyLive, nil),
+	} {
+		client := serve(t, http.StatusOK, "application/json", answer)
+		if _, err := client.ListReplies(context.Background(), request); err == nil {
+			t.Errorf("%s: answer was accepted", name)
+		}
 	}
 }

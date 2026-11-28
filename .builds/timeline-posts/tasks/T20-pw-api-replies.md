@@ -58,3 +58,5 @@ PST-TAB-001 to PST-TAB-003, PST-BLK-002, PST-BLK-003, PST-BLK-005, PST-RD-003
 - Every non-`5xx` response of each T16 operation maps to a named test.
 
 ## Carried over
+
+From T19: `hide-reply` and `unhide-reply` declare only `hub-reply-not-found`, so a post that is not the caller's or not live returns `hub-reply-not-found` (not `hub-post-not-found`). An edit result carries `child_count` 0: the author's tenant keeps no sub-reply counts.
