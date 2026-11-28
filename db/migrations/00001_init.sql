@@ -4045,6 +4045,7 @@ CREATE INDEX hub_user_mutes_list_idx ON vetchium.hub_user_mutes
 CREATE TYPE vetchium.hub_post_kind AS ENUM ('post', 'quote');
 CREATE TYPE vetchium.hub_post_policy AS ENUM ('everyone', 'nobody');
 CREATE TYPE vetchium.hub_post_state AS ENUM ('live', 'removed', 'taken_down');
+CREATE TYPE vetchium.hub_quote_target_type AS ENUM ('timeline_post', 'opening');
 
 CREATE TABLE vetchium.hub_posts (
     post_id text COLLATE "C" PRIMARY KEY
@@ -4069,6 +4070,32 @@ CREATE TABLE vetchium.hub_posts (
     -- The last reply author whose hub-post-removed event a cleanup commit
     -- enqueued; the next commit resumes after it.
     cleanup_author_cursor uuid,
+    -- The quote target reference (PST-OWN-004, PST-QTE-002). The address is a
+    -- handle or an Org domain; the tenant is a routing hint only
+    -- (federation.md). The target ID is a post ID or an Opening number.
+    quote_target_type vetchium.hub_quote_target_type,
+    quote_owner_principal_type text
+        CHECK (quote_owner_principal_type IN ('hub_user', 'org')),
+    quote_owner_did uuid,
+    quote_owner_address text,
+    quote_owner_tenant_id text,
+    quote_target_id text,
+    CHECK (
+        CASE kind
+            WHEN 'quote' THEN quote_target_type IS NOT NULL
+                AND quote_owner_principal_type IS NOT NULL
+                AND quote_owner_did IS NOT NULL
+                AND quote_owner_address IS NOT NULL
+                AND quote_owner_tenant_id IS NOT NULL
+                AND quote_target_id IS NOT NULL
+            ELSE quote_target_type IS NULL
+                AND quote_owner_principal_type IS NULL
+                AND quote_owner_did IS NULL
+                AND quote_owner_address IS NULL
+                AND quote_owner_tenant_id IS NULL
+                AND quote_target_id IS NULL
+        END
+    ),
     -- A live body holds 1 to 512 code points with no surrounding whitespace
     -- (PST-GEN-003); a removed body is NULL (PST-POS-007).
     CHECK (
@@ -4095,6 +4122,27 @@ CREATE TABLE vetchium.hub_post_revisions (
     created_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (post_id, revision)
 );
+
+-- Hub post quotes (agent-guides/posts.md, Quotes). The target owner's tenant
+-- holds one row for each quote post; the quoter's tenant holds the words.
+CREATE TABLE vetchium.hub_post_quotes (
+    target_post_id text COLLATE "C" NOT NULL
+        REFERENCES vetchium.hub_posts (post_id) ON DELETE CASCADE,
+    quoter_hub_user_did uuid NOT NULL,
+    quoter_handle text NOT NULL,
+    -- Routing hint only (federation.md); never authoritative.
+    quoter_tenant_id text NOT NULL,
+    quote_post_id text COLLATE "C" NOT NULL
+        CHECK (quote_post_id ~ '^[0-9a-v]{20}[0-9a-z]{20}$'),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    -- Set when the owner detached the quote, or when a policy or block
+    -- refused it on arrival (PST-QTE-005, PST-QTE-008).
+    detached_at timestamptz,
+    PRIMARY KEY (target_post_id, quote_post_id)
+);
+CREATE INDEX hub_post_quotes_list_idx ON vetchium.hub_post_quotes
+    (target_post_id, created_at DESC, quote_post_id DESC)
+    WHERE detached_at IS NULL;
 
 -- Hub post replies (agent-guides/posts.md, Replies). The reply author's tenant
 -- holds the words; the post owner's tenant holds the structure and a copy.
@@ -4321,12 +4369,14 @@ $$;
 
 -- +goose Down
 DROP TABLE IF EXISTS vetchium.hub_post_replies;
+DROP TABLE IF EXISTS vetchium.hub_post_quotes;
 DROP TABLE IF EXISTS vetchium.hub_reply_revisions;
 DROP TABLE IF EXISTS vetchium.hub_reply_texts;
 DROP TYPE IF EXISTS vetchium.hub_post_reply_state;
 DROP TYPE IF EXISTS vetchium.hub_reply_text_state;
 DROP TABLE IF EXISTS vetchium.hub_post_revisions;
 DROP TABLE IF EXISTS vetchium.hub_posts;
+DROP TYPE IF EXISTS vetchium.hub_quote_target_type;
 DROP TYPE IF EXISTS vetchium.hub_post_state;
 DROP TYPE IF EXISTS vetchium.hub_post_policy;
 DROP TYPE IF EXISTS vetchium.hub_post_kind;

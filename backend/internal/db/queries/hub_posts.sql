@@ -182,7 +182,9 @@ SELECT (SELECT count(*) FROM updated)::bigint AS updated_rows,
 -- name: ListHubPostsByAuthor :many
 SELECT p.post_id, p.kind, p.body, p.reply_policy, p.quote_policy,
     p.locked_at, p.reply_count, p.quote_count, p.revision, p.version,
-    p.created_at, p.edited_at
+    p.created_at, p.edited_at, p.quote_target_type,
+    p.quote_owner_principal_type, p.quote_owner_did, p.quote_owner_address,
+    p.quote_owner_tenant_id, p.quote_target_id
 FROM vetchium.hub_posts AS p
 WHERE p.author_hub_user_did = sqlc.arg(author_hub_user_did)
   AND p.state = 'live'
@@ -199,7 +201,9 @@ LIMIT sqlc.arg(page_limit);
 -- name: GetHubPostsByIDs :many
 SELECT p.post_id, p.kind, p.body, p.reply_policy, p.quote_policy,
     p.locked_at, p.reply_count, p.quote_count, p.revision, p.version,
-    p.created_at, p.edited_at
+    p.created_at, p.edited_at, p.quote_target_type,
+    p.quote_owner_principal_type, p.quote_owner_did, p.quote_owner_address,
+    p.quote_owner_tenant_id, p.quote_target_id
 FROM vetchium.hub_posts AS p
 WHERE p.author_hub_user_did = sqlc.arg(author_hub_user_did)
   AND p.post_id = ANY(sqlc.arg(post_ids)::text[])
