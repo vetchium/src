@@ -75,6 +75,10 @@ count. Any test may run at any moment, on any worker, repeatedly.
 - A new or changed UI behavior updates `ui/`: success plus every validation,
   server error, cancel or back, route guard, session state, and security
   boundary. Test both sides of a time or permission boundary with a margin.
+- Each new or changed screen, tab, dialog, and action that needs a path has a
+  journey test. It starts where the path starts (home page after sign-in, or
+  the sign-in page) and reaches the item only by clicks
+  ([`ux.md`](ux.md), "Reachability"). Other tests may `goto` a URL.
 - Before calling it done, map every contract response and UI behavior to a
   named test; a test count is not coverage.
 

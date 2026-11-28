@@ -29,8 +29,10 @@ Do these in order, with the developer, before writing any file.
 4. **Surface.** Present two tables and get them confirmed:
    - API: operation path, portal API, permission or relationship, request
      fields, success response, problem types.
-   - UI: portal, route, navigation entry, what the screen shows and does, who
-     sees it.
+   - UI: portal, route, click path from the signed-in home page, what the
+     screen shows and does, who sees it. Write each step of the path (menu
+     item, link, tab). "Existing page" is a path only with that page's own
+     path written out ([`ux.md`](ux.md), "Reachability").
 5. **Branch.** From an up-to-date default branch, `git switch -c <slug>`
    (lowercase, hyphenated feature name). Never plan on the default branch.
 
@@ -80,6 +82,9 @@ Task rules:
   specs, development fixtures, then a final task. Group them into milestones
   (`### M1` …), each ending in a usable, tested slice.
 - Every task names the tests that prove each requirement it implements.
+- A portal UI task builds the navigation entries of its click paths. Its
+  Playwright UI task names the journey test for each path
+  ([`playwright.md`](playwright.md)).
 - Plan no demo video work: no scenes, rehearsals, recordings, or
   `docs/todo.md` "Demo video" items. Never change `video-demos/`, even when
   a change breaks it; a `make test` failure only in its checks does not

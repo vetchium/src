@@ -26,9 +26,14 @@ Applies to every change, before calling it done.
   unrelated edits. Comments only for non-obvious intent.
 - UI: every rule in [`ui.md`](ui.md), every rule and the screenshot check in
   [`ux.md`](ux.md), accessibility, keyboard use, every supported locale.
-- For a permission-gated feature, verify a representative intended account can
-  obtain the permission in each environment and reach the screen from the
-  normal navigation; test the account without granting access in test setup.
+- Reachability ([`ux.md`](ux.md), "Reachability"): on the dev stack, sign in
+  as a seeded account of each plan, role, and permission the change serves.
+  Start on the home page and click to every new or changed screen, tab,
+  dialog, and action. Record each path. An item without a path is a finding,
+  even when its tests pass.
+- For a permission-gated feature, verify an intended account can obtain the
+  permission in each environment; test the account without granting access
+  in test setup.
 
 ## Tests
 
@@ -42,5 +47,6 @@ Applies to every change, before calling it done.
 
 - What was reviewed, findings and fixes, the exact commands that passed, and
   remaining risk with where it is tracked.
+- The click path from the home page to each new or changed UI item.
 - A skipped or unknown required check keeps the task open unless the user
   accepts the gap.

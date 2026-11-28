@@ -16,6 +16,22 @@ first version; a screen that needs a redesign pass missed a rule here.
   one: list with filters (Openings list), long form (Opening editor),
   dashboard with settings (AI page).
 
+## Reachability
+
+- Every new or changed signed-in screen, tab, dialog, and action has a click
+  path from the portal's home page. A signed-out screen has a path from the
+  sign-in page. A screen that only an emailed link opens needs no path.
+- A path goes only through the sidebar, the account menu, Home, and links or
+  tabs on pages that have their own path. A typed URL, an emailed link, or a
+  test `goto` is not a path.
+- The main action of a feature (write, create, apply) is at most two clicks
+  from Home.
+- Each account the feature serves has the path: every plan, role, permission,
+  and tenant. An account without the plan or permission reaches the refusal
+  state on the same path.
+- A screen that shows other users' items needs a path to those items: a list,
+  a search, or a link from a page the user already reaches.
+
 ## Page structure
 
 - Order: breadcrumb when nested, `Title` level 1 with a status `Tag` when the
