@@ -103,6 +103,17 @@ import type {
   RemovePostRequest,
   SetPostPoliciesRequest,
 } from "typespec/hub/posts/posts";
+import type {
+  EditReplyRequest,
+  HideReplyRequest,
+  ListAuthorRepliesRequest,
+  ListAuthorRepliesResponse,
+  ListRepliesRequest,
+  ListRepliesResponse,
+  RemoveReplyRequest,
+  Reply,
+  ReplyRequest,
+} from "typespec/hub/posts/replies";
 import type { AliasState, SetAliasRequest } from "typespec/hub/profile/alias";
 import type {
   ReadCardsRequest,
@@ -476,6 +487,27 @@ export const hubAPI = {
     apiRequest<ListPostsResponse>(`${base}/posts/list`, { body }),
   getPost: (body: GetPostRequest) =>
     apiRequest<Post>(`${base}/posts/get`, { body }),
+  // A 202 means the post owner's tenant has not answered yet; replay the
+  // same call with the same key once the operation settles.
+  reply: (body: ReplyRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Reply | PendingOperation>(`${base}/posts/reply`, {
+      body,
+      idempotencyKey,
+    }),
+  editReply: (body: EditReplyRequest) =>
+    apiRequest<Reply>(`${base}/posts/edit-reply`, { body }),
+  removeReply: (body: RemoveReplyRequest) =>
+    apiRequest<void>(`${base}/posts/remove-reply`, { body }),
+  hideReply: (body: HideReplyRequest) =>
+    apiRequest<void>(`${base}/posts/hide-reply`, { body }),
+  unhideReply: (body: HideReplyRequest) =>
+    apiRequest<void>(`${base}/posts/unhide-reply`, { body }),
+  listReplies: (body: ListRepliesRequest) =>
+    apiRequest<ListRepliesResponse>(`${base}/posts/list-replies`, { body }),
+  listAuthorReplies: (body: ListAuthorRepliesRequest) =>
+    apiRequest<ListAuthorRepliesResponse>(`${base}/posts/list-author-replies`, {
+      body,
+    }),
   readCards: (body: ReadCardsRequest) =>
     apiRequest<ReadCardsResponse>(`${base}/profile/read-cards`, { body }),
   listProfessionalEmails: (body: ListProfessionalEmailsRequest) =>

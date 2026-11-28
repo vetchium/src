@@ -62,9 +62,15 @@ export function PostCard({
             {post.body}
           </Typography.Paragraph>
           <Space size="middle">
-            <Typography.Text type="secondary">
-              {t("posts.replyCount", { count: post.reply_count })}
-            </Typography.Text>
+            {link ? (
+              <Link to={postPath(post)}>
+                {t("posts.replyCount", { count: post.reply_count })}
+              </Link>
+            ) : (
+              <Typography.Text type="secondary">
+                {t("posts.replyCount", { count: post.reply_count })}
+              </Typography.Text>
+            )}
             <Typography.Text type="secondary">
               {t("posts.quoteCount", { count: post.quote_count })}
             </Typography.Text>

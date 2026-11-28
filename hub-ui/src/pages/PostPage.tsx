@@ -35,6 +35,7 @@ import {
   useRemovePostMutation,
   useSetPostPoliciesMutation,
 } from "../features/posts/queries";
+import { Thread } from "../features/posts/Thread";
 import { insideEditWindow } from "../features/posts/time";
 import { useMyInfoQuery } from "../features/profile/queries";
 
@@ -101,16 +102,18 @@ function PolicyForm({ post }: { post: Post }) {
     <Card size="small" title={t("posts.policy.title")}>
       <Form
         layout="vertical"
+        // The form remounts when the saved policy reaches the post, so a
+        // mutate-level callback would be dropped; the promise still resolves.
         onFinish={() =>
-          save.mutate(
-            {
+          void save
+            .mutateAsync({
               post_id: post.post_id,
               reply_policy: replyPolicy,
               quote_policy: quotePolicy,
               locked,
-            },
-            { onSuccess: () => void message.success(t("posts.policy.saved")) },
-          )
+            })
+            .then(() => void message.success(t("posts.policy.saved")))
+            .catch(() => undefined)
         }
       >
         <Flex vertical gap="small">
@@ -225,7 +228,11 @@ function PostView() {
   const params = useParams();
   const address = (params.address ?? "").toLowerCase();
   const postID = params.postId ?? "";
-  const valid = isProfileAddress(address) && isPostID(postID);
+  const replyID = params.replyId;
+  const valid =
+    isProfileAddress(address) &&
+    isPostID(postID) &&
+    (replyID === undefined || isPostID(replyID));
   const post = usePostQuery(address, postID, valid);
   const { data: me } = useMyInfoQuery();
   if (!valid) return <NotFound />;
@@ -242,7 +249,9 @@ function PostView() {
     return (
       <Navigate
         replace
-        to={`/u/${post.data.owner.handle}/posts/${post.data.post_id}`}
+        to={`/u/${post.data.owner.handle}/posts/${post.data.post_id}${
+          replyID === undefined ? "" : `/replies/${replyID}`
+        }`}
       />
     );
   }
@@ -266,6 +275,12 @@ function PostView() {
       />
       <PostCard post={post.data} link={false} />
       {isOwner ? <OwnerControls post={post.data} /> : null}
+      <Thread
+        post={post.data}
+        owner={post.data.owner.handle}
+        viewer={me?.handle}
+        focusID={replyID}
+      />
     </Flex>
   );
 }

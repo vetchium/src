@@ -58,3 +58,4 @@ From T07: UI tests `orgs-opening-editor.spec.ts:240` and `orgs-typed-pickers.spe
 From T08: `orgs-opening-editor.spec.ts:966` also timed out once under full-suite load and passed on a one-worker rerun. Add it to the same `docs/todo.md` flake entry.
 From T10 (orchestrator): `api/orgs-application-transitions.spec.ts:917` failed once with a 409 version conflict under full-suite load and passed on a rerun. Add it to the flake entry in `docs/todo.md`.
 From T11 (orchestrator): `ui/hub-applications.spec.ts:419` failed once under full-suite load and passed alone. Add it to the flake entry in `docs/todo.md`.
+From T20 (orchestrator): the API coverage report once saw `/api/orgs/.../list-engagements` answer 403 with no problem type, in the orgs-openings suspended-Org UI test. It did not recur. Record this possible pre-existing contract gap in `docs/todo.md`.

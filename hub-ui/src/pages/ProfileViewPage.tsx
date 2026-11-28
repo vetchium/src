@@ -47,6 +47,7 @@ import {
   useBlockStateQuery,
 } from "../features/blocks/queries";
 import { PostsTab } from "../features/posts/PostsTab";
+import { RepliesTab } from "../features/posts/RepliesTab";
 import { canonicalProfileURL } from "../features/profile/canonical";
 import {
   useMyInfoQuery,
@@ -457,6 +458,11 @@ function ProfileContents({ profile }: { profile: PublicProfile }) {
                 isOwner={me?.handle === profile.handle}
               />
             ),
+          },
+          {
+            key: "replies",
+            label: t("profileView.tabs.replies"),
+            children: <RepliesTab handle={profile.handle} />,
           },
         ]}
       />

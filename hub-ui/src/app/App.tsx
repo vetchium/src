@@ -331,6 +331,14 @@ export function App() {
             }
           />
           <Route
+            path="u/:address/posts/:postId/replies/:replyId"
+            element={
+              <Page>
+                <PostPage />
+              </Page>
+            }
+          />
+          <Route
             path="plan"
             element={
               <Page>
