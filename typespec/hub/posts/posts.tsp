@@ -154,17 +154,34 @@ alias NoContent = {
 @route("/api/hub/posts")
 @tag("Hub posts")
 interface PostOperations {
-  /** Creates a top-level post. It needs Silver or higher. */
+  /**
+   * Creates a top-level post. It needs Silver or higher. A repeat with the
+   * same key replays the stored response.
+   */
   @route("/create")
   @post
   @useAuth(BearerAuth)
-  create(@body request: CreatePostRequest):
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  create(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: CreatePostRequest,
+  ):
     | {
         @statusCode status_code: 201;
         @header("Cache-Control") cache_control: "no-store";
         @body body: Post;
       }
     | PostErrors
+    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.HubPlanRequiredErrorResponse
     | Vetchium.Problem.HubPostLimitReachedErrorResponse;
 

@@ -19,15 +19,19 @@ const (
 	// hubPostCleanupAuthorsPerCommit bounds the events one commit enqueues
 	// (PST-RPL-013).
 	hubPostCleanupAuthorsPerCommit = 100
-	hubPostCleanupPostsPerRun      = 20
-	hubPostCleanupCommitsPerPost   = 50
+	// hubPostCleanupRowsPerCommit bounds the structure or quote rows one
+	// commit deletes.
+	hubPostCleanupRowsPerCommit  = 1000
+	hubPostCleanupPostsPerRun    = 20
+	hubPostCleanupCommitsPerPost = 50
 )
 
 // cleanRemovedHubPosts finishes the removal of each removed post that has no
-// `cleanup_done_at` (PST-RPL-013). Each commit enqueues hub-post-removed to at
-// most 100 reply authors and records its last author, so a crash resumes
-// after that author. The last commit deletes the post's structure and quote
-// rows.
+// `cleanup_done_at` (PST-RPL-013). Each commit does one bounded step: it
+// enqueues hub-post-removed to at most 100 reply authors and records the last
+// one, or deletes at most 1,000 structure rows, or at most 1,000 quote rows.
+// A crash resumes at the next step. The commit that finds nothing left marks
+// the post done.
 func (w *Worker) cleanRemovedHubPosts(ctx context.Context) error {
 	posts, err := w.queries.ListRemovedHubPostsForCleanup(ctx, hubPostCleanupPostsPerRun)
 	if err != nil {
@@ -64,58 +68,13 @@ func (w *Worker) cleanHubPostPage(ctx context.Context, postID string) (bool, err
 	if post.State == sqlc.VetchiumHubPostStateLive || post.CleanupDoneAt.Valid {
 		return true, nil
 	}
-	authors, err := q.ListHubPostReplyAuthors(ctx, sqlc.ListHubPostReplyAuthorsParams{
-		PostID: postID, AfterAuthorHubUserDid: post.CleanupAuthorCursor,
-		PageLimit: hubPostCleanupAuthorsPerCommit,
-	})
+	step, count, err := w.cleanHubPostStep(ctx, q, post)
 	if err != nil {
 		return false, err
 	}
-	outgoing := make([]events.Outgoing, len(authors))
-	for index, author := range authors {
-		outgoing[index] = events.Outgoing{
-			Kind: federationspec.HubPostRemovedKind,
-			Destination: events.Principal{
-				Type: directoryspec.PrincipalHubUser, DID: author.AuthorHubUserDid,
-			},
-			AggregateType:    federationspec.AggregateHubPost,
-			AggregateID:      postID,
-			AggregateVersion: post.Version,
-			Payload: federationspec.HubPostRemovedPayload{
-				PostID: hubposts.PostID(postID),
-				OwnerHubUserDID: hub.HubUserDID(
-					dbvalue.FormatUUID(post.AuthorHubUserDid)),
-			},
-		}
-	}
-	if err := events.EnqueueAll(ctx, q, outgoing); err != nil {
-		return false, err
-	}
-	done := len(authors) < hubPostCleanupAuthorsPerCommit
-	if done {
-		if _, err := q.DeleteHubPostRepliesByPost(ctx, postID); err != nil {
-			return false, err
-		}
-		// A removed target shows no quotes, so its index rows go too.
-		if _, err := q.DeleteHubPostQuotesByPost(ctx, postID); err != nil {
-			return false, err
-		}
-		if rows, err := q.MarkHubPostCleanupDone(ctx, postID); err != nil {
-			return false, err
-		} else if rows != 1 {
-			return false, fmt.Errorf("mark post cleanup done: %d rows", rows)
-		}
-	} else if rows, err := q.SetHubPostCleanupCursor(ctx,
-		sqlc.SetHubPostCleanupCursorParams{
-			CleanupAuthorCursor: authors[len(authors)-1].AuthorHubUserDid,
-			PostID:              postID,
-		}); err != nil {
-		return false, err
-	} else if rows != 1 {
-		return false, fmt.Errorf("record post cleanup cursor: %d rows", rows)
-	}
+	done := step == "done"
 	payload, err := json.Marshal(map[string]any{
-		"schema_version": 1, "authors": len(authors), "done": done,
+		"schema_version": 1, "step": step, "count": count, "done": done,
 	})
 	if err != nil {
 		return false, err
@@ -129,4 +88,80 @@ func (w *Worker) cleanHubPostPage(ctx context.Context, postID string) (bool, err
 		return false, err
 	}
 	return done, tx.Commit(ctx)
+}
+
+// cleanHubPostStep runs the next step of one post's cleanup in q and names
+// it: "authors", "replies", "quotes", or "done".
+func (w *Worker) cleanHubPostStep(
+	ctx context.Context, q *sqlc.Queries, post sqlc.GetHubPostForCleanupRow,
+) (string, int64, error) {
+	authors, err := q.ListHubPostReplyAuthors(ctx, sqlc.ListHubPostReplyAuthorsParams{
+		PostID: post.PostID, AfterAuthorHubUserDid: post.CleanupAuthorCursor,
+		PageLimit: hubPostCleanupAuthorsPerCommit,
+	})
+	if err != nil {
+		return "", 0, err
+	}
+	if len(authors) > 0 {
+		outgoing := make([]events.Outgoing, len(authors))
+		for index, author := range authors {
+			outgoing[index] = events.Outgoing{
+				Kind: federationspec.HubPostRemovedKind,
+				Destination: events.Principal{
+					Type: directoryspec.PrincipalHubUser,
+					DID:  author.AuthorHubUserDid,
+				},
+				AggregateType:    federationspec.AggregateHubPost,
+				AggregateID:      post.PostID,
+				AggregateVersion: post.Version,
+				Payload: federationspec.HubPostRemovedPayload{
+					PostID: hubposts.PostID(post.PostID),
+					OwnerHubUserDID: hub.HubUserDID(
+						dbvalue.FormatUUID(post.AuthorHubUserDid)),
+				},
+			}
+		}
+		if err := events.EnqueueAll(ctx, q, outgoing); err != nil {
+			return "", 0, err
+		}
+		rows, err := q.SetHubPostCleanupCursor(ctx,
+			sqlc.SetHubPostCleanupCursorParams{
+				CleanupAuthorCursor: authors[len(authors)-1].AuthorHubUserDid,
+				PostID:              post.PostID,
+			})
+		if err != nil {
+			return "", 0, err
+		}
+		if rows != 1 {
+			return "", 0, fmt.Errorf("record post cleanup cursor: %d rows", rows)
+		}
+		return "authors", int64(len(authors)), nil
+	}
+	replies, err := q.DeleteHubPostReplyLeaves(ctx, sqlc.DeleteHubPostReplyLeavesParams{
+		PostID: post.PostID, Batch: hubPostCleanupRowsPerCommit,
+	})
+	if err != nil {
+		return "", 0, err
+	}
+	if replies > 0 {
+		return "replies", replies, nil
+	}
+	// A removed target shows no quotes, so its index rows go too.
+	quotes, err := q.DeleteHubPostQuotesPage(ctx, sqlc.DeleteHubPostQuotesPageParams{
+		TargetPostID: post.PostID, Batch: hubPostCleanupRowsPerCommit,
+	})
+	if err != nil {
+		return "", 0, err
+	}
+	if quotes > 0 {
+		return "quotes", quotes, nil
+	}
+	rows, err := q.MarkHubPostCleanupDone(ctx, post.PostID)
+	if err != nil {
+		return "", 0, err
+	}
+	if rows != 1 {
+		return "", 0, fmt.Errorf("mark post cleanup done: %d rows", rows)
+	}
+	return "done", 0, nil
 }

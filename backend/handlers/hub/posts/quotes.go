@@ -22,6 +22,7 @@ import (
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
 	"backend/internal/fanout"
+	"backend/internal/handlerauth"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hubquotes"
@@ -30,7 +31,10 @@ import (
 	"backend/internal/postread"
 )
 
-const quotesPurpose = "hub:posts:quotes"
+const (
+	quotesPurpose        = "hub:posts:quotes"
+	createQuoteOperation = "hub:posts:create-quote"
+)
 
 // quoteTarget is what CreateQuote resolved before it opens a transaction.
 type quoteTarget struct {
@@ -155,115 +159,108 @@ func CreateQuote(s *hubruntime.Server) http.HandlerFunc {
 		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
+		if !ok {
+			return
+		}
 		ctx := r.Context()
 		identity, _ := middleware.HubIdentityFromContext(ctx)
+		binding := dbvalue.FormatUUID(identity.UserDID)
 		_, quoterHandle, err := viewerFields(ctx, s, identity.UserDID)
 		if err != nil {
 			s.InternalError(ctx, w, "read quoter", err)
 			return
 		}
+		// A replay answers from the record, so it skips the target read and
+		// does not depend on the target's tenant.
+		replay, err := handlerauth.Recorded(
+			ctx, s, createQuoteOperation, binding, key)
+		if err != nil {
+			s.InternalError(ctx, w, "read quote replay", err)
+			return
+		}
 		var target quoteTarget
-		var details problem.Body
-		if request.Target.Type == postsspec.QuoteTargetTimelinePost {
-			target, details, err = readTimelineTarget(
-				ctx, s, identity.UserDID, quoterHandle, request.Target)
-		} else {
-			target, details, err = readOpeningTarget(ctx, s, request.Target)
-		}
-		if err != nil {
-			s.InternalError(ctx, w, "read quote target", err)
-			return
-		}
-		if details != nil {
-			s.Problem(ctx, w, details)
-			return
-		}
-		id, err := postid.New()
-		if err != nil {
-			s.InternalError(ctx, w, "mint quote ID", err)
-			return
-		}
-		tx, err := s.DB.Begin(ctx)
-		if err != nil {
-			s.InternalError(ctx, w, "begin quote creation", err)
-			return
-		}
-		defer func() { _ = tx.Rollback(ctx) }()
-		q := sqlc.New(tx)
-		if _, err := q.LockHubUserForPosting(ctx, identity.UserDID); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				s.AuthenticationProblem(
-					ctx, w, hubproblem.AuthenticationRequiredError,
-					hubauthn.BearerChallenge,
-				)
+		if !replay {
+			var details problem.Body
+			if request.Target.Type == postsspec.QuoteTargetTimelinePost {
+				target, details, err = readTimelineTarget(
+					ctx, s, identity.UserDID, quoterHandle, request.Target)
+			} else {
+				target, details, err = readOpeningTarget(ctx, s, request.Target)
+			}
+			if err != nil {
+				s.InternalError(ctx, w, "read quote target", err)
 				return
 			}
-			s.InternalError(ctx, w, "lock quote author", err)
-			return
-		}
-		count, err := q.CountHubPostsSince(ctx, sqlc.CountHubPostsSinceParams{
-			AuthorHubUserDid: identity.UserDID,
-			Since:            dbvalue.Timestamp(s.CurrentTime().Add(-window)),
-		})
-		if err != nil {
-			s.InternalError(ctx, w, "count recent posts", err)
-			return
-		}
-		if count >= dailyLimit {
-			s.Problem(ctx, w, hubproblem.HubPostLimitReachedError)
-			return
-		}
-		inserted, err := q.InsertHubQuotePost(ctx, sqlc.InsertHubQuotePostParams{
-			PostID: id, Body: dbvalue.Text(request.Body),
-			ReplyPolicy: replyPolicy(request.ReplyPolicy),
-			QuotePolicy: quotePolicy(request.QuotePolicy),
-			QuoteTargetType: sqlc.NullVetchiumHubQuoteTargetType{
-				VetchiumHubQuoteTargetType: target.targetType, Valid: true,
-			},
-			QuoteOwnerPrincipalType: target.principalType,
-			QuoteOwnerDid:           target.did,
-			QuoteOwnerAddress:       target.address,
-			QuoteOwnerTenantID:      target.tenantID,
-			QuoteTargetID:           target.id,
-			AuthorHubUserDid:        identity.UserDID,
-			TenantID:                s.TenantID,
-		})
-		if err != nil {
-			s.InternalError(ctx, w, "insert quote post", err)
-			return
-		}
-		if inserted.InsertedRows == 0 {
-			s.AuthenticationProblem(
-				ctx, w, hubproblem.AuthenticationRequiredError,
-				hubauthn.BearerChallenge,
-			)
-			return
-		}
-		if target.ownerDID.Valid {
-			if err := hubquotes.EnqueueQuoted(ctx, q, hubquotes.Quoted{
-				TargetOwnerDID: target.ownerDID, TargetPostID: target.id,
-				QuotePostID: id, QuoterDID: identity.UserDID,
-				QuoterHandle: string(quoterHandle),
-				CreatedAt:    s.CurrentTime(), Version: inserted.Version,
-			}); err != nil {
-				s.InternalError(ctx, w, "enqueue quote", err)
+			if details != nil {
+				s.Problem(ctx, w, details)
 				return
 			}
 		}
-		if err := tx.Commit(ctx); err != nil {
-			s.InternalError(ctx, w, "commit quote creation", err)
-			return
-		}
-		post, err := ownPost(ctx, s, identity.UserDID, postsspec.PostID(id))
-		if err != nil {
-			s.InternalError(ctx, w, "read written quote", err)
-			return
-		}
-		// The owner's tenant records the quote only after the event arrives,
-		// so the embed comes from the read that allowed the quote.
-		post.Embed = target.embed
-		w.Header().Set("Cache-Control", "no-store")
-		s.JSON(ctx, w, http.StatusCreated, post)
+		handlerauth.RunIdempotent(
+			s, w, r, createQuoteOperation, binding, key, request,
+			s.CurrentTime().Add(replayWindow),
+			func(q *sqlc.Queries) (
+				handlerauth.Result[postsspec.Post], *handlerauth.Problem, error,
+			) {
+				if target.id == "" {
+					// The record expired after the replay check.
+					return handlerauth.Result[postsspec.Post]{}, nil,
+						errors.New("quote target not read")
+				}
+				refused, err := admitPost(ctx, s, q, identity.UserDID)
+				if err != nil || refused != nil {
+					return handlerauth.Result[postsspec.Post]{}, refused, err
+				}
+				id, err := postid.New()
+				if err != nil {
+					return handlerauth.Result[postsspec.Post]{}, nil, err
+				}
+				inserted, err := q.InsertHubQuotePost(ctx, sqlc.InsertHubQuotePostParams{
+					PostID: id, Body: dbvalue.Text(request.Body),
+					ReplyPolicy: replyPolicy(request.ReplyPolicy),
+					QuotePolicy: quotePolicy(request.QuotePolicy),
+					QuoteTargetType: sqlc.NullVetchiumHubQuoteTargetType{
+						VetchiumHubQuoteTargetType: target.targetType, Valid: true,
+					},
+					QuoteOwnerPrincipalType: target.principalType,
+					QuoteOwnerDid:           target.did,
+					QuoteOwnerAddress:       target.address,
+					QuoteOwnerTenantID:      target.tenantID,
+					QuoteTargetID:           target.id,
+					AuthorHubUserDid:        identity.UserDID,
+					TenantID:                s.TenantID,
+					IdempotencyKey:          dbvalue.Text(string(key)),
+				})
+				if err != nil {
+					return handlerauth.Result[postsspec.Post]{}, nil, err
+				}
+				if inserted.InsertedRows == 0 {
+					return handlerauth.AuthenticationFailure[postsspec.Post](
+						hubproblem.AuthenticationRequiredError,
+						hubauthn.BearerChallenge)
+				}
+				if target.ownerDID.Valid {
+					if err := hubquotes.EnqueueQuoted(ctx, q, hubquotes.Quoted{
+						TargetOwnerDID: target.ownerDID, TargetPostID: target.id,
+						QuotePostID: id, QuoterDID: identity.UserDID,
+						QuoterHandle: string(quoterHandle),
+						CreatedAt:    s.CurrentTime(), Version: inserted.Version,
+					}); err != nil {
+						return handlerauth.Result[postsspec.Post]{}, nil, err
+					}
+				}
+				post, err := createdPost(ctx, s, q, identity.UserDID, id)
+				if err != nil {
+					return handlerauth.Result[postsspec.Post]{}, nil, err
+				}
+				// The owner's tenant records the quote only after the event
+				// arrives, so the embed comes from the read that allowed it.
+				post.Embed = target.embed
+				return handlerauth.Result[postsspec.Post]{
+					Status: http.StatusCreated, Body: post,
+				}, nil, nil
+			})
 	}
 }
 
@@ -283,8 +280,7 @@ func DetachQuote(s *hubruntime.Server) http.HandlerFunc {
 			s.Problem(ctx, w, hubproblem.HubPostNotFoundError)
 			return
 		case blocks.Unavailable:
-			s.InternalError(ctx, w, "resolve quoter",
-				errors.New("directory unavailable"))
+			s.Problem(ctx, w, hubproblem.HubPostUnavailableError)
 			return
 		}
 		quoter, err := dbvalue.ParseUUID(string(resolved.HubUserDID))

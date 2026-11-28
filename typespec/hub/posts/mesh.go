@@ -127,6 +127,7 @@ type MeshListRepliesRequest struct {
 	OwnerHubUserDID  hub.HubUserDID        `json:"owner_hub_user_did"`
 	PostID           PostID                `json:"post_id"`
 	ParentReplyID    *PostID               `json:"parent_reply_id,omitempty"`
+	FromReplyID      *PostID               `json:"from_reply_id,omitempty"`
 	ViewerHubUserDID hub.HubUserDID        `json:"viewer_hub_user_did"`
 	ViewerHandle     hub.HubHandle         `json:"viewer_handle"`
 	PaginationKey    *common.PaginationKey `json:"pagination_key,omitempty"`
@@ -150,6 +151,7 @@ func (r MeshListRepliesRequest) Validate() []string {
 	if r.ParentReplyID != nil && !IsPostID(*r.ParentReplyID) {
 		fields = append(fields, "parent_reply_id")
 	}
+	fields = append(fields, validFrom(r.FromReplyID, r.PaginationKey)...)
 	fields = append(fields, validViewer(r.ViewerHubUserDID, r.ViewerHandle)...)
 	return append(fields, ValidPage(r.PaginationKey, r.Limit)...)
 }

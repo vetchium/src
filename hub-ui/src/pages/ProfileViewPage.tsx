@@ -462,7 +462,12 @@ function ProfileContents({ profile }: { profile: PublicProfile }) {
           {
             key: "replies",
             label: t("profileView.tabs.replies"),
-            children: <RepliesTab handle={profile.handle} />,
+            children: (
+              <RepliesTab
+                handle={profile.handle}
+                isOwner={me?.handle === profile.handle}
+              />
+            ),
           },
         ]}
       />

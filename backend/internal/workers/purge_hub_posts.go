@@ -4,65 +4,68 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"backend/internal/db/sqlc"
+	"backend/internal/hubquotes"
 )
 
-const (
-	// hubPostPurgeBatch bounds the rows one commit deletes (PST-RET-001).
-	hubPostPurgeBatch = 1000
-	// hubPostRetention is the age after which a post goes in any state.
-	hubPostRetention = "5 years"
-)
+// hubPostPurgeBatch bounds the rows one commit changes (PST-RET-001).
+const hubPostPurgeBatch = 1000
 
-// purgeHubPosts hard-deletes posts, reply texts, reply structure rows, and
-// quote rows older than five years (PST-RET-001). Each commit deletes at most
-// 1,000 rows of one table and writes one audit event (PST-GEN-004).
+// purgeStep changes one batch of one table and returns how many rows it
+// changed.
+type purgeStep struct {
+	table  string
+	action string
+	run    func(context.Context, *sqlc.Queries, pgtype.Timestamptz) (int64, error)
+}
+
+// purgeHubPosts removes posts, revisions, and reply texts older than five
+// years (PST-RET-001). It retires a live post as a removal does, so post
+// cleanup tells its reply authors and deletes its structure and quote rows in
+// bounded commits. A later run deletes the cleaned post. Each commit changes
+// at most 1,000 rows of one table and writes one audit event.
 func (w *Worker) purgeHubPosts(ctx context.Context) error {
-	cutoff, err := w.hubPostCutoff(ctx)
+	cutoff, err := w.queries.GetHubPostRetentionCutoff(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("read the post cutoff: %w", err)
 	}
-	type step struct {
-		table string
-		purge func(context.Context, sqlc.Querier, sqlc.PurgeHubPostsParams) (int64, error)
-		// untilEmpty repeats the step until a pass deletes no row, because a
-		// pass leaves each parent that had a child row in the same pass.
-		untilEmpty bool
+	steps := []purgeStep{
+		{table: "hub_post_revisions", action: "hub.posts.purged",
+			run: func(ctx context.Context, q *sqlc.Queries, c pgtype.Timestamptz) (int64, error) {
+				return q.PurgeHubPostRevisions(ctx, sqlc.PurgeHubPostRevisionsParams{
+					Cutoff: c, Batch: hubPostPurgeBatch,
+				})
+			}},
+		{table: "hub_posts", action: "hub.posts.retired", run: retireHubPosts},
+		{table: "hub_posts", action: "hub.posts.purged",
+			run: func(ctx context.Context, q *sqlc.Queries, c pgtype.Timestamptz) (int64, error) {
+				return q.PurgeHubPosts(ctx, sqlc.PurgeHubPostsParams{
+					Cutoff: c, Batch: hubPostPurgeBatch,
+				})
+			}},
+		{table: "hub_reply_revisions", action: "hub.posts.purged",
+			run: func(ctx context.Context, q *sqlc.Queries, c pgtype.Timestamptz) (int64, error) {
+				return q.PurgeHubReplyRevisions(ctx, sqlc.PurgeHubReplyRevisionsParams{
+					Cutoff: c, Batch: hubPostPurgeBatch,
+				})
+			}},
+		{table: "hub_reply_texts", action: "hub.posts.purged",
+			run: func(ctx context.Context, q *sqlc.Queries, c pgtype.Timestamptz) (int64, error) {
+				return q.PurgeHubReplyTexts(ctx, sqlc.PurgeHubReplyTextsParams{
+					Cutoff: c, Batch: hubPostPurgeBatch,
+				})
+			}},
 	}
-	steps := []step{
-		{table: "hub_posts", purge: func(
-			ctx context.Context, q sqlc.Querier, p sqlc.PurgeHubPostsParams,
-		) (int64, error) {
-			return q.PurgeHubPosts(ctx, p)
-		}},
-		{table: "hub_reply_texts", purge: func(
-			ctx context.Context, q sqlc.Querier, p sqlc.PurgeHubPostsParams,
-		) (int64, error) {
-			return q.PurgeHubReplyTexts(ctx, sqlc.PurgeHubReplyTextsParams(p))
-		}},
-		{table: "hub_post_replies", untilEmpty: true, purge: func(
-			ctx context.Context, q sqlc.Querier, p sqlc.PurgeHubPostsParams,
-		) (int64, error) {
-			return q.PurgeHubPostReplies(ctx, sqlc.PurgeHubPostRepliesParams(p))
-		}},
-		{table: "hub_post_quotes", purge: func(
-			ctx context.Context, q sqlc.Querier, p sqlc.PurgeHubPostsParams,
-		) (int64, error) {
-			return q.PurgeHubPostQuotes(ctx, sqlc.PurgeHubPostQuotesParams(p))
-		}},
-	}
-	params := sqlc.PurgeHubPostsParams{Cutoff: cutoff, Batch: hubPostPurgeBatch}
-	for _, s := range steps {
+	for _, step := range steps {
 		for {
-			count, err := w.purgeHubPostBatch(ctx, s.table, params, s.purge)
+			count, err := w.purgeHubPostBatch(ctx, step, cutoff)
 			if err != nil {
-				return fmt.Errorf("purge %s: %w", s.table, err)
+				return fmt.Errorf("purge %s: %w", step.table, err)
 			}
-			if count == 0 || (count < hubPostPurgeBatch && !s.untilEmpty) {
+			if count < hubPostPurgeBatch {
 				break
 			}
 		}
@@ -70,23 +73,38 @@ func (w *Worker) purgeHubPosts(ctx context.Context) error {
 	return nil
 }
 
-// hubPostCutoff reads the cutoff from the database clock, so the job and the
-// stored timestamps use one clock.
-func (w *Worker) hubPostCutoff(ctx context.Context) (pgtype.Timestamptz, error) {
-	var cutoff time.Time
-	err := w.hubPostDB.QueryRow(ctx,
-		"SELECT now() - interval '"+hubPostRetention+"'").Scan(&cutoff)
+// retireHubPosts removes one batch of old live posts and enqueues
+// hub-post-unquoted for each quote of a timeline post (PST-QTE-006).
+func retireHubPosts(
+	ctx context.Context, q *sqlc.Queries, cutoff pgtype.Timestamptz,
+) (int64, error) {
+	retired, err := q.RetireHubPosts(ctx, sqlc.RetireHubPostsParams{
+		Cutoff: cutoff, Batch: hubPostPurgeBatch,
+	})
 	if err != nil {
-		return pgtype.Timestamptz{}, fmt.Errorf("read the post cutoff: %w", err)
+		return 0, err
 	}
-	return pgtype.Timestamptz{Time: cutoff, Valid: true}, nil
+	for _, post := range retired {
+		if !post.QuoteTargetType.Valid || post.QuoteTargetType.VetchiumHubQuoteTargetType !=
+			sqlc.VetchiumHubQuoteTargetTypeTimelinePost {
+			continue
+		}
+		if err := hubquotes.EnqueueUnquoted(ctx, q, hubquotes.Unquoted{
+			TargetOwnerDID: post.QuoteOwnerDid,
+			TargetPostID:   post.QuoteTargetID.String,
+			QuotePostID:    post.PostID,
+			QuoterDID:      post.AuthorHubUserDid, Version: post.Version,
+		}); err != nil {
+			return 0, err
+		}
+	}
+	return int64(len(retired)), nil
 }
 
-// purgeHubPostBatch deletes one batch and its audit event in one transaction.
-// A batch that deletes nothing commits nothing.
+// purgeHubPostBatch runs one batch of step and its audit event in one
+// transaction. A batch that changes nothing commits nothing.
 func (w *Worker) purgeHubPostBatch(
-	ctx context.Context, table string, params sqlc.PurgeHubPostsParams,
-	purge func(context.Context, sqlc.Querier, sqlc.PurgeHubPostsParams) (int64, error),
+	ctx context.Context, step purgeStep, cutoff pgtype.Timestamptz,
 ) (int64, error) {
 	tx, err := w.hubPostDB.Begin(ctx)
 	if err != nil {
@@ -94,7 +112,7 @@ func (w *Worker) purgeHubPostBatch(
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := sqlc.New(tx)
-	count, err := purge(ctx, q, params)
+	count, err := step.run(ctx, q, cutoff)
 	if err != nil {
 		return 0, err
 	}
@@ -102,14 +120,14 @@ func (w *Worker) purgeHubPostBatch(
 		return 0, nil
 	}
 	payload, err := json.Marshal(map[string]any{
-		"schema_version": 1, "table": table, "count": count,
+		"schema_version": 1, "table": step.table, "count": count,
 	})
 	if err != nil {
 		return 0, err
 	}
 	if err := q.InsertHubPostAuditEvent(ctx, sqlc.InsertHubPostAuditEventParams{
-		TenantID: w.tenantID, Action: "hub.posts.purged",
-		EntityType: "hub_post_table", EntityID: table, ActorType: "worker",
+		TenantID: w.tenantID, Action: step.action,
+		EntityType: "hub_post_table", EntityID: step.table, ActorType: "worker",
 		ActorID: "workers", Source: "workers", Payload: payload,
 	}); err != nil {
 		return 0, err

@@ -193,6 +193,83 @@ func (r Reader) Get(
 	return posts, nil
 }
 
+// PostRef names one post of one owner.
+type PostRef struct {
+	Owner  pgtype.UUID
+	PostID postsspec.PostID
+}
+
+// Batch is what Posts read: the live posts found, and the owners this tenant
+// homes as active users.
+type Batch struct {
+	Found map[PostRef]postsspec.Post
+	Homed map[pgtype.UUID]bool
+}
+
+// Posts reads the live posts of many owners in one pass: one read for the
+// posts and one for the owner cards (PST-QTE-009). A post of another owner
+// with the same ID is not a match.
+func (r Reader) Posts(ctx context.Context, refs []PostRef) (Batch, error) {
+	batch := Batch{
+		Found: map[PostRef]postsspec.Post{}, Homed: map[pgtype.UUID]bool{},
+	}
+	if len(refs) == 0 {
+		return batch, nil
+	}
+	owners := []pgtype.UUID{}
+	seen := map[pgtype.UUID]bool{}
+	ids := make([]string, len(refs))
+	wanted := map[PostRef]bool{}
+	for index, ref := range refs {
+		ids[index] = string(ref.PostID)
+		wanted[ref] = true
+		if !seen[ref.Owner] {
+			seen[ref.Owner] = true
+			owners = append(owners, ref.Owner)
+		}
+	}
+	cardRows, err := r.Queries.GetHubCardsByDIDs(ctx, owners)
+	if err != nil {
+		return Batch{}, err
+	}
+	cards := map[pgtype.UUID]profilespec.ProfileCard{}
+	for _, row := range cardRows {
+		card, err := r.card(ctx, cardRow{
+			row.Handle, row.ProfileAlias, row.DisplayName, row.PictureObjectID,
+		})
+		if err != nil {
+			return Batch{}, err
+		}
+		cards[row.HubUserDid] = card
+		batch.Homed[row.HubUserDid] = true
+	}
+	rows, err := r.Queries.GetHubLivePostsByIDs(ctx, ids)
+	if err != nil {
+		return Batch{}, err
+	}
+	for _, row := range rows {
+		ref := PostRef{Owner: row.AuthorHubUserDid, PostID: postsspec.PostID(row.PostID)}
+		card, homed := cards[row.AuthorHubUserDid]
+		if !wanted[ref] || !homed {
+			continue
+		}
+		batch.Found[ref] = post(card, sqlc.GetHubPostsByIDsRow{
+			PostID: row.PostID, Kind: row.Kind, Body: row.Body,
+			ReplyPolicy: row.ReplyPolicy, QuotePolicy: row.QuotePolicy,
+			LockedAt: row.LockedAt, ReplyCount: row.ReplyCount,
+			QuoteCount: row.QuoteCount, Revision: row.Revision,
+			Version: row.Version, CreatedAt: row.CreatedAt,
+			EditedAt: row.EditedAt, QuoteTargetType: row.QuoteTargetType,
+			QuoteOwnerPrincipalType: row.QuoteOwnerPrincipalType,
+			QuoteOwnerDid:           row.QuoteOwnerDid,
+			QuoteOwnerAddress:       row.QuoteOwnerAddress,
+			QuoteOwnerTenantID:      row.QuoteOwnerTenantID,
+			QuoteTargetID:           row.QuoteTargetID,
+		})
+	}
+	return batch, nil
+}
+
 // cursor is the position after the last post of a page. It holds no secret:
 // a forged one only moves the position in the owner's public list.
 type cursor struct {

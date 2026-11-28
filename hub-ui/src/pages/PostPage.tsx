@@ -1,3 +1,4 @@
+import { useUnsavedChangesGuard } from "@vetchium/portal-ui/unsaved-changes";
 import {
   Alert,
   App,
@@ -8,7 +9,9 @@ import {
   Form,
   Input,
   Skeleton,
+  Space,
   Switch,
+  Tag,
   Typography,
 } from "antd";
 import { useState } from "react";
@@ -23,6 +26,7 @@ import {
   type ReplyPolicy,
 } from "typespec/hub/posts/posts";
 import { isProfileAddress } from "typespec/hub/profile/public";
+import { planIncludes, SilverTier } from "typespec/hub/subscriptions/plans";
 import { HubPostNotFoundError } from "typespec/problem/hub/posts";
 import { isProblem } from "../api/client";
 import { APIErrorAlert } from "../components/common/APIErrorAlert";
@@ -38,12 +42,14 @@ import {
 import { Thread } from "../features/posts/Thread";
 import { insideEditWindow } from "../features/posts/time";
 import { useMyInfoQuery } from "../features/profile/queries";
+import { useMySubscriptionQuery } from "../features/subscriptions/queries";
 
 function EditForm({ post, onDone }: { post: Post; onDone: () => void }) {
   const { t } = useTranslation();
   const edit = useEditPostMutation();
   const [body, setBody] = useState(post.body);
   const size = [...body].length;
+  useUnsavedChangesGuard(body !== post.body);
   return (
     <Form
       layout="vertical"
@@ -98,6 +104,11 @@ function PolicyForm({ post }: { post: Post }) {
     post.quote_policy,
   );
   const [locked, setLocked] = useState(post.locked);
+  const dirty =
+    replyPolicy !== post.reply_policy ||
+    quotePolicy !== post.quote_policy ||
+    locked !== post.locked;
+  useUnsavedChangesGuard(dirty);
   return (
     <Card size="small" title={t("posts.policy.title")}>
       <Form
@@ -140,10 +151,26 @@ function PolicyForm({ post }: { post: Post }) {
             >
               <Switch id="policy-lock" checked={locked} onChange={setLocked} />
             </Form.Item>
-            <Button type="primary" htmlType="submit" loading={save.isPending}>
-              {t("posts.policy.save")}
-            </Button>
           </Flex>
+          {dirty ? (
+            <Space wrap>
+              <Tag color="warning">{t("posts.policy.unsaved")}</Tag>
+              <Button type="primary" htmlType="submit" loading={save.isPending}>
+                {t("posts.policy.save")}
+              </Button>
+              <Button
+                disabled={save.isPending}
+                onClick={() => {
+                  setReplyPolicy(post.reply_policy);
+                  setQuotePolicy(post.quote_policy);
+                  setLocked(post.locked);
+                  save.reset();
+                }}
+              >
+                {t("posts.policy.discard")}
+              </Button>
+            </Space>
+          ) : null}
           <APIErrorAlert error={save.error} />
         </Flex>
       </Form>
@@ -157,7 +184,14 @@ function OwnerControls({ post }: { post: Post }) {
   const navigate = useNavigate();
   const remove = useRemovePostMutation();
   const [editing, setEditing] = useState(false);
-  const canEdit = insideEditWindow(post.created_at);
+  const subscription = useMySubscriptionQuery();
+  // A top-level post stays frozen while its author is below Silver; a quote
+  // does not (PST-POS-008).
+  const entitled =
+    post.kind !== "post" ||
+    (subscription.isSuccess &&
+      planIncludes(subscription.data.plan_oid, SilverTier));
+  const canEdit = entitled && insideEditWindow(post.created_at);
   return (
     <Flex vertical gap="middle">
       {editing ? (
@@ -273,6 +307,9 @@ function PostView() {
           { title: t("posts.title") },
         ]}
       />
+      <Typography.Title level={1}>
+        {t("posts.heading", { name: post.data.owner.display_name })}
+      </Typography.Title>
       <PostCard post={post.data} link={false} />
       {isOwner ? <OwnerControls post={post.data} /> : null}
       <Thread

@@ -11,6 +11,7 @@ import (
 	hubspec "github.com/vetchium/src/typespec/hub"
 	postsspec "github.com/vetchium/src/typespec/hub/posts"
 	"github.com/vetchium/src/typespec/problem"
+	directoryproblem "github.com/vetchium/src/typespec/problem/global-coordinator"
 	hubproblem "github.com/vetchium/src/typespec/problem/hub"
 
 	"backend/internal/apiserver"
@@ -209,48 +210,74 @@ func serveGetMany(
 	ctx context.Context, s *meshapi.Server,
 	references []postsspec.MeshPostReference,
 ) ([]postsspec.MeshPostResult, error) {
+	refs := make([]postread.PostRef, len(references))
+	for index, reference := range references {
+		owner, err := dbvalue.ParseUUID(string(reference.OwnerHubUserDID))
+		if err != nil {
+			return nil, err
+		}
+		refs[index] = postread.PostRef{Owner: owner, PostID: reference.PostID}
+	}
+	batch, err := postReader(s).Posts(ctx, refs)
+	if err != nil {
+		return nil, err
+	}
 	results := make([]postsspec.MeshPostResult, len(references))
-	byOwner := map[hubspec.HubUserDID][]int{}
 	for index, reference := range references {
 		results[index] = postsspec.MeshPostResult{
 			Status:          postsspec.MeshPostNotFound,
 			OwnerHubUserDID: reference.OwnerHubUserDID,
 			PostID:          reference.PostID,
 		}
-		byOwner[reference.OwnerHubUserDID] = append(
-			byOwner[reference.OwnerHubUserDID], index)
-	}
-	for did, indexes := range byOwner {
-		owner, err := dbvalue.ParseUUID(string(did))
-		if err != nil {
-			return nil, err
-		}
-		ids := make([]postsspec.PostID, len(indexes))
-		for position, index := range indexes {
-			ids[position] = references[index].PostID
-		}
-		found, err := postReader(s).Get(ctx, owner, ids)
-		if errors.Is(err, pgx.ErrNoRows) {
-			for _, index := range indexes {
-				results[index].Status = postsspec.MeshPostNotHomed
-			}
+		if !batch.Homed[refs[index].Owner] {
+			results[index].Status = postsspec.MeshPostNotHomed
 			continue
 		}
-		if err != nil {
-			return nil, err
-		}
-		for _, post := range found {
-			for _, index := range indexes {
-				if references[index].PostID == post.PostID {
-					results[index].Status = postsspec.MeshPostFound
-					results[index].Post = &postsspec.MeshPost{
-						Post: post, OwnerHubUserDID: did,
-					}
-				}
+		if post, ok := batch.Found[refs[index]]; ok {
+			results[index].Status = postsspec.MeshPostFound
+			results[index].Post = &postsspec.MeshPost{
+				Post: post, OwnerHubUserDID: reference.OwnerHubUserDID,
 			}
 		}
 	}
 	return results, nil
+}
+
+// home is where the directory says one Hub user lives. missing is true when
+// the directory knows no such user.
+type home struct {
+	tenant  directoryspec.TenantID
+	missing bool
+}
+
+// resolveHomes asks the directory for the home of each user in parallel
+// (PST-RD-001). A user whose lookup failed has an error in its result.
+func resolveHomes(
+	ctx context.Context, s *meshapi.Server, dids []hubspec.HubUserDID,
+) map[hubspec.HubUserDID]fanout.Result[home] {
+	unique := map[hubspec.HubUserDID]struct{}{}
+	for _, did := range dids {
+		unique[did] = struct{}{}
+	}
+	return fanout.Do(ctx, unique, func(
+		ctx context.Context, did hubspec.HubUserDID, _ struct{},
+	) (home, error) {
+		resolved, details, err := s.Directory.ResolvePrincipal(
+			ctx, directoryspec.ResolvePrincipalRequest{
+				PrincipalType: directoryspec.PrincipalHubUser,
+				PrincipalDID:  directoryspec.PrincipalDID(did),
+			})
+		if err != nil {
+			return home{}, err
+		}
+		if details != nil {
+			if details.Type == directoryproblem.DirectoryEntryNotFoundError.Type {
+				return home{missing: true}, nil
+			}
+			return home{}, errors.New(details.Type)
+		}
+		return home{tenant: resolved.HomeTenantID}, nil
+	}, fanout.DefaultDeadline)
 }
 
 func writeGetMany(
@@ -277,21 +304,31 @@ func RelayGetManyPosts(s *meshapi.Server) http.HandlerFunc {
 		if !relayViewer(s, w, r, request.ViewerHubUserDID, request.ViewerHandle) {
 			return
 		}
-		homes := map[hubspec.HubUserDID]directoryspec.TenantID{}
+		owners := make([]hubspec.HubUserDID, len(request.Posts))
+		for index, reference := range request.Posts {
+			owners[index] = reference.OwnerHubUserDID
+		}
+		homes := resolveHomes(r.Context(), s, owners)
+		results := make([]postsspec.MeshPostResult, len(request.Posts))
 		groups := map[directoryspec.TenantID][]int{}
 		for index, reference := range request.Posts {
-			home, known := homes[reference.OwnerHubUserDID]
-			if !known {
-				var ok bool
-				if home, ok = ownerHome(
-					s, w, r, reference.OwnerHubUserDID); !ok {
-					return
+			found := homes[reference.OwnerHubUserDID]
+			switch {
+			case found.Err != nil:
+				s.Problem(r.Context(), w, hubproblem.ProfileUnavailableError)
+				return
+			case found.Value.missing:
+				// One unknown owner leaves the other posts readable.
+				results[index] = postsspec.MeshPostResult{
+					Status:          postsspec.MeshPostNotFound,
+					OwnerHubUserDID: reference.OwnerHubUserDID,
+					PostID:          reference.PostID,
 				}
-				homes[reference.OwnerHubUserDID] = home
+			default:
+				groups[found.Value.tenant] = append(
+					groups[found.Value.tenant], index)
 			}
-			groups[home] = append(groups[home], index)
 		}
-		results := make([]postsspec.MeshPostResult, len(request.Posts))
 		remote := map[directoryspec.TenantID][]int{}
 		for tenant, indexes := range groups {
 			if string(tenant) != s.TenantID {

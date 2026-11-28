@@ -575,6 +575,7 @@ export const de = {
   },
   posts: {
     title: "Beitrag",
+    heading: "Beitrag von {{name}}",
     documentTitle: "Beitrag von {{name}} | Vetchium",
     pictureAlt: "Profilbild von {{name}}",
     edited: "bearbeitet",
@@ -608,6 +609,8 @@ export const de = {
       lock: "Beitrag sperren",
       save: "Speichern",
       saved: "Ihre Änderungen wurden gespeichert.",
+      unsaved: "Nicht gespeicherte Änderungen",
+      discard: "Änderungen verwerfen",
     },
     edit: {
       button: "Bearbeiten",
@@ -675,6 +678,11 @@ export const de = {
       hideReplies: "Antworten ausblenden",
       postRemoved: "Der Beitrag wurde entfernt",
       replyGone: "Diese Antwort ist nicht verfügbar.",
+      stillPending:
+        "Die Region der Person, die den Beitrag schrieb, hat noch nicht geantwortet. Wählen Sie in einer Minute erneut „Antworten“, um das Ergebnis zu sehen.",
+      fromReply: "Sie sehen die Antworten ab der verlinkten Antwort.",
+      showAll: "Alle Antworten anzeigen",
+      tabContext: "Antwort auf einen Beitrag von @{{handle}}",
     },
   },
   profileView: {

@@ -116,6 +116,8 @@ import type {
   ListAuthorRepliesResponse,
   ListRepliesRequest,
   ListRepliesResponse,
+  LocateReplyRequest,
+  LocateReplyResponse,
   RemoveReplyRequest,
   Reply,
   ReplyRequest,
@@ -481,8 +483,8 @@ export const hubAPI = {
     apiRequest<void>(`${base}/mutes/unmute`, { body }),
   listMutedUsers: (body: ListMutedUsersRequest) =>
     apiRequest<ListMutedUsersResponse>(`${base}/mutes/list`, { body }),
-  createPost: (body: CreatePostRequest) =>
-    apiRequest<Post>(`${base}/posts/create`, { body }),
+  createPost: (body: CreatePostRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Post>(`${base}/posts/create`, { body, idempotencyKey }),
   editPost: (body: EditPostRequest) =>
     apiRequest<Post>(`${base}/posts/edit`, { body }),
   removePost: (body: RemovePostRequest) =>
@@ -510,12 +512,14 @@ export const hubAPI = {
     apiRequest<void>(`${base}/posts/unhide-reply`, { body }),
   listReplies: (body: ListRepliesRequest) =>
     apiRequest<ListRepliesResponse>(`${base}/posts/list-replies`, { body }),
+  locateReply: (body: LocateReplyRequest) =>
+    apiRequest<LocateReplyResponse>(`${base}/posts/locate-reply`, { body }),
   listAuthorReplies: (body: ListAuthorRepliesRequest) =>
     apiRequest<ListAuthorRepliesResponse>(`${base}/posts/list-author-replies`, {
       body,
     }),
-  createQuote: (body: CreateQuoteRequest) =>
-    apiRequest<Post>(`${base}/posts/create-quote`, { body }),
+  createQuote: (body: CreateQuoteRequest, idempotencyKey: IdempotencyKey) =>
+    apiRequest<Post>(`${base}/posts/create-quote`, { body, idempotencyKey }),
   listQuotes: (body: ListQuotesRequest) =>
     apiRequest<ListQuotesResponse>(`${base}/posts/list-quotes`, { body }),
   detachQuote: (body: DetachQuoteRequest) =>

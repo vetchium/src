@@ -11,6 +11,7 @@ import {
   expectQuotes,
   HubPostsAPI,
   HubQuotesAPI,
+  routeTestKeys,
 } from "../lib/hub-posts.ts";
 import { login } from "../lib/hub-signup.ts";
 import { loginOrg, OrgsAPI } from "../lib/orgs-api.ts";
@@ -22,8 +23,10 @@ import {
   test,
 } from "../lib/region-ui.ts";
 
-/** Signs the user in through the portal's own form. */
+/** Signs the user in through the portal's own form. The page's post and
+ * quote keys become test keys, so cleanup removes them. */
 async function signIn(page: Page, user: HubTestUser): Promise<void> {
+  await routeTestKeys(page, user, /\/api\/hub\/posts\/create(-quote)?$/);
   await page.goto(`${HUB_PORTAL}/login`);
   await chooseRegion(page, user.tenant);
   await page.getByLabel("Email address").fill(user.email);
@@ -35,6 +38,8 @@ async function signIn(page: Page, user: HubTestUser): Promise<void> {
 interface Session {
   user: HubTestUser;
   token: string;
+  /** The user's keys, which cleanup removes. */
+  keys: string[];
   hub: HubAPI;
   posts: HubPostsAPI;
   quotes: HubQuotesAPI;
@@ -50,6 +55,7 @@ async function session(
   return {
     user,
     token,
+    keys: user.keys,
     hub,
     posts: new HubPostsAPI(hub),
     quotes: new HubQuotesAPI(hub),
@@ -72,7 +78,7 @@ async function createPost(
   body: string,
   extra: { quote_policy?: "everyone" | "nobody" } = {},
 ): Promise<Post> {
-  return expectPost(await s.posts.create({ body, ...extra }, s.token), 201);
+  return expectPost(await s.posts.create({ body, ...extra }, s), 201);
 }
 
 /** Quotes `target` as `s` through the API. */
@@ -87,7 +93,7 @@ async function quoteOf(s: Session, target: Post, body: string): Promise<Post> {
         },
         body,
       },
-      s.token,
+      s,
     ),
     201,
   );

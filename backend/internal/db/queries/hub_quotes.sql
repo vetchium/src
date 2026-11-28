@@ -60,13 +60,29 @@ FOR UPDATE;
 -- Target owner side
 -- ---------------------------------------------------------------------------
 
--- The state, the policy, and the author of a target post (PST-QTE-003,
--- PST-QTE-005).
+-- The state, the policy, and the author of a target post (PST-QTE-003).
 -- name: GetHubPostForQuote :one
 SELECT p.post_id, p.author_hub_user_did, p.state, p.quote_policy,
     p.quote_count
 FROM vetchium.hub_posts AS p
 WHERE p.post_id = sqlc.arg(post_id);
+
+-- Locks a target post for a quote event (PST-QTE-005, PST-QTE-006). The
+-- receivers lock the post before the quote row, as a detach does, so the two
+-- never deadlock.
+-- name: LockHubPostForQuote :one
+SELECT p.post_id, p.author_hub_user_did, p.state, p.quote_policy,
+    p.quote_count
+FROM vetchium.hub_posts AS p
+WHERE p.post_id = sqlc.arg(post_id)
+FOR UPDATE;
+
+-- The quote rows of quote posts, for embed reads (PST-QTE-009).
+-- name: GetHubPostQuotesByQuoteIDs :many
+SELECT q.target_post_id, q.quoter_hub_user_did, q.quote_post_id,
+    q.detached_at
+FROM vetchium.hub_post_quotes AS q
+WHERE q.quote_post_id = ANY(sqlc.arg(quote_post_ids)::text[]);
 
 -- A redelivered event inserts nothing; zero rows tells the caller to skip the
 -- count change. A set detached flag stores the row as detached (PST-QTE-005).
@@ -136,6 +152,17 @@ WHERE q.target_post_id = sqlc.arg(target_post_id)
 ORDER BY q.created_at DESC, q.quote_post_id DESC
 LIMIT sqlc.arg(page_limit);
 
--- name: DeleteHubPostQuotesByPost :execrows
+-- Deletes one batch of a removed post's quote rows (PST-RPL-013).
+-- name: DeleteHubPostQuotesPage :execrows
+WITH doomed AS (
+    SELECT q.target_post_id, q.quote_post_id
+    FROM vetchium.hub_post_quotes AS q
+    WHERE q.target_post_id = sqlc.arg(target_post_id)
+    ORDER BY q.quote_post_id
+    LIMIT sqlc.arg(batch)::int
+    FOR UPDATE
+)
 DELETE FROM vetchium.hub_post_quotes AS q
-WHERE q.target_post_id = sqlc.arg(target_post_id);
+USING doomed
+WHERE q.target_post_id = doomed.target_post_id
+  AND q.quote_post_id = doomed.quote_post_id;

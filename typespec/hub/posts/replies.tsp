@@ -86,6 +86,12 @@ model ListRepliesRequest {
    * replies. */
   parent_reply_id?: PostID;
 
+  /**
+   * Starts the page at this reply of the list, for a reply link
+   * (PST-THR-009). Not with `pagination_key`.
+   */
+  from_reply_id?: PostID;
+
   pagination_key?: Vetchium.PaginationKey;
 
   /** Default 20. */
@@ -114,10 +120,27 @@ model AuthorReply {
   reply_id: PostID;
   post_id: PostID;
   post_owner_handle: Vetchium.Hub.HubHandle;
-  body: PostBody;
+
+  /** Absent when `state` is `post_removed` (PST-TAB-002). */
+  body?: PostBody;
+
   state: AuthorReplyState;
   edited: boolean;
   created_at: utcDateTime;
+}
+
+/** Names one reply of one post, for a reply link (PST-THR-009). */
+model LocateReplyRequest {
+  owner: Vetchium.Hub.Profile.ProfileAddress;
+  post_id: PostID;
+  reply_id: PostID;
+}
+
+model LocateReplyResponse {
+  reply_id: PostID;
+
+  /** Set when the reply is a sub-reply. */
+  parent_reply_id?: PostID;
 }
 
 model ListAuthorRepliesRequest {
@@ -236,6 +259,21 @@ interface ReplyOperations {
     | PostErrors
     | Vetchium.Problem.InvalidPaginationKeyErrorResponse
     | Vetchium.Problem.HubPostNotFoundErrorResponse
+    | Vetchium.Problem.HubReplyNotFoundErrorResponse
+    | Vetchium.Problem.HubPostUnavailableErrorResponse;
+  /** Finds the list a reply is in, for a reply link (PST-THR-009). */
+  @route("/locate-reply")
+  @post
+  @useAuth(BearerAuth)
+  locateReply(@body request: LocateReplyRequest):
+    | {
+        @statusCode status_code: 200;
+        @header("Cache-Control") cache_control: "no-store";
+        @body body: LocateReplyResponse;
+      }
+    | PostErrors
+    | Vetchium.Problem.HubPostNotFoundErrorResponse
+    | Vetchium.Problem.HubReplyNotFoundErrorResponse
     | Vetchium.Problem.HubPostUnavailableErrorResponse;
 
   /** The replies of one Hub user, for the profile Replies tab. */

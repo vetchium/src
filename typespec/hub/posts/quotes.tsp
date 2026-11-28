@@ -106,17 +106,34 @@ model DetachQuoteRequest {
 @route("/api/hub/posts")
 @tag("Hub posts")
 interface QuoteOperations {
-  /** Quotes a timeline post or a published Opening. Every tier may quote. */
+  /**
+   * Quotes a timeline post or a published Opening. Every tier may quote. A
+   * repeat with the same key replays the stored response.
+   */
   @route("/create-quote")
   @post
   @useAuth(BearerAuth)
-  createQuote(@body request: CreateQuoteRequest):
+  @TypeSpec.OpenAPI.extension("x-vetchium-idempotency-replay-seconds", 86400)
+  @TypeSpec.OpenAPI.extension(
+    "x-vetchium-idempotency-binding",
+    #[
+      "operation",
+      "authenticated-principal",
+      "canonical-request-digest",
+      "idempotency-key"
+    ]
+  )
+  createQuote(
+    @header("Idempotency-Key") idempotency_key: Vetchium.IdempotencyKey,
+    @body request: CreateQuoteRequest,
+  ):
     | {
         @statusCode status_code: 201;
         @header("Cache-Control") cache_control: "no-store";
         @body body: Post;
       }
     | PostErrors
+    | Vetchium.Problem.IdempotencyKeyConflictErrorResponse
     | Vetchium.Problem.HubPostNotFoundErrorResponse
     | Vetchium.Problem.HubPostQuoteRefusedErrorResponse
     | Vetchium.Problem.HubOpeningNotFoundErrorResponse
@@ -144,5 +161,6 @@ interface QuoteOperations {
   detachQuote(@body request: DetachQuoteRequest):
     | NoContent
     | PostErrors
-    | Vetchium.Problem.HubPostNotFoundErrorResponse;
+    | Vetchium.Problem.HubPostNotFoundErrorResponse
+    | Vetchium.Problem.HubPostUnavailableErrorResponse;
 }

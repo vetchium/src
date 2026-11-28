@@ -155,24 +155,19 @@ func RelayReadEmbeds(s *meshapi.Server) http.HandlerFunc {
 			return
 		}
 		results := make([]postsspec.MeshEmbedResult, len(request.Items))
-		homes := map[hubspec.HubUserDID]directoryspec.TenantID{}
+		owners := make([]hubspec.HubUserDID, len(request.Items))
+		for index, item := range request.Items {
+			owners[index] = item.OwnerHubUserDID
+		}
+		homes := resolveHomes(r.Context(), s, owners)
 		groups := map[directoryspec.TenantID][]int{}
 		for index, item := range request.Items {
 			results[index] = unavailableEmbed(item)
-			home, known := homes[item.OwnerHubUserDID]
-			if !known {
-				resolved, details, err := s.Directory.ResolvePrincipal(
-					r.Context(), directoryspec.ResolvePrincipalRequest{
-						PrincipalType: directoryspec.PrincipalHubUser,
-						PrincipalDID:  directoryspec.PrincipalDID(item.OwnerHubUserDID),
-					})
-				if err != nil || details != nil {
-					continue
-				}
-				home = resolved.HomeTenantID
-				homes[item.OwnerHubUserDID] = home
+			found := homes[item.OwnerHubUserDID]
+			if found.Err != nil || found.Value.missing {
+				continue
 			}
-			groups[home] = append(groups[home], index)
+			groups[found.Value.tenant] = append(groups[found.Value.tenant], index)
 		}
 		remote := map[directoryspec.TenantID][]int{}
 		for tenant, indexes := range groups {

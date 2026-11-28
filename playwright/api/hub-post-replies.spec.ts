@@ -48,6 +48,7 @@ import { HubBlocksAPI } from "../lib/hub-blocks.ts";
 import {
   Cast,
   expectAuthorReplies,
+  expectLocated,
   expectNoContent,
   expectPost,
   expectProblem,
@@ -78,6 +79,7 @@ const allOperations: ReplyOperation[] = [
   "/posts/hide-reply",
   "/posts/unhide-reply",
   "/posts/list-replies",
+  "/posts/locate-reply",
   "/posts/list-author-replies",
 ];
 
@@ -126,7 +128,7 @@ async function world(
   const owner = await cast.silver(scenario.owner, "Thread Owner");
   const replier = await cast.user(scenario.replier, "Thread Replier");
   const post = await expectPost(
-    await at.posts.create({ body: "The post" }, owner.token),
+    await at.posts.create({ body: "The post" }, owner),
     201,
   );
   return { owner, replier, post, at, from };
@@ -330,7 +332,7 @@ for (const scenario of scenarios) {
 
       // A reply that is not in this post is not a parent.
       const other = await expectPost(
-        await w.at.posts.create({ body: "Other post" }, w.owner.token),
+        await w.at.posts.create({ body: "Other post" }, w.owner),
         201,
       );
       const elsewhere = await expectReply(
@@ -526,7 +528,7 @@ for (const scenario of [
       const authorApi = apis(request, scenario.author);
       const replierApi = apis(request, scenario.replier);
       const post = await expectPost(
-        await ownerApi.posts.create({ body: "Owner post" }, owner.token),
+        await ownerApi.posts.create({ body: "Owner post" }, owner),
         201,
       );
       const w: World = {
@@ -615,6 +617,38 @@ for (const scenario of [
     }
   });
 }
+
+test("concurrent replies at 499 let exactly one through the 500-reply cap", async ({
+  request,
+}) => {
+  const cast = new Cast(request);
+  try {
+    const w = await world(cast, request, scenarios[0]!);
+    insertHubReplyTexts(w.replier.did, w.replier.tenant, 499);
+    const responses = await Promise.all(
+      Array.from({ length: 4 }, (_, n) =>
+        w.from.replies.reply(
+          {
+            owner: w.owner.handle,
+            post_id: w.post.post_id,
+            body: `Race ${n}`,
+          },
+          w.replier.token,
+          cast.key(w.replier),
+        ),
+      ),
+    );
+    const statuses = responses.map((response) => response.status()).sort();
+    expect(statuses).toEqual([200, 429, 429, 429]);
+    for (const response of responses.filter((r) => r.status() === 429)) {
+      await expectProblem(response, 429, HubPostLimitReachedError.type);
+    }
+    expect((await thread(w, w.at.replies, w.owner)).replies).toHaveLength(1);
+    expect(await replyCount(w)).toBe(1);
+  } finally {
+    cast.cleanup();
+  }
+});
 
 test("reply answers 429 hub-post-limit-reached at 500 replies in 24 hours and adds nothing", async ({
   request,
@@ -706,7 +740,7 @@ for (const scenario of scenarios) {
       expect(next.next_pagination_key).toBeUndefined();
 
       const otherPost = await expectPost(
-        await w.at.posts.create({ body: "Second post" }, w.owner.token),
+        await w.at.posts.create({ body: "Second post" }, w.owner),
         201,
       );
       for (const request of [
@@ -1275,6 +1309,175 @@ for (const scenario of scenarios) {
     }
   });
 
+  test(`locate-reply (${scenario.name}) names the parent of a sub-reply, none for a top-level reply, and refuses a missing reply or post`, async ({
+    request,
+  }) => {
+    const cast = new Cast(request);
+    try {
+      const w = await world(cast, request, scenario);
+      const top = await say(cast, w, w.from.replies, w.replier, "top");
+      const sub = await say(
+        cast,
+        w,
+        w.from.replies,
+        w.replier,
+        "sub",
+        top.reply_id,
+      );
+      const locate = (reply_id: string, post_id = w.post.post_id) =>
+        w.from.replies.locate(
+          { owner: w.owner.handle, post_id, reply_id },
+          w.replier.token,
+        );
+      const located = await expectLocated(await locate(top.reply_id));
+      expect(located).toEqual({ reply_id: top.reply_id });
+      expect(await expectLocated(await locate(sub.reply_id))).toEqual({
+        reply_id: sub.reply_id,
+        parent_reply_id: top.reply_id,
+      });
+      // The answer holds no words.
+      expect(JSON.stringify(located)).not.toContain("top");
+      await expectProblem(
+        await locate(missingID),
+        404,
+        HubReplyNotFoundError.type,
+      );
+      await expectProblem(
+        await locate(top.reply_id, missingID),
+        404,
+        HubPostNotFoundError.type,
+      );
+      await expectProblem(
+        await w.from.replies.locate(
+          {
+            owner: unknownHandle(),
+            post_id: w.post.post_id,
+            reply_id: top.reply_id,
+          },
+          w.replier.token,
+        ),
+        404,
+        HubPostNotFoundError.type,
+      );
+      for (const body of [
+        { owner: w.owner.handle, post_id: w.post.post_id },
+        { owner: w.owner.handle, post_id: "short", reply_id: top.reply_id },
+        { owner: "", post_id: w.post.post_id, reply_id: top.reply_id },
+      ]) {
+        await expectProblem(
+          await w.from.replies.raw(
+            "/posts/locate-reply",
+            body,
+            w.replier.token,
+          ),
+          400,
+          ValidationFailedError.type,
+        );
+      }
+      await expectProblem(
+        await w.from.replies.rawJSON(
+          "/posts/locate-reply",
+          "{",
+          w.replier.token,
+        ),
+        400,
+        InvalidJSONError.type,
+      );
+      // A region that does not answer.
+      setHubHome(w.owner.did, "gone");
+      try {
+        await expectProblem(
+          await locate(top.reply_id),
+          503,
+          HubPostUnavailableError.type,
+        );
+      } finally {
+        setHubHome(w.owner.did, w.owner.tenant);
+      }
+    } finally {
+      cast.cleanup();
+    }
+  });
+
+  test(`list-replies (${scenario.name}) starts at from_reply_id in the top list and in a sub-list, and refuses a reply of another list or a key with it`, async ({
+    request,
+  }) => {
+    const cast = new Cast(request);
+    try {
+      const w = await world(cast, request, scenario);
+      const tops: Reply[] = [];
+      for (const body of ["t1", "t2", "t3"]) {
+        tops.push(await say(cast, w, w.from.replies, w.replier, body));
+      }
+      const parent = tops[1]!;
+      const subs: Reply[] = [];
+      for (const body of ["s1", "s2", "s3"]) {
+        subs.push(
+          await say(cast, w, w.from.replies, w.replier, body, parent.reply_id),
+        );
+      }
+      const from = (
+        from_reply_id: string,
+        extra: Record<string, unknown> = {},
+      ) =>
+        w.from.replies.list(
+          {
+            owner: w.owner.handle,
+            post_id: w.post.post_id,
+            from_reply_id,
+            ...extra,
+          },
+          w.replier.token,
+        );
+      const top = await expectReplies(await from(parent.reply_id));
+      expect(top.replies.map((reply) => reply.body)).toEqual(["t2", "t3"]);
+      const sub = await expectReplies(
+        await from(subs[1]!.reply_id, { parent_reply_id: parent.reply_id }),
+      );
+      expect(sub.replies.map((reply) => reply.body)).toEqual(["s2", "s3"]);
+
+      // A page from a reply continues with the signed key.
+      const first = await expectReplies(
+        await from(parent.reply_id, { limit: 1 }),
+      );
+      expect(first.replies.map((reply) => reply.body)).toEqual(["t2"]);
+      const next = await expectReplies(
+        await w.from.replies.list(
+          {
+            owner: w.owner.handle,
+            post_id: w.post.post_id,
+            limit: 1,
+            pagination_key: first.next_pagination_key!,
+          },
+          w.replier.token,
+        ),
+      );
+      expect(next.replies.map((reply) => reply.body)).toEqual(["t3"]);
+
+      for (const [reply, extra] of [
+        [subs[1]!.reply_id, {}],
+        [tops[2]!.reply_id, { parent_reply_id: parent.reply_id }],
+        [missingID, {}],
+      ] as const) {
+        await expectProblem(
+          await from(reply, extra),
+          404,
+          HubReplyNotFoundError.type,
+        );
+      }
+      const both = await from(parent.reply_id, {
+        pagination_key: first.next_pagination_key!,
+      });
+      await expectProblem(both, 400, ValidationFailedError.type);
+      expect((await both.json()).fields).toEqual(["from_reply_id"]);
+      const bad = await from("short");
+      await expectProblem(bad, 400, ValidationFailedError.type);
+      expect((await bad.json()).fields).toEqual(["from_reply_id"]);
+    } finally {
+      cast.cleanup();
+    }
+  });
+
   test(`a removed post (${scenario.name}) marks each reply post_removed on the Replies tab and deletes its structure rows`, async ({
     request,
   }) => {
@@ -1317,6 +1520,7 @@ for (const scenario of scenarios) {
         post_owner_handle: w.owner.handle,
         state: "post_removed",
       });
+      expect(tab.replies[0]?.body).toBeUndefined();
       expect(JSON.stringify(tab)).not.toContain("The post");
       // A reply of a removed post is not a live reply.
       await expectProblem(
@@ -1334,6 +1538,26 @@ for (const scenario of scenarios) {
         ),
         404,
         HubPostNotFoundError.type,
+      );
+      // Its author still removes it from the Replies tab (PST-RPL-011).
+      await expectNoContent(
+        await w.from.replies.remove({ reply_id: r1.reply_id }, w.replier.token),
+      );
+      expect(
+        hubReplyText(r1.reply_id, w.replier.tenant)?.body ?? null,
+      ).toBeNull();
+      const after = await expectAuthorReplies(
+        await w.from.replies.listByAuthor(
+          { owner: w.replier.handle },
+          w.replier.token,
+        ),
+      );
+      expect(after.replies).toEqual([]);
+      // A repeat is not found.
+      await expectProblem(
+        await w.from.replies.remove({ reply_id: r1.reply_id }, w.replier.token),
+        404,
+        HubReplyNotFoundError.type,
       );
     } finally {
       cast.cleanup();

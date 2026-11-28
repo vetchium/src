@@ -87,11 +87,13 @@ func (r Reader) livePost(
 }
 
 // Thread reads one page of replies of a live post of an owner this tenant
-// homes, oldest first (PST-THR-002). A row the viewer may not see is left
-// out, so a page can be short; the next key follows the last row read.
+// homes, oldest first (PST-THR-002). The page starts after key, or at the
+// reply from (PST-THR-009), which must be in the same list; otherwise it
+// returns ErrReplyNotFound. A row the viewer may not see is left out, so a
+// page can be short; the next key follows the last row read.
 func (r Reader) Thread(
 	ctx context.Context, owner pgtype.UUID, postID string,
-	parent *postsspec.PostID, viewer pgtype.UUID,
+	parent, from *postsspec.PostID, viewer pgtype.UUID,
 	key *common.PaginationKey, limit int32,
 ) ([]postsspec.MeshReply, *common.PaginationKey, error) {
 	params := sqlc.ListHubPostRepliesParams{PostID: postID, PageLimit: limit + 1}
@@ -108,6 +110,22 @@ func (r Reader) Thread(
 	}
 	if err := r.livePost(ctx, owner, postID); err != nil {
 		return nil, nil, err
+	}
+	if from != nil {
+		start, err := r.Queries.GetHubPostReply(ctx, sqlc.GetHubPostReplyParams{
+			PostID: postID, ReplyID: string(*from),
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, ErrReplyNotFound
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		if start.ParentReplyID != params.ParentReplyID {
+			return nil, nil, ErrReplyNotFound
+		}
+		params.FromCreatedAt = start.CreatedAt
+		params.FromReplyID = pgtype.Text{String: start.ReplyID, Valid: true}
 	}
 	rows, err := r.Queries.ListHubPostReplies(ctx, params)
 	if err != nil {
@@ -231,7 +249,8 @@ func authorReply(row sqlc.ListHubReplyTextsByAuthorRow) postsspec.AuthorReply {
 	}
 	if row.State == sqlc.VetchiumHubReplyTextStateLive {
 		item.State = postsspec.AuthorReplyLive
-		item.Body = row.Body.String
+		body := row.Body.String
+		item.Body = &body
 	}
 	return item
 }

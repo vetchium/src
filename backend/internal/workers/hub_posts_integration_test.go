@@ -201,6 +201,19 @@ func TestReapHubPendingRepliesIntegration(t *testing.T) {
 		[]string{waiting, live}); got != "0" {
 		t.Fatalf("audit events for kept rows = %s", got)
 	}
+	// The owner's tenant may hold a copy, so the reaper tells it once.
+	t.Cleanup(func() {
+		f.exec(`DELETE FROM vetchium.federation_outbox WHERE aggregate_id = $1`, expired)
+	})
+	if got := f.scalar(`SELECT count(*)::text FROM vetchium.federation_outbox
+        WHERE aggregate_id = $1 AND kind = 'hub-reply-removed'
+          AND destination_principal_did = $2`, expired, owner); got != "1" {
+		t.Fatalf("removed events = %s", got)
+	}
+	if got := f.scalar(`SELECT count(*)::text FROM vetchium.federation_outbox
+        WHERE aggregate_id = ANY($1)`, []string{waiting, live}); got != "0" {
+		t.Fatalf("events for kept rows = %s", got)
+	}
 }
 
 func TestCleanRemovedHubPostsPagesAuthorsIntegration(t *testing.T) {
@@ -236,7 +249,8 @@ func TestCleanRemovedHubPostsPagesAuthorsIntegration(t *testing.T) {
 	})
 
 	worker := f.worker()
-	// One run finishes the post in three commits: 100, 100, and 50 authors.
+	// One run finishes the post: author commits of 100, 100, and 50, then one
+	// structure commit, then the commit that marks it done.
 	if err := worker.cleanRemovedHubPosts(f.ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -264,8 +278,16 @@ func TestCleanRemovedHubPostsPagesAuthorsIntegration(t *testing.T) {
 		t.Fatalf("cleanup_done_at set = %s", got)
 	}
 	if got := f.scalar(`SELECT count(*)::text FROM vetchium.audit_events
-        WHERE action = 'hub.post.cleanup-committed' AND entity_id = $1`, post); got != "3" {
+        WHERE action = 'hub.post.cleanup-committed' AND entity_id = $1`, post); got != "5" {
 		t.Fatalf("cleanup audit events = %s", got)
+	}
+	// Three author pages, one structure page, and the commit that ends it.
+	if got := f.scalar(`SELECT string_agg(payload ->> 'step', ' '
+            ORDER BY created_at, audit_event_id)
+        FROM vetchium.audit_events
+        WHERE action = 'hub.post.cleanup-committed' AND entity_id = $1`,
+		post); got != "authors authors authors replies done" {
+		t.Fatalf("cleanup steps = %s", got)
 	}
 	// A live post is left alone, and a finished post is not cleaned again.
 	if got := f.scalar(`SELECT count(*)::text FROM vetchium.hub_post_replies
@@ -298,8 +320,9 @@ func TestCleanRemovedHubPostsResumesAfterTheCursorIntegration(t *testing.T) {
 	t.Cleanup(func() {
 		f.exec(`DELETE FROM vetchium.federation_outbox WHERE aggregate_id = $1`, post)
 	})
-	// Only the authors after the cursor are enqueued, in one commit.
-	if done, err := f.worker().cleanHubPostPage(f.ctx, post); err != nil || !done {
+	// Only the authors after the cursor are enqueued, in one commit that
+	// does not finish the post.
+	if done, err := f.worker().cleanHubPostPage(f.ctx, post); err != nil || done {
 		t.Fatalf("page = %v, %v", done, err)
 	}
 	if got := f.scalar(`SELECT count(*)::text FROM vetchium.federation_outbox

@@ -240,7 +240,13 @@ func TestHubPostQuoteListKeyset(t *testing.T) {
 	if err != nil || len(next) != 2 || next[0].QuotePostID != ids[1] {
 		t.Fatalf("next page = %v, %v", next, err)
 	}
-	if n, err := h.q.DeleteHubPostQuotesByPost(h.ctx, target); err != nil || n != 4 {
-		t.Fatalf("delete by post = %d, %v", n, err)
+	// Cleanup deletes in bounded pages until a page is empty.
+	for _, want := range []int64{3, 1, 0} {
+		n, err := h.q.DeleteHubPostQuotesPage(h.ctx, sqlc.DeleteHubPostQuotesPageParams{
+			TargetPostID: target, Batch: 3,
+		})
+		if err != nil || n != want {
+			t.Fatalf("delete page = %d, %v, want %d", n, err, want)
+		}
 	}
 }

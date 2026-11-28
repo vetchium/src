@@ -7,7 +7,12 @@ import {
   isHubUserDID,
 } from "../types.ts";
 import { isPostID, type Post, type PostID, validatePage } from "./posts.ts";
-import type { AuthorReply, Reply, ThreadReplyState } from "./replies.ts";
+import {
+  type AuthorReply,
+  type Reply,
+  type ThreadReplyState,
+  validateFrom,
+} from "./replies.ts";
 
 export const maxGetMany = 50;
 
@@ -114,6 +119,7 @@ export interface MeshListRepliesRequest {
   owner_hub_user_did: HubUserDID;
   post_id: PostID;
   parent_reply_id?: PostID;
+  from_reply_id?: PostID;
   viewer_hub_user_did: HubUserDID;
   viewer_handle: HubHandle;
   pagination_key?: PaginationKey;
@@ -134,6 +140,7 @@ export function validateMeshListRepliesRequest(
     fields.push("parent_reply_id");
   return [
     ...fields,
+    ...validateFrom(request.from_reply_id, request.pagination_key),
     ...validateViewer(request.viewer_hub_user_did, request.viewer_handle),
     ...validatePage(request.pagination_key, request.limit),
   ];

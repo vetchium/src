@@ -27,6 +27,7 @@ import (
 	"backend/internal/credentials"
 	"backend/internal/db/sqlc"
 	"backend/internal/dbvalue"
+	"backend/internal/handlerauth"
 	hubruntime "backend/internal/hub"
 	hubauthn "backend/internal/hub/auth"
 	"backend/internal/hubquotes"
@@ -154,81 +155,110 @@ func writePost(
 		return
 	}
 	post = page[0]
-	if err := attachEmbeds(
-		r.Context(), s, did, []postsspec.Post{post}, nil); err != nil {
-		s.InternalError(r.Context(), w, "attach embeds", err)
-		return
-	}
 	w.Header().Set("Cache-Control", "no-store")
 	s.JSON(r.Context(), w, status, post)
 }
 
+// replayWindow is how long a create answers a repeat of its key with the
+// first answer (PST-POS-001).
+const replayWindow = 24 * time.Hour
+
+// admitPost locks the author and applies the 24-hour cap (PST-POS-003). The
+// lock makes the cap and the insert agree for one author. It returns the
+// problem to answer, or nil to go on.
+func admitPost(
+	ctx context.Context, s *hubruntime.Server, q *sqlc.Queries, did pgtype.UUID,
+) (*handlerauth.Problem, error) {
+	if _, err := q.LockHubUserForPosting(ctx, did); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &handlerauth.Problem{
+				Details:         hubproblem.AuthenticationRequiredError,
+				WWWAuthenticate: hubauthn.BearerChallenge,
+			}, nil
+		}
+		return nil, err
+	}
+	count, err := q.CountHubPostsSince(ctx, sqlc.CountHubPostsSinceParams{
+		AuthorHubUserDid: did,
+		Since:            dbvalue.Timestamp(s.CurrentTime().Add(-window)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if count >= dailyLimit {
+		return &handlerauth.Problem{Details: hubproblem.HubPostLimitReachedError}, nil
+	}
+	return nil, nil
+}
+
+// createdPost reads a new post in the transaction that wrote it, so the
+// replay record holds the same post the first answer did.
+func createdPost(
+	ctx context.Context, s *hubruntime.Server, q *sqlc.Queries,
+	did pgtype.UUID, id string,
+) (postsspec.Post, error) {
+	found, err := postread.Reader{Queries: q, Pictures: s.PictureURLs}.Get(
+		ctx, did, []postsspec.PostID{postsspec.PostID(id)})
+	if err != nil {
+		return postsspec.Post{}, err
+	}
+	if len(found) != 1 {
+		return postsspec.Post{}, errors.New("post missing after write")
+	}
+	return found[0], nil
+}
+
+// Create writes a top-level post. A repeat of the Idempotency-Key answers
+// the first answer and writes nothing (PST-POS-001).
 func Create(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request postsspec.CreatePostRequest
 		if !apiserver.Decode(s, w, r, &request) {
 			return
 		}
-		identity, _ := middleware.HubIdentityFromContext(r.Context())
-		id, err := postid.New()
-		if err != nil {
-			s.InternalError(r.Context(), w, "mint post ID", err)
+		key, ok := handlerauth.IdempotencyKey(s, w, r)
+		if !ok {
 			return
 		}
 		ctx := r.Context()
-		tx, err := s.DB.Begin(ctx)
-		if err != nil {
-			s.InternalError(ctx, w, "begin post creation", err)
-			return
-		}
-		defer func() { _ = tx.Rollback(ctx) }()
-		q := sqlc.New(tx)
-		// The lock makes the cap and the insert agree for one author.
-		if _, err := q.LockHubUserForPosting(ctx, identity.UserDID); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				s.AuthenticationProblem(
-					ctx, w, hubproblem.AuthenticationRequiredError,
-					hubauthn.BearerChallenge,
-				)
-				return
-			}
-			s.InternalError(ctx, w, "lock post author", err)
-			return
-		}
-		count, err := q.CountHubPostsSince(ctx, sqlc.CountHubPostsSinceParams{
-			AuthorHubUserDid: identity.UserDID,
-			Since:            dbvalue.Timestamp(s.CurrentTime().Add(-window)),
-		})
-		if err != nil {
-			s.InternalError(ctx, w, "count recent posts", err)
-			return
-		}
-		if count >= dailyLimit {
-			s.Problem(ctx, w, hubproblem.HubPostLimitReachedError)
-			return
-		}
-		inserted, err := q.InsertHubPost(ctx, sqlc.InsertHubPostParams{
-			PostID: id, Body: dbvalue.Text(request.Body),
-			ReplyPolicy:      replyPolicy(request.ReplyPolicy),
-			QuotePolicy:      quotePolicy(request.QuotePolicy),
-			AuthorHubUserDid: identity.UserDID,
-			EntitledPlanOids: entitledPlans(),
-			TenantID:         s.TenantID,
-		})
-		if err != nil {
-			s.InternalError(ctx, w, "insert post", err)
-			return
-		}
-		if inserted.InsertedRows == 0 {
-			s.Problem(ctx, w, planRequired())
-			return
-		}
-		if err := tx.Commit(ctx); err != nil {
-			s.InternalError(ctx, w, "commit post creation", err)
-			return
-		}
-		writePost(s, w, r, http.StatusCreated, identity.UserDID,
-			postsspec.PostID(id))
+		identity, _ := middleware.HubIdentityFromContext(ctx)
+		handlerauth.RunIdempotent(
+			s, w, r, "hub:posts:create", dbvalue.FormatUUID(identity.UserDID),
+			key, request, s.CurrentTime().Add(replayWindow),
+			func(q *sqlc.Queries) (
+				handlerauth.Result[postsspec.Post], *handlerauth.Problem, error,
+			) {
+				refused, err := admitPost(ctx, s, q, identity.UserDID)
+				if err != nil || refused != nil {
+					return handlerauth.Result[postsspec.Post]{}, refused, err
+				}
+				id, err := postid.New()
+				if err != nil {
+					return handlerauth.Result[postsspec.Post]{}, nil, err
+				}
+				inserted, err := q.InsertHubPost(ctx, sqlc.InsertHubPostParams{
+					PostID: id, Body: dbvalue.Text(request.Body),
+					ReplyPolicy:      replyPolicy(request.ReplyPolicy),
+					QuotePolicy:      quotePolicy(request.QuotePolicy),
+					AuthorHubUserDid: identity.UserDID,
+					EntitledPlanOids: entitledPlans(),
+					TenantID:         s.TenantID,
+					IdempotencyKey:   dbvalue.Text(string(key)),
+				})
+				if err != nil {
+					return handlerauth.Result[postsspec.Post]{}, nil, err
+				}
+				if inserted.InsertedRows == 0 {
+					return handlerauth.Failure[postsspec.Post](planRequired())
+				}
+				post, err := createdPost(ctx, s, q, identity.UserDID, id)
+				if err != nil {
+					return handlerauth.Result[postsspec.Post]{}, nil, err
+				}
+				return handlerauth.Result[postsspec.Post]{
+					Status: http.StatusCreated, Body: post,
+				}, nil, nil
+			})
 	}
 }
 

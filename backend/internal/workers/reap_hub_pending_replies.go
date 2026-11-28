@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"backend/internal/db/sqlc"
+	"backend/internal/hubreplies"
 )
 
 const (
@@ -13,7 +14,8 @@ const (
 )
 
 // reapHubPendingReplies deletes pending reply texts whose operation is past
-// its expiry, with the audit events in the same transaction (PST-RPL-009).
+// its expiry, with the audit events and a hub-reply-removed event to each
+// post owner in the same transaction (PST-RPL-009).
 func (w *Worker) reapHubPendingReplies(ctx context.Context) error {
 	total := 0
 	for range maxHubPendingReplyBatches {
@@ -53,8 +55,20 @@ func (w *Worker) reapHubPendingReplyBatch(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if deleted.AuditRows != deleted.DeletedRows {
-		return 0, fmt.Errorf("incomplete pending reply audit")
+	for _, row := range deleted {
+		if row.AuditRows != int64(len(deleted)) {
+			return 0, fmt.Errorf("incomplete pending reply audit")
+		}
+		// The command may have reached the post owner's tenant before its
+		// operation expired. The removal clears any copy there; a receiver
+		// that never registered the reply records nothing.
+		if err := hubreplies.EnqueueRemoved(ctx, q, hubreplies.Removed{
+			PostID: row.PostID, ReplyID: row.ReplyID,
+			PostOwnerDID: row.PostOwnerHubUserDid,
+			AuthorDID:    row.AuthorHubUserDid, Version: row.Version + 1,
+		}); err != nil {
+			return 0, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err

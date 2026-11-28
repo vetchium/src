@@ -7,6 +7,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useRef } from "react";
+import type { IdempotencyKey } from "typespec/common/idempotency";
 import type { PaginationKey } from "typespec/common/pagination";
 import type { PendingOperation } from "typespec/hub/operations/operations";
 import {
@@ -28,11 +29,14 @@ import {
   type HideReplyRequest,
   type ListRepliesResponse,
   normalizeEditReplyRequest,
+  normalizeLocateReplyRequest,
   normalizeReplyRequest,
   type Reply,
   type ReplyRequest,
 } from "typespec/hub/posts/replies";
 import { maxCardHandles, type ProfileCard } from "typespec/hub/profile/cards";
+import { HubReplyNotFoundError } from "typespec/problem/hub/posts";
+import { isProblem } from "../../api/client";
 import { hubAPI } from "../../api/hub";
 import { useIdempotencyKey } from "../../api/idempotency";
 import { usePendingOperations } from "../../app/PendingOperationContext";
@@ -73,12 +77,42 @@ function usePostsInvalidation() {
   return () => queryClient.invalidateQueries({ queryKey: postsQueryKey });
 }
 
+/**
+ * Holds one Idempotency-Key for one draft. A retry of the same request sends
+ * the same key, so a lost answer does not post twice. A changed request or a
+ * success takes a new key.
+ */
+function useDraftKey() {
+  const key = useIdempotencyKey();
+  const lastRequest = useRef<string | null>(null);
+  return {
+    keyFor(request: unknown): IdempotencyKey {
+      const serialized = JSON.stringify(request);
+      if (lastRequest.current !== null && lastRequest.current !== serialized) {
+        key.rotate();
+      }
+      lastRequest.current = serialized;
+      return key.current();
+    },
+    done(): void {
+      key.rotate();
+      lastRequest.current = null;
+    },
+  };
+}
+
 export function useCreatePostMutation() {
   const invalidate = usePostsInvalidation();
+  const draft = useDraftKey();
   return useMutation({
-    mutationFn: (request: CreatePostRequest) =>
-      hubAPI.createPost(normalizeCreatePostRequest(request)),
-    onSuccess: invalidate,
+    mutationFn: (request: CreatePostRequest) => {
+      const normalized = normalizeCreatePostRequest(request);
+      return hubAPI.createPost(normalized, draft.keyFor(normalized));
+    },
+    onSuccess: () => {
+      draft.done();
+      return invalidate();
+    },
   });
 }
 
@@ -140,23 +174,34 @@ const repliesQueryKey = [...postsQueryKey, "replies"] as const;
 /**
  * One page-by-page list of replies: the top-level replies of a post, or the
  * sub-replies of one top-level reply (PST-THR-002). A page can be short; only
- * a missing next key ends the list (PST-THR-005).
+ * a missing next key ends the list (PST-THR-005). `fromReplyID` starts the
+ * list at one reply, for a reply link (PST-THR-009).
  */
 export function useRepliesQuery(
   owner: string,
   postID: string,
   parentReplyID: string | undefined,
+  fromReplyID: string | undefined,
   enabled = true,
 ) {
   return useInfiniteQuery({
-    queryKey: [...repliesQueryKey, "list", owner, postID, parentReplyID ?? ""],
+    queryKey: [
+      ...repliesQueryKey,
+      "list",
+      owner,
+      postID,
+      parentReplyID ?? "",
+      fromReplyID ?? "",
+    ],
     queryFn: ({ pageParam }) =>
       hubAPI.listReplies({
         owner,
         post_id: postID,
         ...(parentReplyID !== undefined && { parent_reply_id: parentReplyID }),
         limit: pageSize,
-        ...(pageParam !== undefined && { pagination_key: pageParam }),
+        ...(pageParam !== undefined
+          ? { pagination_key: pageParam }
+          : fromReplyID !== undefined && { from_reply_id: fromReplyID }),
       }),
     initialPageParam: undefined as PaginationKey | undefined,
     getNextPageParam: (page) => page.next_pagination_key,
@@ -166,10 +211,9 @@ export function useRepliesQuery(
 }
 
 /**
- * Finds the parent of a reply that a link names. It returns `null` for a
- * top-level reply, the parent ID for a sub-reply, and `false` when no page
- * holds the reply (a query cannot hold `undefined`). The thread has no read
- * for one reply, so it pages.
+ * Finds the parent of a reply that a link names (PST-THR-009). It returns
+ * `null` for a top-level reply, the parent ID for a sub-reply, and `false`
+ * when the reply is not there (a query cannot hold `undefined`).
  */
 export function useLocateReply(
   owner: string,
@@ -180,36 +224,19 @@ export function useLocateReply(
     queryKey: [...repliesQueryKey, "locate", owner, postID, replyID ?? ""],
     queryFn: async (): Promise<string | null | false> => {
       if (replyID === undefined) return false;
-      const parents: string[] = [];
-      const scan = async (parent: string | undefined) => {
-        let key: PaginationKey | undefined;
-        do {
-          const page = await hubAPI.listReplies({
+      try {
+        const found = await hubAPI.locateReply(
+          normalizeLocateReplyRequest({
             owner,
             post_id: postID,
-            ...(parent !== undefined && { parent_reply_id: parent }),
-            limit: 50,
-            ...(key !== undefined && { pagination_key: key }),
-          });
-          if (page.replies.some((reply) => reply.reply_id === replyID)) {
-            return true;
-          }
-          if (parent === undefined) {
-            parents.push(
-              ...page.replies
-                .filter((reply) => reply.child_count > 0)
-                .map((reply) => reply.reply_id),
-            );
-          }
-          key = page.next_pagination_key;
-        } while (key !== undefined);
-        return false;
-      };
-      if (await scan(undefined)) return null;
-      for (const parent of parents) {
-        if (await scan(parent)) return parent;
+            reply_id: replyID,
+          }),
+        );
+        return found.parent_reply_id ?? null;
+      } catch (error) {
+        if (isProblem(error, HubReplyNotFoundError.type)) return false;
+        throw error;
       }
-      return false;
     },
     retry: false,
     staleTime: Infinity,
@@ -225,22 +252,17 @@ export function useLocateReply(
 export function useReplyMutation() {
   const queryClient = useQueryClient();
   const { hold } = usePendingOperations();
-  const key = useIdempotencyKey();
-  const lastRequest = useRef<string | null>(null);
+  const draft = useDraftKey();
   return useMutation({
-    mutationFn: async (draft: ReplyRequest) => {
-      const request = normalizeReplyRequest(draft);
-      const serialized = JSON.stringify(request);
-      if (lastRequest.current !== null && lastRequest.current !== serialized) {
-        key.rotate();
-      }
-      lastRequest.current = serialized;
+    mutationFn: async (reply: ReplyRequest) => {
+      const request = normalizeReplyRequest(reply);
+      const key = draft.keyFor(request);
       const release = hold();
       try {
-        let result = await hubAPI.reply(request, key.current());
+        let result = await hubAPI.reply(request, key);
         while (isPending(result)) {
           await settle(result.operation_id);
-          result = await hubAPI.reply(request, key.current());
+          result = await hubAPI.reply(request, key);
         }
         return result;
       } finally {
@@ -248,8 +270,7 @@ export function useReplyMutation() {
       }
     },
     onSuccess: async () => {
-      key.rotate();
-      lastRequest.current = null;
+      draft.done();
       await queryClient.invalidateQueries({ queryKey: postsQueryKey });
     },
     onError: async (error) => {
@@ -319,17 +340,19 @@ export function useEditReplyMutation() {
 }
 
 /** A removed reply with sub-replies stays as a placeholder (PST-THR-004). */
+function removedReply(shown: Reply): Reply | null {
+  if (shown.child_count === 0) return null;
+  const { body: _body, ...rest } = shown;
+  return { ...rest, state: "placeholder", revision: 1, edited: false };
+}
+
+/** Removes a reply by its ID, from a thread or from the Replies tab. */
 export function useRemoveReplyMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (reply: Reply) =>
-      hubAPI.removeReply({ reply_id: reply.reply_id }),
-    onSuccess: (_, reply) => {
-      patchThreads(queryClient, reply.reply_id, (shown) => {
-        if (shown.child_count === 0) return null;
-        const { body: _body, ...rest } = shown;
-        return { ...rest, state: "placeholder", revision: 1, edited: false };
-      });
+    mutationFn: (replyID: string) => hubAPI.removeReply({ reply_id: replyID }),
+    onSuccess: (_, replyID) => {
+      patchThreads(queryClient, replyID, removedReply);
       return refreshOutsideThreads(queryClient);
     },
   });
@@ -371,10 +394,16 @@ export function useAuthorRepliesQuery(owner: string) {
 /** A quote lands in the quoter's profile and the target's quote count. */
 export function useCreateQuoteMutation() {
   const invalidate = usePostsInvalidation();
+  const draft = useDraftKey();
   return useMutation({
-    mutationFn: (request: CreateQuoteRequest) =>
-      hubAPI.createQuote(normalizeCreateQuoteRequest(request)),
-    onSuccess: invalidate,
+    mutationFn: (request: CreateQuoteRequest) => {
+      const normalized = normalizeCreateQuoteRequest(request);
+      return hubAPI.createQuote(normalized, draft.keyFor(normalized));
+    },
+    onSuccess: () => {
+      draft.done();
+      return invalidate();
+    },
   });
 }
 

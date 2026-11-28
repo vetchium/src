@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { APIRequestContext, APIResponse } from "@playwright/test";
+import type { APIRequestContext, APIResponse, Page } from "@playwright/test";
 import type {
   CreatePostRequest,
   EditPostRequest,
@@ -23,6 +23,8 @@ import type {
   ListAuthorRepliesResponse,
   ListRepliesRequest,
   ListRepliesResponse,
+  LocateReplyRequest,
+  LocateReplyResponse,
   RemoveReplyRequest,
   Reply,
   ReplyRequest,
@@ -44,6 +46,43 @@ import { expect } from "./admin-fixtures.ts";
 import { HubAPI, hubIdempotencyKey } from "./hub-api.ts";
 import { login, signup } from "./hub-signup.ts";
 
+/** A signed-in caller. The test cleanup removes the keys it sends. */
+export interface KeyedCaller {
+  token: string;
+  keys: string[];
+}
+
+/** Records the key a write sends, or a fresh one, for cleanup. */
+function keyOf(caller: KeyedCaller, idempotencyKey?: string): string {
+  const key = idempotencyKey ?? hubIdempotencyKey();
+  caller.keys.push(key);
+  return key;
+}
+
+/**
+ * Sends the page's writes that match `path` with test keys, so cleanup
+ * removes their ledger rows. One page key maps to one test key, so a retry of
+ * the page still replays.
+ */
+export async function routeTestKeys(
+  page: Page,
+  caller: { keys: string[] },
+  path: RegExp,
+): Promise<void> {
+  const mapped = new Map<string, string>();
+  await page.route(path, async (route) => {
+    const headers = route.request().headers();
+    const own = headers["idempotency-key"] ?? "";
+    let key = mapped.get(own);
+    if (key === undefined) {
+      key = hubIdempotencyKey();
+      mapped.set(own, key);
+      caller.keys.push(key);
+    }
+    await route.continue({ headers: { ...headers, "idempotency-key": key } });
+  });
+}
+
 export type PostOperation =
   | "/posts/create"
   | "/posts/edit"
@@ -58,8 +97,16 @@ export type PostOperation =
 export class HubPostsAPI {
   constructor(readonly hub: HubAPI) {}
 
-  create(body: CreatePostRequest, token: string): Promise<APIResponse> {
-    return this.hub.post("/posts/create", body, { token });
+  /** Sends a fresh key unless the test names one, as a replay does. */
+  create(
+    body: CreatePostRequest,
+    caller: KeyedCaller,
+    idempotencyKey?: string,
+  ): Promise<APIResponse> {
+    return this.hub.post("/posts/create", body, {
+      token: caller.token,
+      idempotencyKey: keyOf(caller, idempotencyKey),
+    });
   }
 
   edit(body: EditPostRequest, token: string): Promise<APIResponse> {
@@ -94,8 +141,12 @@ export class HubPostsAPI {
     operation: PostOperation,
     body: unknown,
     token?: string,
+    idempotencyKey?: string,
   ): Promise<APIResponse> {
-    return this.hub.post(operation, body, token ? { token } : {});
+    return this.hub.post(operation, body, {
+      ...(token ? { token } : {}),
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+    });
   }
 
   /** A body that is not JSON. */
@@ -103,8 +154,12 @@ export class HubPostsAPI {
     operation: PostOperation,
     body: string,
     token?: string,
+    idempotencyKey?: string,
   ): Promise<APIResponse> {
-    return this.hub.postRaw(operation, body, token ? { token } : {});
+    return this.hub.postRaw(operation, body, {
+      ...(token ? { token } : {}),
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+    });
   }
 }
 
@@ -115,6 +170,7 @@ export type ReplyOperation =
   | "/posts/hide-reply"
   | "/posts/unhide-reply"
   | "/posts/list-replies"
+  | "/posts/locate-reply"
   | "/posts/list-author-replies";
 
 /** Typed clients for the reply operations. Malformed input goes through
@@ -151,6 +207,10 @@ export class HubRepliesAPI {
 
   list(body: ListRepliesRequest, token: string): Promise<APIResponse> {
     return this.hub.post("/posts/list-replies", body, { token });
+  }
+
+  locate(body: LocateReplyRequest, token: string): Promise<APIResponse> {
+    return this.hub.post("/posts/locate-reply", body, { token });
   }
 
   listByAuthor(
@@ -197,8 +257,16 @@ export type QuoteOperation =
 export class HubQuotesAPI {
   constructor(readonly hub: HubAPI) {}
 
-  create(body: CreateQuoteRequest, token: string): Promise<APIResponse> {
-    return this.hub.post("/posts/create-quote", body, { token });
+  /** Sends a fresh key unless the test names one, as a replay does. */
+  create(
+    body: CreateQuoteRequest,
+    caller: KeyedCaller,
+    idempotencyKey?: string,
+  ): Promise<APIResponse> {
+    return this.hub.post("/posts/create-quote", body, {
+      token: caller.token,
+      idempotencyKey: keyOf(caller, idempotencyKey),
+    });
   }
 
   list(body: ListQuotesRequest, token: string): Promise<APIResponse> {
@@ -214,8 +282,12 @@ export class HubQuotesAPI {
     operation: QuoteOperation,
     body: unknown,
     token?: string,
+    idempotencyKey?: string,
   ): Promise<APIResponse> {
-    return this.hub.post(operation, body, token ? { token } : {});
+    return this.hub.post(operation, body, {
+      ...(token ? { token } : {}),
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+    });
   }
 
   /** A body that is not JSON. */
@@ -223,8 +295,12 @@ export class HubQuotesAPI {
     operation: QuoteOperation,
     body: string,
     token?: string,
+    idempotencyKey?: string,
   ): Promise<APIResponse> {
-    return this.hub.postRaw(operation, body, token ? { token } : {});
+    return this.hub.postRaw(operation, body, {
+      ...(token ? { token } : {}),
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+    });
   }
 }
 
@@ -413,4 +489,12 @@ export async function expectQuotes(
 
 export async function expectNoContent(response: APIResponse): Promise<void> {
   expect(response.status(), await response.text()).toBe(204);
+}
+
+export async function expectLocated(
+  response: APIResponse,
+): Promise<LocateReplyResponse> {
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  return (await response.json()) as LocateReplyResponse;
 }

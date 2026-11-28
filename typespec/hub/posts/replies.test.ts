@@ -11,11 +11,13 @@ import {
   isThreadReplyState,
   normalizeEditReplyRequest,
   normalizeListRepliesRequest,
+  normalizeLocateReplyRequest,
   normalizeReplyRequest,
   validateEditReplyRequest,
   validateHideReplyRequest,
   validateListAuthorRepliesRequest,
   validateListRepliesRequest,
+  validateLocateReplyRequest,
   validateRemoveReplyRequest,
   validateReplyRequest,
 } from "./replies.ts";
@@ -94,6 +96,31 @@ test("list requests bound the owner, ids, key, and limit", () => {
     }),
     ["owner", "post_id", "parent_reply_id", "pagination_key"],
   );
+  assert.deepEqual(
+    validateListRepliesRequest({
+      owner: handle,
+      post_id: id,
+      from_reply_id: id,
+    }),
+    [],
+  );
+  for (const request of [
+    { owner: handle, post_id: id, from_reply_id: "x" },
+    { owner: handle, post_id: id, from_reply_id: id, pagination_key: "k" },
+  ]) {
+    assert.deepEqual(validateListRepliesRequest(request), ["from_reply_id"]);
+  }
+  const locate = { owner: `  ${handle}  `, post_id: id, reply_id: id };
+  assert.equal(normalizeLocateReplyRequest(locate).owner, handle);
+  assert.equal(locate.owner, `  ${handle}  `);
+  assert.deepEqual(
+    validateLocateReplyRequest(normalizeLocateReplyRequest(locate)),
+    [],
+  );
+  assert.deepEqual(
+    validateLocateReplyRequest({ owner: "api", post_id: "x", reply_id: "y" }),
+    ["owner", "post_id", "reply_id"],
+  );
   assert.deepEqual(validateListAuthorRepliesRequest({ owner: handle }), []);
   assert.deepEqual(
     validateListAuthorRepliesRequest({
@@ -140,6 +167,16 @@ test("mesh reply requests carry the viewer", () => {
       "viewer_hub_user_did",
       "viewer_handle",
     ],
+  );
+  assert.deepEqual(
+    validateMeshListRepliesRequest({
+      owner_hub_user_did: did,
+      post_id: id,
+      from_reply_id: id,
+      pagination_key: "k",
+      ...viewer,
+    }),
+    ["from_reply_id"],
   );
   assert.deepEqual(
     validateMeshGetReplyRequest({

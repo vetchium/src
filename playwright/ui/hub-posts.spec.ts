@@ -3,13 +3,16 @@ import type { APIRequestContext, Page } from "@playwright/test";
 import type { OperationStatus } from "typespec/hub/operations/operations";
 import type { Post } from "typespec/hub/posts/posts";
 import {
+  databaseNow,
+  hubSubscriptionAuditEvents,
   hubUserDIDForHandle,
   insertHubPosts,
   moveHubPostCreatedAtBack,
+  setHubSubscriptionPeriod,
 } from "../lib/admin-db.ts";
 import { HubAPI, hubIdempotencyKey } from "../lib/hub-api.ts";
 import { HubBlocksAPI } from "../lib/hub-blocks.ts";
-import { expectPost, HubPostsAPI } from "../lib/hub-posts.ts";
+import { expectPost, HubPostsAPI, routeTestKeys } from "../lib/hub-posts.ts";
 import { login } from "../lib/hub-signup.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
 import {
@@ -19,8 +22,10 @@ import {
   test,
 } from "../lib/region-ui.ts";
 
-/** Signs the user in through the portal's own form. */
+/** Signs the user in through the portal's own form. The page's post keys
+ * become test keys, so cleanup removes them. */
 async function signIn(page: Page, user: HubTestUser): Promise<void> {
+  await routeTestKeys(page, user, /\/api\/hub\/posts\/create$/);
   await page.goto(`${HUB_PORTAL}/login`);
   await chooseRegion(page, user.tenant);
   await page.getByLabel("Email address").fill(user.email);
@@ -32,6 +37,8 @@ async function signIn(page: Page, user: HubTestUser): Promise<void> {
 interface Session {
   hub: HubAPI;
   token: string;
+  /** The user's keys, which cleanup removes. */
+  keys: string[];
   posts: HubPostsAPI;
 }
 
@@ -42,7 +49,7 @@ async function session(
 ): Promise<Session> {
   const hub = new HubAPI(request, user.tenant);
   const token = await login(request, user.tenant, user.email, user.password);
-  return { hub, token, posts: new HubPostsAPI(hub) };
+  return { hub, token, keys: user.keys, posts: new HubPostsAPI(hub) };
 }
 
 /** Moves the user to Silver, which posting needs (PST-POS-001). */
@@ -61,7 +68,7 @@ async function createPost(
   body: string,
   extra: { reply_policy?: "everyone" | "nobody" } = {},
 ): Promise<Post> {
-  return expectPost(await s.posts.create({ body, ...extra }, s.token), 201);
+  return expectPost(await s.posts.create({ body, ...extra }, s), 201);
 }
 
 function postURL(address: string, post: Post): string {
@@ -313,9 +320,14 @@ test("the owner saves the reply policy and the lock", async ({
     "false",
   );
   await page.getByRole("switch", { name: "Lock the post" }).click();
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Your changes were saved.")).toBeVisible();
   await expect(page.getByText("locked", { exact: true })).toBeVisible();
+  // A saved form has nothing to save again.
+  await expect(
+    page.getByRole("button", { name: "Save", exact: true }),
+  ).toHaveCount(0);
 
   const read = await expectPost(
     await s.posts.get({ owner: me.handle, post_id: post.post_id }, s.token),
@@ -326,6 +338,95 @@ test("the owner saves the reply policy and the lock", async ({
     quote_policy: "everyone",
     locked: true,
   });
+});
+
+test("the post page has a heading and shows Save only after a policy change", async ({
+  page,
+  request,
+  hubUser,
+}) => {
+  const me = await hubUser("sgp", { displayName: "Heading Owner" });
+  const s = await session(request, me);
+  await upgrade(me, s);
+  const post = await createPost(s, `Heading ${randomUUID()}`);
+  await signIn(page, me);
+  await page.goto(postURL(me.handle, post));
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Post by Heading Owner" }),
+  ).toBeVisible();
+  const save = page.getByRole("button", { name: "Save", exact: true });
+  const discard = page.getByRole("button", { name: "Discard changes" });
+  const lock = page.getByRole("switch", { name: "Lock the post" });
+  await expect(save).toHaveCount(0);
+  await expect(discard).toHaveCount(0);
+  await expect(page.getByText("Unsaved changes")).toHaveCount(0);
+
+  await lock.click();
+  await expect(lock).toBeChecked();
+  await expect(save).toBeVisible();
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
+  await discard.click();
+  await expect(lock).not.toBeChecked();
+  await expect(save).toHaveCount(0);
+  await expect(page.getByText("Unsaved changes")).toHaveCount(0);
+
+  // Toggling back to the saved value leaves nothing to save.
+  await lock.click();
+  await lock.click();
+  await expect(save).toHaveCount(0);
+  const read = await expectPost(
+    await s.posts.get({ owner: me.handle, post_id: post.post_id }, s.token),
+    200,
+  );
+  expect(read.locked).toBe(false);
+});
+
+test("a top-level post of an owner below Silver has no Edit button", async ({
+  page,
+  request,
+  hubUser,
+}) => {
+  const me = await hubUser("sgp");
+  const s = await session(request, me);
+  await upgrade(me, s);
+  const post = await createPost(s, `Frozen ${randomUUID()}`);
+  await signIn(page, me);
+  await page.goto(postURL(me.handle, post));
+  await expect(page.getByRole("button", { name: "Edit" })).toBeVisible();
+
+  // The downgrade applies when the period ends, so the period moves into the
+  // past and the worker applies it (PST-POS-008).
+  const key = hubIdempotencyKey();
+  me.keys.push(key);
+  const response = await s.hub.setSubscriptionPlan(
+    { plan_oid: "hub-free-tier" },
+    { token: s.token, idempotencyKey: key },
+  );
+  expect(response.status(), await response.text()).toBe(200);
+  const did = hubUserDIDForHandle(me.handle, me.tenant);
+  const now = databaseNow(me.tenant);
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+  );
+  const end = new Date(
+    Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1),
+  );
+  setHubSubscriptionPeriod(did, me.tenant, { anchor: start, start, end });
+  await expect
+    .poll(
+      () =>
+        hubSubscriptionAuditEvents(did, me.tenant).filter(
+          (event) =>
+            event.action === "hub.subscription.scheduled-change-applied",
+        ).length,
+      { timeout: 30_000, intervals: [500] },
+    )
+    .toBeGreaterThan(0);
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
 });
 
 test("the Posts tab loads 20 posts and Load more adds the rest", async ({

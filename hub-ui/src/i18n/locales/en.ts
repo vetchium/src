@@ -546,6 +546,7 @@ export const en = {
   },
   posts: {
     title: "Post",
+    heading: "Post by {{name}}",
     documentTitle: "Post by {{name}} | Vetchium",
     pictureAlt: "Profile picture of {{name}}",
     edited: "edited",
@@ -578,6 +579,8 @@ export const en = {
       lock: "Lock the post",
       save: "Save",
       saved: "Your changes were saved.",
+      unsaved: "Unsaved changes",
+      discard: "Discard changes",
     },
     edit: {
       button: "Edit",
@@ -641,6 +644,11 @@ export const en = {
       hideReplies: "Hide replies",
       postRemoved: "The post was removed",
       replyGone: "This reply is not available.",
+      stillPending:
+        "The region of the post author has not answered yet. Select Reply again in a minute to see the result.",
+      fromReply: "You see the replies from the linked reply.",
+      showAll: "Show all replies",
+      tabContext: "Reply to a post by @{{handle}}",
     },
   },
   profileView: {

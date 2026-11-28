@@ -96,6 +96,10 @@ model MeshListRepliesRequest {
   owner_hub_user_did: Vetchium.Hub.HubUserDID;
   post_id: PostID;
   parent_reply_id?: PostID;
+
+  /** Starts the page at this reply (PST-THR-009). Not with `pagination_key`. */
+  from_reply_id?: PostID;
+
   viewer_hub_user_did: Vetchium.Hub.HubUserDID;
   viewer_handle: Vetchium.Hub.HubHandle;
   pagination_key?: Vetchium.PaginationKey;
@@ -266,8 +270,7 @@ alias MeshListRepliesResult =
       @body body: MeshListRepliesResponse;
     }
   | Vetchium.Problem.InvalidPaginationKeyErrorResponse
-  | MeshErrors
-  | Vetchium.Problem.HubPostNotFoundErrorResponse;
+  | MeshReplyErrors;
 
 alias MeshGetReplyResult =
   | {

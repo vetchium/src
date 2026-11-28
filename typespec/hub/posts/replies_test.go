@@ -101,6 +101,35 @@ func TestListReplyRequests(t *testing.T) {
 		t.Fatalf("bad list: %v", got)
 	}
 
+	from, badFrom, realKey := PostID(validID), PostID("x"), common.PaginationKey("k")
+	if got := (ListRepliesRequest{
+		Owner: ownerAddress, PostID: validID, FromReplyID: &from,
+	}).Validate(); len(got) != 0 {
+		t.Fatalf("from: %v", got)
+	}
+	for _, request := range []ListRepliesRequest{
+		{Owner: ownerAddress, PostID: validID, FromReplyID: &badFrom},
+		{Owner: ownerAddress, PostID: validID, FromReplyID: &from, PaginationKey: &realKey},
+	} {
+		if got := request.Validate(); !reflect.DeepEqual(got, []string{"from_reply_id"}) {
+			t.Errorf("from %#v: %v", request, got)
+		}
+	}
+
+	locate := LocateReplyRequest{
+		Owner: "  " + ownerAddress + "  ", PostID: validID, ReplyID: validID,
+	}
+	locateCopy := locate
+	locateCopy.Normalize()
+	if string(locate.Owner) == ownerAddress || string(locateCopy.Owner) != ownerAddress ||
+		len(locateCopy.Validate()) != 0 {
+		t.Fatalf("locate: %#v %v", locateCopy, locateCopy.Validate())
+	}
+	if got := (LocateReplyRequest{Owner: "api", PostID: "x", ReplyID: "y"}).Validate(); !reflect.DeepEqual(
+		got, []string{"owner", "post_id", "reply_id"}) {
+		t.Fatalf("bad locate: %v", got)
+	}
+
 	author := ListAuthorRepliesRequest{Owner: "  " + ownerAddress + "  "}
 	author.Normalize()
 	if string(author.Owner) != ownerAddress || author.EffectiveLimit() != DefaultLimit ||
@@ -150,6 +179,11 @@ func TestMeshReplyRequests(t *testing.T) {
 	}
 	if got := bad.Validate(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("bad list: %v", got)
+	}
+	key := common.PaginationKey("k")
+	list.FromReplyID, list.PaginationKey = &parent, &key
+	if got := list.Validate(); !reflect.DeepEqual(got, []string{"from_reply_id"}) {
+		t.Fatalf("bad from: %v", got)
 	}
 
 	get := MeshGetReplyRequest{

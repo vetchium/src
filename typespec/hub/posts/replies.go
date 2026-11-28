@@ -137,8 +137,10 @@ type ListRepliesRequest struct {
 	Owner         profile.ProfileAddress `json:"owner"`
 	PostID        PostID                 `json:"post_id"`
 	ParentReplyID *PostID                `json:"parent_reply_id,omitempty"`
-	PaginationKey *common.PaginationKey  `json:"pagination_key,omitempty"`
-	Limit         *int32                 `json:"limit,omitempty"`
+	// FromReplyID starts the page at this reply of the list (PST-THR-009).
+	FromReplyID   *PostID               `json:"from_reply_id,omitempty"`
+	PaginationKey *common.PaginationKey `json:"pagination_key,omitempty"`
+	Limit         *int32                `json:"limit,omitempty"`
 }
 
 func (r *ListRepliesRequest) Normalize() {
@@ -160,7 +162,17 @@ func (r ListRepliesRequest) Validate() []string {
 	if r.ParentReplyID != nil && !IsPostID(*r.ParentReplyID) {
 		fields = append(fields, "parent_reply_id")
 	}
+	fields = append(fields, validFrom(r.FromReplyID, r.PaginationKey)...)
 	return append(fields, ValidPage(r.PaginationKey, r.Limit)...)
+}
+
+// validFrom checks a start reply. A page starts at it or after a key, never
+// both.
+func validFrom(from *PostID, key *common.PaginationKey) []string {
+	if from != nil && (!IsPostID(*from) || key != nil) {
+		return []string{"from_reply_id"}
+	}
+	return nil
 }
 
 type ListRepliesResponse struct {
@@ -182,13 +194,45 @@ func IsAuthorReplyState(value AuthorReplyState) bool {
 // AuthorReply is a reply as the Replies tab shows it. It never holds post
 // words (PST-TAB-003).
 type AuthorReply struct {
-	ReplyID         PostID           `json:"reply_id"`
-	PostID          PostID           `json:"post_id"`
-	PostOwnerHandle hub.HubHandle    `json:"post_owner_handle"`
-	Body            string           `json:"body"`
-	State           AuthorReplyState `json:"state"`
-	Edited          bool             `json:"edited"`
-	CreatedAt       time.Time        `json:"created_at"`
+	ReplyID         PostID        `json:"reply_id"`
+	PostID          PostID        `json:"post_id"`
+	PostOwnerHandle hub.HubHandle `json:"post_owner_handle"`
+	// Body is nil when State is post_removed (PST-TAB-002).
+	Body      *string          `json:"body,omitempty"`
+	State     AuthorReplyState `json:"state"`
+	Edited    bool             `json:"edited"`
+	CreatedAt time.Time        `json:"created_at"`
+}
+
+// LocateReplyRequest names one reply of one post, for a reply link
+// (PST-THR-009).
+type LocateReplyRequest struct {
+	Owner   profile.ProfileAddress `json:"owner"`
+	PostID  PostID                 `json:"post_id"`
+	ReplyID PostID                 `json:"reply_id"`
+}
+
+func (r *LocateReplyRequest) Normalize() {
+	r.Owner = normalizeAddress(r.Owner)
+}
+
+func (r LocateReplyRequest) Validate() []string {
+	fields := []string{}
+	if !profile.IsProfileAddress(r.Owner) {
+		fields = append(fields, "owner")
+	}
+	if !IsPostID(r.PostID) {
+		fields = append(fields, "post_id")
+	}
+	if !IsPostID(r.ReplyID) {
+		fields = append(fields, "reply_id")
+	}
+	return fields
+}
+
+type LocateReplyResponse struct {
+	ReplyID       PostID  `json:"reply_id"`
+	ParentReplyID *PostID `json:"parent_reply_id,omitempty"`
 }
 
 type ListAuthorRepliesRequest struct {

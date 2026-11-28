@@ -113,13 +113,15 @@ SELECT (SELECT count(*) FROM updated)::bigint AS updated_rows,
         AS new_version;
 
 -- Removal clears the words and the revisions in one statement (PST-RPL-011).
+-- A reply on a removed post can go too. was_live tells the caller whether the
+-- post owner's tenant still holds a copy to clear.
 -- name: RemoveHubReplyText :one
 WITH target AS (
-    SELECT r.reply_id
+    SELECT r.reply_id, r.state AS old_state
     FROM vetchium.hub_reply_texts AS r
     WHERE r.reply_id = sqlc.arg(reply_id)
       AND r.author_hub_user_did = sqlc.arg(author_hub_user_did)
-      AND r.state = 'live'
+      AND r.state IN ('live', 'post_removed')
     FOR UPDATE
 ), removed AS (
     UPDATE vetchium.hub_reply_texts AS r
@@ -149,7 +151,9 @@ WITH target AS (
 SELECT (SELECT count(*) FROM removed)::bigint AS removed_rows,
     (SELECT count(*) FROM audit)::bigint AS audit_rows,
     COALESCE((SELECT max(removed.version) FROM removed), 0)::bigint
-        AS new_version;
+        AS new_version,
+    EXISTS (SELECT 1 FROM target WHERE target.old_state = 'live')::boolean
+        AS was_live;
 
 -- The receiver of hub-post-removed (PST-RPL-013). Only pending and live
 -- replies change; the operation ID goes with the pending state.
@@ -194,13 +198,15 @@ ORDER BY o.expires_at, r.reply_id
 LIMIT sqlc.arg(page_limit);
 
 -- The reaper deletes only rows that are still pending. One audit event for
--- each deleted row; the audit never holds words.
--- name: DeleteHubReplyTextsByIDs :one
+-- each deleted row; the audit never holds words. It returns the deleted rows,
+-- so the caller tells each post owner (PST-RPL-009).
+-- name: DeleteHubReplyTextsByIDs :many
 WITH deleted AS (
     DELETE FROM vetchium.hub_reply_texts AS r
     WHERE r.reply_id = ANY(sqlc.arg(reply_ids)::text[])
       AND r.state = 'pending'
-    RETURNING r.reply_id, r.author_hub_user_did
+    RETURNING r.reply_id, r.author_hub_user_did, r.post_owner_hub_user_did,
+        r.post_id, r.version
 ), audit AS (
     INSERT INTO vetchium.audit_events (
         tenant_id, action, entity_type, entity_id, actor_type, actor_id,
@@ -212,8 +218,11 @@ WITH deleted AS (
     FROM deleted
     RETURNING audit_event_id
 )
-SELECT (SELECT count(*) FROM deleted)::bigint AS deleted_rows,
-    (SELECT count(*) FROM audit)::bigint AS audit_rows;
+SELECT deleted.reply_id, deleted.author_hub_user_did,
+    deleted.post_owner_hub_user_did, deleted.post_id, deleted.version,
+    (SELECT count(*) FROM audit)::bigint AS audit_rows
+FROM deleted
+ORDER BY deleted.reply_id;
 
 -- ---------------------------------------------------------------------------
 -- Post owner side
@@ -330,8 +339,9 @@ WHERE r.post_id = target.post_id
 RETURNING target.old_state, r.parent_reply_id;
 
 -- One page of a thread (PST-THR-002): top-level replies when parent_reply_id
--- is NULL, else the sub-replies of that reply. The caller asks for one row
--- more than the page size.
+-- is NULL, else the sub-replies of that reply. The page starts after the
+-- `after` position, or at the `from` position (PST-THR-009). The caller asks
+-- for one row more than the page size.
 -- name: ListHubPostReplies :many
 SELECT r.reply_id, r.parent_reply_id, r.author_hub_user_did, r.author_handle,
     r.author_tenant_id, r.body, r.revision, r.state, r.child_count,
@@ -347,6 +357,13 @@ WHERE r.post_id = sqlc.arg(post_id)
         OR (r.created_at, r.reply_id) > (
             sqlc.narg(after_created_at)::timestamptz,
             sqlc.narg(after_reply_id)::text COLLATE "C"
+        )
+    )
+  AND (
+        sqlc.narg(from_created_at)::timestamptz IS NULL
+        OR (r.created_at, r.reply_id) >= (
+            sqlc.narg(from_created_at)::timestamptz,
+            sqlc.narg(from_reply_id)::text COLLATE "C"
         )
     )
 ORDER BY r.created_at ASC, r.reply_id ASC
@@ -405,9 +422,27 @@ WHERE p.post_id = sqlc.arg(post_id)
   AND p.state <> 'live'
   AND p.cleanup_done_at IS NULL;
 
--- name: DeleteHubPostRepliesByPost :execrows
+-- Deletes one batch of the post's structure rows that have no sub-reply row,
+-- so a commit stays bounded and a parent goes after its children.
+-- name: DeleteHubPostReplyLeaves :execrows
+WITH doomed AS (
+    SELECT r.post_id, r.reply_id
+    FROM vetchium.hub_post_replies AS r
+    WHERE r.post_id = sqlc.arg(post_id)
+      AND NOT EXISTS (
+          SELECT 1
+          FROM vetchium.hub_post_replies AS child
+          WHERE child.post_id = r.post_id
+            AND child.parent_reply_id = r.reply_id
+      )
+    ORDER BY r.reply_id
+    LIMIT sqlc.arg(batch)::int
+    FOR UPDATE
+)
 DELETE FROM vetchium.hub_post_replies AS r
-WHERE r.post_id = sqlc.arg(post_id);
+USING doomed
+WHERE r.post_id = doomed.post_id
+  AND r.reply_id = doomed.reply_id;
 
 -- name: MarkHubPostCleanupDone :execrows
 UPDATE vetchium.hub_posts AS p

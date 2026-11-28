@@ -106,6 +106,8 @@ export interface ListRepliesRequest {
   owner: ProfileAddress;
   post_id: PostID;
   parent_reply_id?: PostID;
+  /** Starts the page at this reply of the list (PST-THR-009). */
+  from_reply_id?: PostID;
   pagination_key?: PaginationKey;
   limit?: number;
 }
@@ -127,7 +129,21 @@ export function validateListRepliesRequest(
     !isPostID(request.parent_reply_id)
   )
     fields.push("parent_reply_id");
-  return [...fields, ...validatePage(request.pagination_key, request.limit)];
+  return [
+    ...fields,
+    ...validateFrom(request.from_reply_id, request.pagination_key),
+    ...validatePage(request.pagination_key, request.limit),
+  ];
+}
+
+/** A page starts at a reply or after a key, never both. */
+export function validateFrom(
+  from: PostID | undefined,
+  key: PaginationKey | undefined,
+): string[] {
+  return from !== undefined && (!isPostID(from) || key !== undefined)
+    ? ["from_reply_id"]
+    : [];
 }
 
 export interface ListRepliesResponse {
@@ -151,10 +167,39 @@ export interface AuthorReply {
   reply_id: PostID;
   post_id: PostID;
   post_owner_handle: HubHandle;
-  body: string;
+  /** Absent when `state` is `post_removed`. */
+  body?: string;
   state: AuthorReplyState;
   edited: boolean;
   created_at: string;
+}
+
+/** Names one reply of one post, for a reply link (PST-THR-009). */
+export interface LocateReplyRequest {
+  owner: ProfileAddress;
+  post_id: PostID;
+  reply_id: PostID;
+}
+
+export function normalizeLocateReplyRequest(
+  request: LocateReplyRequest,
+): LocateReplyRequest {
+  return { ...request, owner: request.owner.trim() };
+}
+
+export function validateLocateReplyRequest(
+  request: LocateReplyRequest,
+): string[] {
+  const fields: string[] = [];
+  if (!isProfileAddress(request.owner)) fields.push("owner");
+  if (!isPostID(request.post_id)) fields.push("post_id");
+  if (!isPostID(request.reply_id)) fields.push("reply_id");
+  return fields;
+}
+
+export interface LocateReplyResponse {
+  reply_id: PostID;
+  parent_reply_id?: PostID;
 }
 
 export interface ListAuthorRepliesRequest {

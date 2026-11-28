@@ -9,12 +9,14 @@ import {
 import { HubAPI, hubIdempotencyKey } from "../lib/hub-api.ts";
 import { HubBlocksAPI } from "../lib/hub-blocks.ts";
 import {
+  expectAuthorReplies,
   expectNoContent,
   expectPost,
   expectReplies,
   expectReply,
   HubPostsAPI,
   HubRepliesAPI,
+  routeTestKeys,
 } from "../lib/hub-posts.ts";
 import { login } from "../lib/hub-signup.ts";
 import { HUB_PORTAL } from "../lib/portals.ts";
@@ -28,13 +30,7 @@ import {
 /** Signs the user in through the portal's own form. The page's reply keys
  * become test keys, so cleanup removes them. */
 async function signIn(page: Page, user: HubTestUser): Promise<void> {
-  await page.route(/\/posts\/reply$/, async (route) => {
-    const key = hubIdempotencyKey();
-    user.keys.push(key);
-    await route.continue({
-      headers: { ...route.request().headers(), "idempotency-key": key },
-    });
-  });
+  await routeTestKeys(page, user, /\/api\/hub\/posts\/reply$/);
   await page.goto(`${HUB_PORTAL}/login`);
   await chooseRegion(page, user.tenant);
   await page.getByLabel("Email address").fill(user.email);
@@ -54,6 +50,8 @@ interface Session {
   user: HubTestUser;
   hub: HubAPI;
   token: string;
+  /** The user's keys, which cleanup removes. */
+  keys: string[];
   posts: HubPostsAPI;
   replies: HubRepliesAPI;
   blocks: HubBlocksAPI;
@@ -69,6 +67,7 @@ async function session(
     user,
     hub,
     token,
+    keys: user.keys,
     posts: new HubPostsAPI(hub),
     replies: new HubRepliesAPI(hub),
     blocks: new HubBlocksAPI(hub),
@@ -93,7 +92,7 @@ async function ownerWithPost(
   const owner = await session(request, user);
   await upgrade(owner);
   const post = await expectPost(
-    await owner.posts.create({ body: `Post ${randomUUID()}` }, owner.token),
+    await owner.posts.create({ body: `Post ${randomUUID()}` }, owner),
     201,
   );
   return { owner, post };
@@ -564,6 +563,154 @@ test("a reply link to a reply that is gone says so", async ({
   await expect(page.getByText("This reply is not available.")).toBeVisible();
 });
 
+test("a reply link beyond the first page opens the thread at it", async ({
+  page,
+  request,
+  hubUser,
+}) => {
+  const ownerUser = await hubUser("sgp");
+  const replierUser = await hubUser("sgp");
+  const { owner, post } = await ownerWithPost(request, ownerUser);
+  const replier = await session(request, replierUser);
+  for (let n = 1; n <= 21; n++) await say(replier, owner, post, `Top ${n}`);
+  const target = await say(replier, owner, post, `Target ${randomUUID()}`);
+  await signIn(page, ownerUser);
+  // The page reads one page that starts at the reply, not the whole thread.
+  const lists: unknown[] = [];
+  page.on("request", (sent) => {
+    if (sent.url().endsWith("/api/hub/posts/list-replies")) {
+      lists.push(sent.postDataJSON());
+    }
+  });
+  await page.goto(postURL(ownerUser, post, target.reply_id));
+
+  await expect(card(page, target)).toBeInViewport();
+  await expect(page.getByText("Top 1", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText("You see the replies from the linked reply."),
+  ).toBeVisible();
+  expect(lists).toEqual([
+    expect.objectContaining({ from_reply_id: target.reply_id }),
+  ]);
+
+  await page.getByRole("link", { name: "Show all replies" }).click();
+  await expect(page).toHaveURL(postURL(ownerUser, post));
+  await expect(page.getByText("Top 1", { exact: true })).toBeVisible();
+  await expect(card(page, target)).toHaveCount(0);
+});
+
+test("a reply that stays pending shows that the region has not answered", async ({
+  page,
+  request,
+  hubUser,
+}) => {
+  const ownerUser = await hubUser("sgp");
+  const replierUser = await hubUser("sgp");
+  const { post } = await ownerWithPost(request, ownerUser);
+  await page.clock.install();
+  await signIn(page, replierUser);
+  // The owner's tenant does not answer: the reply stays pending.
+  const operation = randomUUID();
+  await page.route(/\/api\/hub\/posts\/reply$/, (route) =>
+    route.fulfill({ status: 202, json: { operation_id: operation } }),
+  );
+  await page.route(/\/api\/hub\/operations\/status$/, (route) =>
+    route.fulfill({
+      status: 200,
+      json: { operation_id: operation, state: "pending" },
+    }),
+  );
+  await page.goto(postURL(ownerUser, post));
+
+  await page.locator("#reply-body-post").fill(`Pending ${randomUUID()}`);
+  await composer(page, "post").getByRole("button", { name: "Reply" }).click();
+  const notice = page.getByText(
+    "The region of the post author has not answered yet.",
+    { exact: false },
+  );
+  // Each poll waits one second; the page gives up after 30 polls.
+  await expect(async () => {
+    await page.clock.fastForward(1_000);
+    await expect(notice).toBeVisible({ timeout: 100 });
+  }).toPass({ timeout: 25_000, intervals: [0] });
+  await expect(page.getByText("Something went wrong")).toHaveCount(0);
+  await expect(page.locator("#reply-body-post")).not.toHaveValue("");
+});
+
+test("the author removes a reply from the Replies tab, also after the post was removed", async ({
+  page,
+  browser,
+  request,
+  hubUser,
+}) => {
+  const ownerUser = await hubUser("sgp");
+  const replierUser = await hubUser("sgp");
+  const { owner, post } = await ownerWithPost(request, ownerUser);
+  const kept = await expectPost(
+    await owner.posts.create({ body: "Kept post" }, owner),
+    201,
+  );
+  const replier = await session(request, replierUser);
+  const onKept = await say(replier, owner, kept, `Kept ${randomUUID()}`);
+  const onGone = await say(replier, owner, post, `Gone ${randomUUID()}`);
+  await expectNoContent(
+    await owner.posts.remove({ post_id: post.post_id }, owner.token),
+  );
+  // Post cleanup tells the author's tenant after the removal commits.
+  await expect
+    .poll(
+      async () => {
+        const listed = await expectAuthorReplies(
+          await replier.replies.listByAuthor(
+            { owner: replierUser.handle },
+            replier.token,
+          ),
+        );
+        return listed.replies.find((r) => r.reply_id === onGone.reply_id)
+          ?.state;
+      },
+      { timeout: 30_000, intervals: [500] },
+    )
+    .toBe("post_removed");
+
+  // Another viewer sees the context but no Remove.
+  const viewer = await guest(browser, ownerUser);
+  try {
+    await viewer.goto(`${HUB_PORTAL}/u/${replierUser.handle}`);
+    await viewer.getByRole("tab", { name: "Replies" }).click();
+    await expect(
+      viewer.getByRole("link", {
+        name: `Reply to a post by @${ownerUser.handle}`,
+      }),
+    ).toBeVisible();
+    await expect(viewer.getByRole("button", { name: "Remove" })).toHaveCount(0);
+  } finally {
+    await viewer.context().close();
+  }
+
+  await signIn(page, replierUser);
+  await page.goto(`${HUB_PORTAL}/u/${replierUser.handle}`);
+  await page.getByRole("tab", { name: "Replies" }).click();
+  for (const marker of ["The post was removed", onKept.body ?? ""]) {
+    const item = page.locator(".ant-card").filter({ hasText: marker });
+    await expect(item).toHaveCount(1);
+    await item.getByRole("button", { name: "Remove" }).click();
+    await page
+      .getByRole("dialog", { name: "Remove this reply?" })
+      .getByRole("button", { name: "Remove" })
+      .click();
+    await expect(item).toHaveCount(0);
+  }
+  await expect(page.getByText("No replies yet.")).toBeVisible();
+  const left = await expectAuthorReplies(
+    await replier.replies.listByAuthor(
+      { owner: replierUser.handle },
+      replier.token,
+    ),
+  );
+  expect(left.replies).toEqual([]);
+});
+
 test("the Replies tab lists the replies and marks one whose post was removed", async ({
   page,
   request,
@@ -574,7 +721,7 @@ test("the Replies tab lists the replies and marks one whose post was removed", a
   const viewerUser = await hubUser("sgp");
   const { owner, post } = await ownerWithPost(request, ownerUser);
   const kept = await expectPost(
-    await owner.posts.create({ body: "Kept post" }, owner.token),
+    await owner.posts.create({ body: "Kept post" }, owner),
     201,
   );
   const replier = await session(request, replierUser);

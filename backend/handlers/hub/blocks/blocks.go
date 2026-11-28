@@ -6,9 +6,11 @@ package blocks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/vetchium/src/typespec/common"
@@ -181,14 +183,24 @@ func Block(s *hubruntime.Server) http.HandlerFunc {
 	})
 }
 
+// Unblock and Unmute first look for a row that keeps the address as its
+// handle. Such a removal needs no directory, so it works while the directory
+// or the other tenant is down. An alias, or an address no row keeps, goes
+// through the directory.
 func Unblock(s *hubruntime.Server) http.HandlerFunc {
-	return change(s, func(ctx context.Context, me pgtype.UUID, t target) error {
-		_, err := s.Queries.DeleteHubUserBlock(ctx, sqlc.DeleteHubUserBlockParams{
-			BlockerHubUserDid: me, BlockedHubUserDid: t.did,
-			TenantID: s.TenantID,
+	return removal(s,
+		func(ctx context.Context, me pgtype.UUID, handle string) (pgtype.UUID, error) {
+			return s.Queries.GetHubUserBlockByHandle(ctx, sqlc.GetHubUserBlockByHandleParams{
+				BlockerHubUserDid: me, BlockedHandle: handle,
+			})
+		},
+		func(ctx context.Context, me, other pgtype.UUID) error {
+			_, err := s.Queries.DeleteHubUserBlock(ctx, sqlc.DeleteHubUserBlockParams{
+				BlockerHubUserDid: me, BlockedHubUserDid: other,
+				TenantID: s.TenantID,
+			})
+			return err
 		})
-		return err
-	})
 }
 
 func Mute(s *hubruntime.Server) http.HandlerFunc {
@@ -203,13 +215,53 @@ func Mute(s *hubruntime.Server) http.HandlerFunc {
 }
 
 func Unmute(s *hubruntime.Server) http.HandlerFunc {
-	return change(s, func(ctx context.Context, me pgtype.UUID, t target) error {
-		_, err := s.Queries.DeleteHubUserMute(ctx, sqlc.DeleteHubUserMuteParams{
-			MuterHubUserDid: me, MutedHubUserDid: t.did,
-			TenantID: s.TenantID,
+	return removal(s,
+		func(ctx context.Context, me pgtype.UUID, handle string) (pgtype.UUID, error) {
+			return s.Queries.GetHubUserMuteByHandle(ctx, sqlc.GetHubUserMuteByHandleParams{
+				MuterHubUserDid: me, MutedHandle: handle,
+			})
+		},
+		func(ctx context.Context, me, other pgtype.UUID) error {
+			_, err := s.Queries.DeleteHubUserMute(ctx, sqlc.DeleteHubUserMuteParams{
+				MuterHubUserDid: me, MutedHubUserDid: other,
+				TenantID: s.TenantID,
+			})
+			return err
 		})
-		return err
-	})
+}
+
+// removal is the shape of unblock and unmute. find reads the DID of a row
+// that keeps the address as its handle.
+func removal(
+	s *hubruntime.Server,
+	find func(context.Context, pgtype.UUID, string) (pgtype.UUID, error),
+	run func(context.Context, pgtype.UUID, pgtype.UUID) error,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request blocksspec.BlockUserRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		ctx := r.Context()
+		identity, _ := middleware.HubIdentityFromContext(ctx)
+		other, err := find(ctx, identity.UserDID, string(request.User))
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			resolved, ok := resolve(s, w, r, request.User)
+			if !ok {
+				return
+			}
+			other = resolved.did
+		case err != nil:
+			s.InternalError(ctx, w, "read Hub user block", err)
+			return
+		}
+		if err := run(ctx, identity.UserDID, other); err != nil {
+			s.InternalError(ctx, w, "change Hub user block", err)
+			return
+		}
+		s.Empty(ctx, w, http.StatusNoContent)
+	}
 }
 
 // State tells whether the caller blocked and muted one user.

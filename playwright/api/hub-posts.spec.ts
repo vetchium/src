@@ -6,7 +6,10 @@ import type {
   MeshListPostsResponse,
 } from "typespec/hub/posts/mesh";
 import type { Post, PostID } from "typespec/hub/posts/posts";
-import { InvalidPaginationKeyError } from "typespec/problem/common";
+import {
+  IdempotencyKeyConflictError,
+  InvalidPaginationKeyError,
+} from "typespec/problem/common";
 import {
   InvalidJSONError,
   ValidationFailedError,
@@ -37,6 +40,7 @@ import {
   expectPost,
   expectProblem,
   HubPostsAPI,
+  type KeyedCaller,
   type PostOperation,
 } from "../lib/hub-posts.ts";
 import { meshPeerRequest, meshRelayRequest } from "../lib/mesh.ts";
@@ -62,10 +66,10 @@ function randomHubUserDID(): string {
 
 async function created(
   api: HubPostsAPI,
-  token: string,
+  author: KeyedCaller,
   body: string,
 ): Promise<Post> {
-  return expectPost(await api.create({ body }, token), 201);
+  return expectPost(await api.create({ body }, author), 201);
 }
 
 test("create makes a post on Silver, trims the body, keeps inner whitespace, and audits without words", async ({
@@ -76,7 +80,7 @@ test("create makes a post on Silver, trims the body, keeps inner whitespace, and
   try {
     const author = await cast.silver("sgp", "Poster");
     const first = await expectPost(
-      await api.create({ body: "  Hello\n\n  world \t" }, author.token),
+      await api.create({ body: "  Hello\n\n  world \t" }, author),
       201,
     );
     expect(first).toMatchObject({
@@ -97,7 +101,7 @@ test("create makes a post on Silver, trims the body, keeps inner whitespace, and
     const second = await expectPost(
       await api.create(
         { body: "Closed", reply_policy: "nobody", quote_policy: "nobody" },
-        author.token,
+        author,
       ),
       201,
     );
@@ -128,7 +132,7 @@ test("create accepts 512 multi-byte code points and refuses 513, empty, blank, a
   try {
     const author = await cast.silver("sgp");
     const emoji = "\u{1F600}".repeat(512);
-    const accepted = await created(api, author.token, emoji);
+    const accepted = await created(api, author, emoji);
     expect([...accepted.body]).toHaveLength(512);
     expect(accepted.body).toBe(emoji);
 
@@ -140,7 +144,7 @@ test("create accepts 512 multi-byte code points and refuses 513, empty, blank, a
       "bad\u0000body",
     ];
     for (const body of refused) {
-      const response = await api.create({ body }, author.token);
+      const response = await api.create({ body }, author);
       await expectProblem(response, 400, ValidationFailedError.type);
     }
     const listed = await expectList(
@@ -192,7 +196,7 @@ test("create on the free tier is refused with hub-plan-required and Silver is na
   const api = new HubPostsAPI(new HubAPI(request, "sgp"));
   try {
     const free = await cast.user("sgp");
-    const response = await api.create({ body: "Hello" }, free.token);
+    const response = await api.create({ body: "Hello" }, free);
     expect(response.status(), await response.text()).toBe(403);
     expect(await response.json()).toMatchObject({
       type: PlanRequiredErrorType,
@@ -218,8 +222,8 @@ test("create returns 429 hub-post-limit-reached after 100 posts in 24 hours and 
   try {
     const author = await cast.silver("sgp");
     insertHubPosts(author.did, "sgp", 99);
-    await created(api, author.token, "The hundredth");
-    const refused = await api.create({ body: "One too many" }, author.token);
+    await created(api, author, "The hundredth");
+    const refused = await api.create({ body: "One too many" }, author);
     await expectProblem(refused, 429, HubPostLimitReachedError.type);
     expect(hubAuditEventsForActor(author.did, "hub.post.created")).toHaveLength(
       1,
@@ -233,6 +237,77 @@ test("create returns 429 hub-post-limit-reached after 100 posts in 24 hours and 
   }
 });
 
+test("create replays one post for one Idempotency-Key and refuses a changed body or a missing key", async ({
+  request,
+}) => {
+  const cast = new Cast(request);
+  const api = new HubPostsAPI(new HubAPI(request, "sgp"));
+  try {
+    const author = await cast.silver("sgp");
+    const key = cast.key(author);
+    const first = await expectPost(
+      await api.create({ body: "Once" }, author, key),
+      201,
+    );
+    // A lost answer is retried with the same key: one post, one audit event.
+    const replay = await expectPost(
+      await api.create({ body: "Once" }, author, key),
+      201,
+    );
+    expect(replay).toEqual(first);
+    await expectProblem(
+      await api.create({ body: "Changed" }, author, key),
+      409,
+      IdempotencyKeyConflictError.type,
+    );
+    for (const header of [undefined, "short"]) {
+      const response = await api.raw(
+        "/posts/create",
+        { body: "No key" },
+        author.token,
+        header,
+      );
+      await expectProblem(response, 400, ValidationFailedError.type);
+      expect((await response.json()).fields).toEqual(["Idempotency-Key"]);
+    }
+    const listed = await expectList(
+      await api.list({ owner: author.handle }, author.token),
+    );
+    expect(listed.posts.map((post) => post.post_id)).toEqual([first.post_id]);
+    expect(hubAuditEventsForActor(author.did, "hub.post.created")).toHaveLength(
+      1,
+    );
+  } finally {
+    cast.cleanup();
+  }
+});
+
+test("concurrent creates at 99 posts let exactly one through the 100-post cap", async ({
+  request,
+}) => {
+  const cast = new Cast(request);
+  const api = new HubPostsAPI(new HubAPI(request, "sgp"));
+  try {
+    const author = await cast.silver("sgp");
+    insertHubPosts(author.did, "sgp", 99);
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, (_, n) =>
+        api.create({ body: `Race ${n}` }, author),
+      ),
+    );
+    const statuses = responses.map((response) => response.status()).sort();
+    expect(statuses).toEqual([201, 429, 429, 429, 429]);
+    for (const response of responses.filter((r) => r.status() === 429)) {
+      await expectProblem(response, 429, HubPostLimitReachedError.type);
+    }
+    expect(hubAuditEventsForActor(author.did, "hub.post.created")).toHaveLength(
+      1,
+    );
+  } finally {
+    cast.cleanup();
+  }
+});
+
 test("edit changes the body, sets edited and revision 2, and audits the revision only", async ({
   request,
 }) => {
@@ -240,7 +315,7 @@ test("edit changes the body, sets edited and revision 2, and audits the revision
   const api = new HubPostsAPI(new HubAPI(request, "sgp"));
   try {
     const author = await cast.silver("sgp");
-    const post = await created(api, author.token, "First words");
+    const post = await created(api, author, "First words");
     const edited = await expectPost(
       await api.edit(
         { post_id: post.post_id, body: "  Second words ", revision: 1 },
@@ -280,7 +355,7 @@ test("edit with a stale revision returns hub-post-conflict and keeps the body", 
   const api = new HubPostsAPI(new HubAPI(request, "sgp"));
   try {
     const author = await cast.silver("sgp");
-    const post = await created(api, author.token, "Original");
+    const post = await created(api, author, "Original");
     await expectPost(
       await api.edit(
         { post_id: post.post_id, body: "Changed", revision: 1 },
@@ -318,7 +393,7 @@ test("edit after the 30-minute window returns hub-post-edit-closed, while polici
   const api = new HubPostsAPI(new HubAPI(request, "sgp"));
   try {
     const author = await cast.silver("sgp");
-    const post = await created(api, author.token, "Aging post");
+    const post = await created(api, author, "Aging post");
     moveHubPostCreatedAtBack(post.post_id, "sgp", 31);
     const closed = await api.edit(
       { post_id: post.post_id, body: "Too late", revision: 1 },
@@ -356,7 +431,7 @@ test("edit, remove, set-policies, and get of another user's post return hub-post
   try {
     const author = await cast.silver("sgp");
     const stranger = await cast.silver("sgp");
-    const post = await created(api, author.token, "Mine");
+    const post = await created(api, author, "Mine");
     const refusals = [
       await api.edit(
         { post_id: post.post_id, body: "Theirs", revision: 1 },
@@ -424,8 +499,8 @@ test("a downgrade below Silver freezes edits with hub-plan-required, while set-p
   const api = new HubPostsAPI(new HubAPI(request, "sgp"));
   try {
     const author = await cast.silver("sgp");
-    const frozen = await created(api, author.token, "Frozen soon");
-    const removed = await created(api, author.token, "Removed later");
+    const frozen = await created(api, author, "Frozen soon");
+    const removed = await created(api, author, "Removed later");
     await cast.downgrade(author);
 
     const edit = await api.edit(
@@ -457,7 +532,7 @@ test("a downgrade below Silver freezes edits with hub-plan-required, while set-p
     });
     const remove = await api.remove({ post_id: removed.post_id }, author.token);
     expect(remove.status(), await remove.text()).toBe(204);
-    const create = await api.create({ body: "Again" }, author.token);
+    const create = await api.create({ body: "Again" }, author);
     expect(create.status(), await create.text()).toBe(403);
   } finally {
     cast.cleanup();
@@ -471,8 +546,8 @@ test("remove clears the post, answers hub-post-not-found on get and repeat, drop
   const api = new HubPostsAPI(new HubAPI(request, "sgp"));
   try {
     const author = await cast.silver("sgp");
-    const keep = await created(api, author.token, "Keep");
-    const drop = await created(api, author.token, "Drop me");
+    const keep = await created(api, author, "Keep");
+    const drop = await created(api, author, "Drop me");
     const removed = await api.remove({ post_id: drop.post_id }, author.token);
     expect(removed.status(), await removed.text()).toBe(204);
     expect(await removed.text()).toBe("");
@@ -509,7 +584,7 @@ test("remove clears the post, answers hub-post-not-found on get and repeat, drop
     // used to post without limit.
     insertHubPosts(author.did, "sgp", 98);
     await expectProblem(
-      await api.create({ body: "Over" }, author.token),
+      await api.create({ body: "Over" }, author),
       429,
       HubPostLimitReachedError.type,
     );
@@ -525,7 +600,7 @@ test("set-policies changes both policies and the lock, audits, and refuses inval
   const api = new HubPostsAPI(new HubAPI(request, "sgp"));
   try {
     const author = await cast.silver("sgp");
-    const post = await created(api, author.token, "Policy post");
+    const post = await created(api, author, "Policy post");
     const changed = await expectPost(
       await api.setPolicies(
         {
@@ -627,7 +702,7 @@ test("edit, remove, and get refuse invalid IDs, revisions, owners, and malformed
   const api = new HubPostsAPI(new HubAPI(request, "sgp"));
   try {
     const author = await cast.silver("sgp");
-    const post = await created(api, author.token, "Valid");
+    const post = await created(api, author, "Valid");
     const cases: Array<[PostOperation, unknown]> = [
       ["/posts/edit", { post_id: "short", body: "x", revision: 1 }],
       ["/posts/edit", { post_id: post.post_id, body: "", revision: 1 }],
@@ -693,11 +768,11 @@ test("list orders newest first, pages by signed keys, and refuses tampered, fore
 
     const ids: PostID[] = [];
     for (const body of ["one", "two", "three"]) {
-      ids.push((await created(api, author.token, body)).post_id);
+      ids.push((await created(api, author, body)).post_id);
     }
-    await created(api, other.token, "Someone else");
+    await created(api, other, "Someone else");
     // A removed post stays out of every page.
-    const gone = await created(api, author.token, "gone");
+    const gone = await created(api, author, "gone");
     await api.remove({ post_id: gone.post_id }, author.token);
 
     const first = await expectList(
@@ -729,7 +804,7 @@ test("list orders newest first, pages by signed keys, and refuses tampered, fore
         await api.list({ owner: other.handle, limit: 1 }, viewer.token),
       )
     ).next_pagination_key;
-    await created(api, other.token, "Someone else, again");
+    await created(api, other, "Someone else, again");
     const foreign = (
       await expectList(
         await api.list({ owner: other.handle, limit: 1 }, viewer.token),
@@ -827,7 +902,7 @@ test("list of a muted owner returns muted true and no posts, and unmuting restor
   try {
     const author = await cast.silver("sgp");
     const viewer = await cast.user("sgp");
-    await created(api, author.token, "Visible");
+    await created(api, author, "Visible");
     const mute = await blocks.mute({ user: author.handle }, viewer.token);
     expect(mute.status(), await mute.text()).toBe(204);
     expect(
@@ -860,8 +935,8 @@ test("list and get read a post of a user in another region and page with signed 
   try {
     const author = await cast.silver("sgp", "Remote Poster");
     const viewer = await cast.user("usa1", "Home Viewer");
-    const one = await created(remote, author.token, "remote one");
-    const two = await created(remote, author.token, "remote two");
+    const one = await created(remote, author, "remote one");
+    const two = await created(remote, author, "remote two");
 
     const page = await expectList(
       await viewerAPI.list({ owner: author.handle, limit: 1 }, viewer.token),
@@ -939,7 +1014,7 @@ test("mesh post list and get-many serve a verified viewer and refuse an unverifi
   try {
     const author = await cast.silver("sgp", "Mesh Poster");
     const viewer = await cast.user("usa1", "Mesh Viewer");
-    const post = await created(remote, author.token, "mesh words");
+    const post = await created(remote, author, "mesh words");
     const list: MeshListPostsRequest = {
       owner_hub_user_did: author.did,
       viewer_hub_user_did: viewer.did,
@@ -1056,7 +1131,7 @@ test("mesh post reads reject malformed JSON, invalid fields, bad pagination keys
   try {
     const author = await cast.silver("sgp");
     const viewer = await cast.user("usa1");
-    await created(remote, author.token, "x");
+    await created(remote, author, "x");
     const list: MeshListPostsRequest = {
       owner_hub_user_did: author.did,
       viewer_hub_user_did: viewer.did,

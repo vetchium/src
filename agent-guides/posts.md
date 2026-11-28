@@ -73,6 +73,11 @@ portal screens.
 - **PST-POS-003** A Hub user creates at most 100 posts (top-level and quote,
   any state) in a rolling 24 hours. Lock the `hub_users` row, count, and
   insert in one transaction. Refuse with `hub-post-limit-reached` (`429`).
+- **PST-POS-013** `create` and `create-quote` take an `Idempotency-Key`
+  (`handlerauth.RunIdempotent`, 24-hour replay, bound to the author's DID).
+  Read the new post in the same transaction, so a replay answers the same
+  post. `create-quote` reads its target before the transaction. It skips that
+  read when `handlerauth.Recorded` finds an answer for the key.
 - **PST-POS-004** A post has `reply_policy` and `quote_policy`, each
   `everyone` or `nobody`. The default is `everyone`.
 - **PST-POS-005** The author changes either policy and the lock at any time.
@@ -131,22 +136,27 @@ portal screens.
   clears the operation ID on success. It deletes a `pending` row on a
   rejection or an abandon. It changes no row in another state.
 - **PST-RPL-009** The `reap-hub-pending-replies` job deletes `pending` rows
-  whose operation is past `expires_at`, with an audit event in the same
-  transaction.
+  whose operation is past `expires_at`. In the same transaction it writes an
+  audit event and enqueues `hub-reply-removed` to the post owner. The command
+  can reach the owner's tenant before it expires, so a reply copy can exist
+  there.
 - **PST-RPL-010** The reply author edits a live reply for 30 minutes, as in
   PST-POS-006, with `hub_reply_revisions`. The edit enqueues
   `hub-reply-edited` to the post owner. The receiver updates the reply copy.
-- **PST-RPL-011** The reply author removes a reply. The author's tenant sets
-  `removed`, clears the body, deletes its revisions, and enqueues
-  `hub-reply-removed`. The receiver sets the structure row to
-  `author_removed` and clears the reply copy.
+- **PST-RPL-011** The reply author removes a `live` or `post_removed` reply.
+  The author's tenant sets `removed`, clears the body, and deletes its
+  revisions. It enqueues `hub-reply-removed` only for a `live` reply, because
+  post cleanup deleted the structure of a removed post. The receiver sets the
+  structure row to `author_removed` and clears the reply copy.
 - **PST-RPL-012** The post owner hides and unhides a reply (`hidden_by_owner`,
   `live`). The words stay in the reply author's tenant.
-- **PST-RPL-013** Post cleanup: the `clean-removed-hub-posts` job enqueues
-  `hub-post-removed` to each distinct reply author, at most 100 authors in
-  each commit. The receiver sets that author's `pending` and `live` replies on
-  the post to `post_removed` and clears the operation ID. Then the job deletes
-  the post's structure rows and quote rows.
+- **PST-RPL-013** Post cleanup: the `clean-removed-hub-posts` job runs one
+  step in each commit and audits it. Steps, in order: enqueue
+  `hub-post-removed` to at most 100 distinct reply authors and record the
+  last one; delete at most 1,000 structure rows that have no child row; delete
+  at most 1,000 quote rows; mark the post done (`cleanup_done_at`). The
+  receiver sets that author's `pending` and `live` replies on the post to
+  `post_removed` and clears the operation ID.
 - **PST-RPL-014** Count rule: the reply count and the parent's child count go
   down only when a structure row leaves `live`, and up when it returns. The
   child row count never goes down.
@@ -183,6 +193,12 @@ portal screens.
   home tenant and reads each tenant in parallel with a 2-second deadline. It
   lists the handles it could not read as `unavailable`.
 - **PST-THR-008** A removed post returns `hub-post-not-found` for the thread.
+- **PST-THR-009** A reply link calls `locate-reply`. It returns the reply ID
+  and its parent ID, no words. Then the portal lists the top level from the
+  parent, or from the reply when it is top-level, with `from_reply_id`. It
+  lists the parent's sub-replies from the reply. `from_reply_id` and
+  `pagination_key` are exclusive (`validation-failed`). A reply that is not in
+  that list returns `hub-reply-not-found`.
 
 ## Replies tab
 
@@ -192,7 +208,10 @@ portal screens.
 - **PST-TAB-002** A `live` item links to
   `/u/<post owner address>/posts/<post-id>/replies/<reply-id>`. A
   `post_removed` item shows "The post was removed" and no link.
-- **PST-TAB-003** The tab never reads post words.
+- **PST-TAB-003** The tab never reads post words. A `post_removed` item has
+  no `body`.
+- **PST-TAB-004** Each item names the post owner. The author sees Remove on
+  each item (PST-RPL-011).
 
 ## Quotes
 
@@ -220,7 +239,10 @@ portal screens.
   `quoter_hub_user_did`.
 - **PST-QTE-008** The target post owner detaches a quote. The owner's tenant
   sets `detached_at` and reduces the quote count, only where `detached_at` is
-  `NULL`.
+  `NULL`. A directory that does not answer returns `hub-post-unavailable`.
+- **PST-QTE-013** A receiver that changes a post's quote count locks the post
+  row (`LockHubPostForQuote`) before it reads or writes the quote row. Every
+  writer takes the post lock first, so two writers never deadlock.
 - **PST-QTE-009** An embed reads the target from the owner's tenant
   (`/mesh/posts/read-embeds`), batched by region. A detached, removed, or
   missing target returns `unavailable`. The portal shows "This post is not
@@ -251,7 +273,8 @@ portal screens.
   Replies tabs show "You muted this user" to A and no items.
 - **PST-BLK-006** A Hub user blocks or mutes another Hub user by address. A
   Hub user cannot block or mute themselves (`validation-failed`). A repeat
-  block or mute is a no-op `204`.
+  block or mute is a no-op `204`. Unblock and unmute first find the row by its
+  stored handle. Only an alias or an unknown handle goes to the directory.
 - **PST-BLK-007** Block and mute lists show newest first, default limit 20,
   maximum 50, with the other user's handle. Cards come from
   `read-cards`.
@@ -264,10 +287,9 @@ portal screens.
   with a 2-second deadline for each region. It returns partial results. It
   re-resolves `not-homed` principals once and reads again, one call for each
   tenant.
-- **PST-RD-002** A merged sorted list takes the first `limit` items, sets each
-  region's cursor to its last taken item, and marks a region done only when it
-  answered, said it has no more, and all its items were taken. Never mark a
-  region done after a timeout or an error.
+- **PST-RD-002** A batch read reads each table once for all its items, never
+  once per item. One item that cannot be read leaves only that item
+  unavailable.
 - **PST-RD-003** Every mesh read carries the viewer's DID and handle. The
   serving tenant verifies that the calling tenant homes the viewer
   (`federation.md`, "Reads and privacy").
@@ -276,18 +298,21 @@ portal screens.
 
 ## Retention
 
-- **PST-RET-001** The daily `purge-hub-posts` job hard-deletes posts, their
-  revisions, reply texts, reply revisions, structure rows, and quote rows
-  whose `created_at` is more than 5 years old, in any state. It deletes at
-  most 1,000 rows in each commit and audits each commit.
+- **PST-RET-001** The daily `purge-hub-posts` job works on rows whose
+  `created_at` is more than 5 years old, by the database clock. In order: it
+  deletes post revisions; it retires live posts as a removal does
+  (PST-POS-007) and enqueues `hub-post-unquoted` for each timeline quote; it
+  deletes posts whose cleanup is done (PST-RPL-013); it deletes reply
+  revisions and reply texts. Each commit changes at most 1,000 rows of one
+  table and writes one audit event.
 
 ## Hub portal
 
 | Route | Shows and does |
 | --- | --- |
 | `/u/:address` | Tabs: Profile, Posts, Replies. The owner on Silver+ gets a composer on Posts. A menu has Block, Unblock, Mute, Unmute for another user. |
-| `/u/:address/posts/:postId` | The post, its embed, the author's policy, lock, edit, and remove controls, replies with Load more, sub-replies, the reply composer, and Hide and Unhide for the owner |
-| `/u/:address/posts/:postId/replies/:replyId` | The thread, scrolled to the reply, with the reply highlighted |
+| `/u/:address/posts/:postId` | A level-1 heading, the post, its embed, the author's policy, lock, edit, and remove controls, replies with Load more, sub-replies, the reply composer, and Hide and Unhide for the owner |
+| `/u/:address/posts/:postId/replies/:replyId` | The thread from the reply (PST-THR-009), scrolled to it, with the reply highlighted and a "Show all replies" link |
 | `/u/:address/posts/:postId/quotes` | Quote posts with Load more, a partial-page notice, and Detach for the target owner |
 | `/settings/blocks` | Blocked and muted users with Unblock and Unmute. Settings menu entry "Blocks and mutes". |
 | `/org/:domain/openings/:number` | A Quote button that opens the quote composer |
@@ -298,4 +323,11 @@ portal screens.
   again later."
 - **PST-UI-004** A Hub user below Silver sees an upgrade prompt in place of the
   composer on their own Posts tab.
-- **PST-UI-005** Edit controls show only inside the 30-minute window.
+- **PST-UI-005** Edit controls show only inside the 30-minute window. A
+  frozen top-level post (PST-POS-008) shows no Edit.
+- **PST-UI-006** The policy form shows "Unsaved changes", Save, and Discard
+  changes only after a change. It guards navigation while a change is
+  unsaved.
+- **PST-UI-007** A reply that stays `202` after the polls shows that the post
+  author's region has not answered. The composer keeps the words and the key,
+  so Reply again replays.

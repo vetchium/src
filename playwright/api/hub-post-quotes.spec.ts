@@ -9,7 +9,10 @@ import type {
 } from "typespec/hub/posts/mesh";
 import type { Post } from "typespec/hub/posts/posts";
 import type { OrgOpening } from "typespec/orgs/openings/types";
-import { InvalidPaginationKeyError } from "typespec/problem/common";
+import {
+  IdempotencyKeyConflictError,
+  InvalidPaginationKeyError,
+} from "typespec/problem/common";
 import {
   InvalidJSONError,
   ValidationFailedError,
@@ -24,10 +27,12 @@ import {
 } from "typespec/problem/hub/posts";
 import { ProfileNotFoundError } from "typespec/problem/hub/profile";
 import {
+  cleanupHubUser,
   deleteHubPostQuoteRow,
   hubAuditEventsForActor,
   hubPostQuoteRow,
   insertHubPosts,
+  seedActiveHubUser,
   type TestTenant,
 } from "../lib/admin-db.ts";
 import { expect, test } from "../lib/admin-fixtures.ts";
@@ -37,6 +42,7 @@ import { setHubHome } from "../lib/hub-applicant.ts";
 import { HubBlocksAPI } from "../lib/hub-blocks.ts";
 import {
   Cast,
+  expectList,
   expectNoContent,
   expectPost,
   expectProblem,
@@ -117,7 +123,7 @@ async function world(
   const owner = await cast.silver(scenario.owner, "Quote Owner");
   const quoter = await cast.user(scenario.quoter, "Quote Quoter");
   const post = await expectPost(
-    await at.posts.create({ body: "The post" }, owner.token),
+    await at.posts.create({ body: "The post" }, owner),
     201,
   );
   return { owner, quoter, post, at, from };
@@ -140,7 +146,7 @@ async function say(
   extra: Record<string, unknown> = {},
 ): Promise<Post> {
   return expectPost(
-    await api.create({ target: target(w), body, ...extra }, user.token),
+    await api.create({ target: target(w), body, ...extra }, user),
     201,
   );
 }
@@ -256,7 +262,7 @@ for (const scenario of scenarios) {
       const first = await expectPost(
         await w.from.quotes.create(
           { target: target(w), body: "  Worth\n\n reading \t" },
-          w.quoter.token,
+          w.quoter,
         ),
         201,
       );
@@ -327,7 +333,7 @@ for (const scenario of scenarios) {
       const nested = await expectPost(
         await w.at.quotes.create(
           { target: target(w, first, w.quoter), body: "Quote of a quote" },
-          w.owner.token,
+          w.owner,
         ),
         201,
       );
@@ -375,7 +381,7 @@ for (const scenario of scenarios) {
             target: { type: "timeline_post", owner: handle, post_id: post },
             body: "Hi",
           },
-          w.quoter.token,
+          w.quoter,
         );
       const policy = (quote_policy: "everyone" | "nobody") =>
         w.at.posts.setPolicies(
@@ -473,7 +479,7 @@ for (const scenario of scenarios) {
             },
             body: "Look at this job",
           },
-          w.quoter.token,
+          w.quoter,
         );
 
       const made = await expectPost(await quote(published.opening_number), 201);
@@ -595,7 +601,7 @@ for (const scenario of scenarios) {
 
       // A key belongs to one post.
       const another = await expectPost(
-        await w.at.posts.create({ body: "Another" }, w.owner.token),
+        await w.at.posts.create({ body: "Another" }, w.owner),
         201,
       );
       await expectProblem(
@@ -663,6 +669,59 @@ for (const scenario of scenarios) {
         HubPostNotFoundError.type,
       );
     } finally {
+      cast.cleanup();
+    }
+  });
+
+  test(`create-quote (${scenario.name}) replays one quote for one Idempotency-Key, also while the target's region does not answer, and refuses a changed body`, async ({
+    request,
+  }) => {
+    const cast = new Cast(request);
+    let owner: PostUser | undefined;
+    try {
+      const w = await world(cast, request, scenario);
+      owner = w.owner;
+      const key = cast.key(w.quoter);
+      const body = { target: target(w), body: "Quoted once" };
+      const first = await expectPost(
+        await w.from.quotes.create(body, w.quoter, key),
+        201,
+      );
+      await awaitCount(w, 1);
+      // A replay answers from the record and reads no target.
+      setHubHome(w.owner.did, "gone");
+      try {
+        const replay = await expectPost(
+          await w.from.quotes.create(body, w.quoter, key),
+          201,
+        );
+        expect(replay).toEqual(first);
+      } finally {
+        setHubHome(w.owner.did, w.owner.tenant);
+      }
+      await expectProblem(
+        await w.from.quotes.create(
+          { ...body, body: "Quoted twice" },
+          w.quoter,
+          key,
+        ),
+        409,
+        IdempotencyKeyConflictError.type,
+      );
+      const missing = await w.from.quotes.raw(
+        "/posts/create-quote",
+        body,
+        w.quoter.token,
+      );
+      await expectProblem(missing, 400, ValidationFailedError.type);
+      expect((await missing.json()).fields).toEqual(["Idempotency-Key"]);
+      const mine = await expectList(
+        await w.from.posts.list({ owner: w.quoter.handle }, w.quoter.token),
+      );
+      expect(mine.posts.map((post) => post.post_id)).toEqual([first.post_id]);
+      expect(await quoteCount(w)).toBe(1);
+    } finally {
+      if (owner !== undefined) setHubHome(owner.did, owner.tenant);
       cast.cleanup();
     }
   });
@@ -846,6 +905,56 @@ for (const scenario of scenarios) {
   });
 }
 
+test("list-quotes is partial and keeps the readable quotes when one quoter's region does not answer", async ({
+  request,
+}) => {
+  const cast = new Cast(request);
+  let moved: PostUser | undefined;
+  try {
+    const w = await world(cast, request, scenarios[0]!);
+    const near = await say(w, w.from.quotes, w.quoter, "near");
+    await awaitCount(w, 1);
+    const far = await cast.user("usa1", "Far Quoter");
+    await say(w, apis(request, "usa1").quotes, far, "far");
+    await awaitCount(w, 2);
+    expect((await quotesOf(w, w.owner, w.at)).partial).toBe(false);
+
+    moved = far;
+    setHubHome(far.did, "gone");
+    const listed = await quotesOf(w, w.owner, w.at);
+    expect(listed.partial).toBe(true);
+    expect(listed.posts.map((post) => post.post_id)).toEqual([near.post_id]);
+  } finally {
+    if (moved !== undefined) setHubHome(moved.did, moved.tenant);
+    cast.cleanup();
+  }
+});
+
+// ind1's coordinator link is deliberately broken in CI (config/ci/ind1.json),
+// so its hub-api cannot resolve the quoter.
+test("detach-quote answers 503 hub-post-unavailable when the directory does not answer", async ({
+  request,
+}) => {
+  const email = `e2e+${randomUUID()}@e2e-hub-posts.example.test`;
+  try {
+    const seeded = seedActiveHubUser("ind1", email, "Detach Owner");
+    await expectProblem(
+      await apis(request, "ind1").quotes.detach(
+        {
+          post_id: missingID,
+          quoter: unknownHandle(),
+          quote_post_id: missingID,
+        },
+        seeded.sessionToken,
+      ),
+      503,
+      HubPostUnavailableError.type,
+    );
+  } finally {
+    cleanupHubUser(email, "ind1");
+  }
+});
+
 test("create-quote counts toward the 100-post cap and answers 429 hub-post-limit-reached", async ({
   request,
 }) => {
@@ -858,7 +967,7 @@ test("create-quote counts toward the 100-post cap and answers 429 hub-post-limit
     await expectProblem(
       await w.from.quotes.create(
         { target: target(w), body: "One too many" },
-        w.quoter.token,
+        w.quoter,
       ),
       429,
       HubPostLimitReachedError.type,
@@ -981,7 +1090,7 @@ test("mesh quote reads serve a verified viewer and refuse an unverified one, a r
     const quote = await expectPost(
       await apis(request, "usa1").quotes.create(
         { target: target(w), body: "mesh words" },
-        viewer.token,
+        viewer,
       ),
       201,
     );

@@ -101,6 +101,7 @@ func RegisterHubRoutes(mux *http.ServeMux, s *hubruntime.Server) {
 		"POST /api/hub/posts/hide-reply":          hubposts.HideReply(s),
 		"POST /api/hub/posts/unhide-reply":        hubposts.UnhideReply(s),
 		"POST /api/hub/posts/list-replies":        hubposts.ListReplies(s),
+		"POST /api/hub/posts/locate-reply":        hubposts.LocateReply(s),
 		"POST /api/hub/posts/list-author-replies": hubposts.ListAuthorReplies(s),
 		"POST /api/hub/posts/create-quote":        hubposts.CreateQuote(s),
 		"POST /api/hub/posts/list-quotes":         hubposts.ListQuotes(s),

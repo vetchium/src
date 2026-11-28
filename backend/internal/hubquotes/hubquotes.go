@@ -56,7 +56,8 @@ func applyQuoted(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		return err
 	}
 	q := sqlc.New(tx)
-	target, err := q.GetHubPostForQuote(ctx, string(payload.TargetPostID))
+	// The post lock comes first, as in a detach (PST-QTE-008).
+	target, err := q.LockHubPostForQuote(ctx, string(payload.TargetPostID))
 	if isNoRows(err) {
 		return nil
 	}
@@ -108,7 +109,8 @@ func applyUnquoted(ctx context.Context, tx pgx.Tx, event events.Event) error {
 		return err
 	}
 	q := sqlc.New(tx)
-	target, err := q.GetHubPostForQuote(ctx, string(payload.TargetPostID))
+	// The post lock comes first, as in a detach (PST-QTE-008).
+	target, err := q.LockHubPostForQuote(ctx, string(payload.TargetPostID))
 	if isNoRows(err) || (err == nil &&
 		target.AuthorHubUserDid != event.Destination.DID) {
 		return nil

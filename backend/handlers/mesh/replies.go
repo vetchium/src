@@ -149,13 +149,16 @@ var listReplies = postRead[
 		}
 		replies, next, err := postReader(s).Thread(
 			ctx, owner, string(request.PostID), request.ParentReplyID,
-			viewer, request.PaginationKey, request.EffectiveLimit(),
+			request.FromReplyID, viewer, request.PaginationKey,
+			request.EffectiveLimit(),
 		)
 		switch {
 		case errors.Is(err, postread.ErrInvalidKey):
 			return nil, problem.InvalidPaginationKeyError, nil
 		case errors.Is(err, postread.ErrPostNotFound):
 			return nil, hubproblem.HubPostNotFoundError, nil
+		case errors.Is(err, postread.ErrReplyNotFound):
+			return nil, hubproblem.HubReplyNotFoundError, nil
 		case err != nil:
 			return nil, nil, err
 		}

@@ -71,10 +71,14 @@ func (r Reader) QuoteTarget(
 // item is `unavailable` when the target is not live, the quote row is
 // detached, or the quoter does not match. A missing row means the quoted
 // event has not arrived, so the quote policy and the owner's block decide.
+// It reads the posts, the quote rows, and the blocks in one pass each.
 func (r Reader) Embeds(
 	ctx context.Context, items []postsspec.MeshEmbedReference,
 ) ([]postsspec.MeshEmbedResult, error) {
 	results := make([]postsspec.MeshEmbedResult, len(items))
+	refs := make([]PostRef, len(items))
+	quoters := make([]pgtype.UUID, len(items))
+	quoteIDs := make([]string, len(items))
 	for index, item := range items {
 		results[index] = postsspec.MeshEmbedResult{
 			Status:       postsspec.MeshEmbedUnavailable,
@@ -88,49 +92,64 @@ func (r Reader) Embeds(
 		if err != nil {
 			return nil, err
 		}
-		target, err := r.liveTarget(ctx, owner, string(item.TargetPostID))
-		if err != nil {
-			if errors.Is(err, ErrPostNotFound) {
-				continue
-			}
-			return nil, err
+		refs[index] = PostRef{Owner: owner, PostID: item.TargetPostID}
+		quoters[index] = quoter
+		quoteIDs[index] = string(item.QuotePostID)
+	}
+	if len(items) == 0 {
+		return results, nil
+	}
+	batch, err := r.Posts(ctx, refs)
+	if err != nil {
+		return nil, err
+	}
+	quoteRows, err := r.Queries.GetHubPostQuotesByQuoteIDs(ctx, quoteIDs)
+	if err != nil {
+		return nil, err
+	}
+	type quoteKey struct{ target, quote string }
+	indexed := map[quoteKey]sqlc.GetHubPostQuotesByQuoteIDsRow{}
+	for _, row := range quoteRows {
+		indexed[quoteKey{row.TargetPostID, row.QuotePostID}] = row
+	}
+	owners := make([]pgtype.UUID, len(refs))
+	for index, ref := range refs {
+		owners[index] = ref.Owner
+	}
+	blockRows, err := r.Queries.HubUserBlockPairs(ctx, sqlc.HubUserBlockPairsParams{
+		BlockerDids: owners, BlockedDids: quoters,
+	})
+	if err != nil {
+		return nil, err
+	}
+	type pair struct{ blocker, blocked pgtype.UUID }
+	blocked := map[pair]bool{}
+	for _, row := range blockRows {
+		blocked[pair{row.BlockerHubUserDid, row.BlockedHubUserDid}] = true
+	}
+	for index, item := range items {
+		target, live := batch.Found[refs[index]]
+		if !live {
+			continue
 		}
-		quote, err := r.Queries.GetHubPostQuote(ctx, sqlc.GetHubPostQuoteParams{
-			TargetPostID: string(item.TargetPostID),
-			QuotePostID:  string(item.QuotePostID),
-		})
+		quote, recorded := indexed[quoteKey{
+			string(item.TargetPostID), string(item.QuotePostID),
+		}]
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case !recorded:
 			// The hub-post-quoted event has not arrived yet. Apply the
 			// checks the receiver applies (PST-QTE-005), so a fresh quote
 			// does not show as unavailable.
-			if target.QuotePolicy != sqlc.VetchiumHubPostPolicyEveryone {
+			if target.QuotePolicy != postsspec.QuoteEveryone ||
+				blocked[pair{refs[index].Owner, quoters[index]}] {
 				continue
 			}
-			blocked, err := r.Queries.HubUserBlockExists(ctx,
-				sqlc.HubUserBlockExistsParams{
-					BlockerHubUserDid: owner, BlockedHubUserDid: quoter,
-				})
-			if err != nil {
-				return nil, err
-			}
-			if blocked {
-				continue
-			}
-		case err != nil:
-			return nil, err
-		case quote.DetachedAt.Valid || quote.QuoterHubUserDid != quoter:
+		case quote.DetachedAt.Valid || quote.QuoterHubUserDid != quoters[index]:
 			continue
 		}
-		found, err := r.Get(ctx, owner, []postsspec.PostID{item.TargetPostID})
-		if err != nil {
-			return nil, err
-		}
-		if len(found) == 1 {
-			results[index].Status = postsspec.MeshEmbedPost
-			results[index].Post = &postsspec.MeshPost{
-				Post: found[0], OwnerHubUserDID: item.OwnerHubUserDID,
-			}
+		results[index].Status = postsspec.MeshEmbedPost
+		results[index].Post = &postsspec.MeshPost{
+			Post: target, OwnerHubUserDID: item.OwnerHubUserDID,
 		}
 	}
 	return results, nil

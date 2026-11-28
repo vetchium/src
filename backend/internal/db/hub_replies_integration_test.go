@@ -356,8 +356,8 @@ func TestHubRepliesPostRemovedMarksOnlyPendingAndLive(t *testing.T) {
 	}
 	if n, err := h.q.DeleteHubReplyTextsByIDs(h.ctx, sqlc.DeleteHubReplyTextsByIDsParams{
 		ReplyIds: []string{pend, live}, TenantID: "tenant-a",
-	}); err != nil || n.DeletedRows != 0 {
-		t.Fatalf("reaper deleted %d non-pending rows, %v", n.DeletedRows, err)
+	}); err != nil || len(n) != 0 {
+		t.Fatalf("reaper deleted %d non-pending rows, %v", len(n), err)
 	}
 }
 
@@ -391,7 +391,10 @@ func TestHubReplyReaperDeletesExpiredPending(t *testing.T) {
 	del, err := h.q.DeleteHubReplyTextsByIDs(h.ctx, sqlc.DeleteHubReplyTextsByIDsParams{
 		ReplyIds: []string{id}, TenantID: "tenant-a",
 	})
-	if err != nil || del.DeletedRows != 1 || del.AuditRows != 1 {
+	// The reaper tells the owner's tenant with these fields (PST-RPL-009).
+	if err != nil || len(del) != 1 || del[0].AuditRows != 1 ||
+		del[0].ReplyID != id || del[0].PostID != postID ||
+		del[0].AuthorHubUserDid != author || del[0].PostOwnerHubUserDid != owner {
 		t.Fatalf("reap = %+v, %v", del, err)
 	}
 	if h.textState(other) != "pending" {
@@ -414,6 +417,12 @@ func TestHubPostCleanupAuthorKeyset(t *testing.T) {
 		h.copyRow(postID, h.newID(), "", a, time.Now())
 	}
 	h.copyRow(live, h.newID(), "", h.user("b"), time.Now())
+	// A chain three deep: cleanup must delete a child before its parent.
+	chainAuthor := h.user("chain")
+	top, mid := h.newID(), h.newID()
+	h.copyRow(postID, top, "", chainAuthor, time.Now())
+	h.copyRow(postID, mid, top, chainAuthor, time.Now())
+	h.copyRow(postID, h.newID(), mid, chainAuthor, time.Now())
 
 	if got, err := h.q.ListRemovedHubPostsForCleanup(h.ctx, 10); err != nil || len(got) != 0 {
 		t.Fatalf("cleanup list before removal = %d, %v", len(got), err)
@@ -451,12 +460,31 @@ func TestHubPostCleanupAuthorKeyset(t *testing.T) {
 		}
 		after = page[len(page)-1].AuthorHubUserDid
 	}
-	if len(seen) != authors || pages != 3 {
-		t.Fatalf("authors = %d in %d pages, want %d in 3", len(seen), pages, authors)
+	if len(seen) != authors+1 || pages != 3 {
+		t.Fatalf("authors = %d in %d pages, want %d in 3", len(seen), pages, authors+1)
 	}
 
-	if n, err := h.q.DeleteHubPostRepliesByPost(h.ctx, postID); err != nil || n != 2*authors {
-		t.Fatalf("deleted = %d, %v", n, err)
+	var deleted int64
+	for steps := 0; ; steps++ {
+		if steps > 20 {
+			t.Fatal("leaf deletion did not end")
+		}
+		n, err := h.q.DeleteHubPostReplyLeaves(h.ctx, sqlc.DeleteHubPostReplyLeavesParams{
+			PostID: postID, Batch: 100,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n > 100 {
+			t.Fatalf("one batch deleted %d rows", n)
+		}
+		if n == 0 {
+			break
+		}
+		deleted += n
+	}
+	if deleted != 2*authors+3 {
+		t.Fatalf("deleted = %d, want %d", deleted, 2*authors+3)
 	}
 	if n, err := h.q.MarkHubPostCleanupDone(h.ctx, postID); err != nil || n != 1 {
 		t.Fatalf("mark done = %d, %v", n, err)

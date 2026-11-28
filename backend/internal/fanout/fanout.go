@@ -86,15 +86,25 @@ func Regroup[R any](
 	read func(ctx context.Context, tenant string, dids []string) (R, error),
 	deadline time.Duration,
 ) (map[string]Result[R], []Unresolved) {
+	unique := make(map[string]struct{}, len(notHomed))
+	for _, did := range notHomed {
+		unique[did] = struct{}{}
+	}
+	// The lookups run in parallel, so many moved principals cost one round.
+	homes := Do(ctx, unique, func(
+		ctx context.Context, did string, _ struct{},
+	) (string, error) {
+		return resolve(ctx, did)
+	}, deadline)
 	groups := make(map[string][]string)
 	var unresolved []Unresolved
 	for _, did := range notHomed {
-		tenant, err := resolve(ctx, did)
-		if err != nil {
-			unresolved = append(unresolved, Unresolved{DID: did, Err: err})
+		home := homes[did]
+		if home.Err != nil {
+			unresolved = append(unresolved, Unresolved{DID: did, Err: home.Err})
 			continue
 		}
-		groups[tenant] = append(groups[tenant], did)
+		groups[home.Value] = append(groups[home.Value], did)
 	}
 	return Do(ctx, groups, read, deadline), unresolved
 }

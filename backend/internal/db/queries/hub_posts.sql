@@ -238,3 +238,28 @@ LEFT JOIN LATERAL (
 ) AS picture ON true
 WHERE u.handle = ANY(sqlc.arg(handles)::text[])
   AND u.hub_user_state = 'active';
+
+-- Live posts by ID of any author this tenant holds, for batched reads
+-- (PST-QTE-009). The caller matches each post to the owner it asked about.
+-- name: GetHubLivePostsByIDs :many
+SELECT p.post_id, p.author_hub_user_did, p.kind, p.body, p.reply_policy,
+    p.quote_policy, p.locked_at, p.reply_count, p.quote_count, p.revision,
+    p.version, p.created_at, p.edited_at, p.quote_target_type,
+    p.quote_owner_principal_type, p.quote_owner_did, p.quote_owner_address,
+    p.quote_owner_tenant_id, p.quote_target_id
+FROM vetchium.hub_posts AS p
+WHERE p.post_id = ANY(sqlc.arg(post_ids)::text[])
+  AND p.state = 'live';
+
+-- Card fields of the active users this tenant homes, by DID (PST-POS-009).
+-- name: GetHubCardsByDIDs :many
+SELECT u.hub_user_did, u.handle, u.profile_alias, u.display_name,
+    picture.object_id AS picture_object_id
+FROM vetchium.hub_users AS u
+LEFT JOIN LATERAL (
+    SELECT p.object_id
+    FROM vetchium.hub_profile_picture_objects AS p
+    WHERE p.hub_user_did = u.hub_user_did AND p.state = 'active'
+) AS picture ON true
+WHERE u.hub_user_did = ANY(sqlc.arg(hub_user_dids)::uuid[])
+  AND u.hub_user_state = 'active';

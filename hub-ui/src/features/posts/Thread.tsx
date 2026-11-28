@@ -18,6 +18,7 @@ import type { Reply } from "typespec/hub/posts/replies";
 import type { ProfileCard } from "typespec/hub/profile/cards";
 import { APIErrorAlert } from "../../components/common/APIErrorAlert";
 import { ProfileAvatar } from "../../components/common/ProfileAvatar";
+import { OperationStillPendingError } from "../applications/actions";
 import {
   useEditReplyMutation,
   useHideReplyMutation,
@@ -109,7 +110,11 @@ function ReplyComposer({
             <Button onClick={onDone}>{t("common.cancel")}</Button>
           ) : null}
         </Flex>
-        <APIErrorAlert error={reply.error} />
+        {reply.error instanceof OperationStillPendingError ? (
+          <Alert type="info" showIcon title={t("posts.thread.stillPending")} />
+        ) : (
+          <APIErrorAlert error={reply.error} />
+        )}
       </Flex>
     </Form>
   );
@@ -230,7 +235,7 @@ function ReplyActions({
                 okButtonProps: { danger: true },
                 onOk: () =>
                   remove
-                    .mutateAsync(reply)
+                    .mutateAsync(reply.reply_id)
                     .then(
                       () => void message.success(t("posts.thread.removed")),
                     ),
@@ -419,32 +424,31 @@ function ReplyItem({
 }
 
 /**
- * One list of replies with Load more. It loads pages until the reply a link
- * names appears in it.
+ * The reply a list starts at for a reply link (PST-THR-009): the focused
+ * reply or its parent at the top, and the focused reply in its parent's list.
  */
+function startOf(ctx: ThreadContext, parent: string | undefined) {
+  if (ctx.focusParent === undefined) return undefined;
+  if (parent === undefined) return ctx.focusParent ?? ctx.focusID;
+  return ctx.focusParent === parent ? ctx.focusID : undefined;
+}
+
+/** One list of replies with Load more. */
 function ReplyList({ ctx, parent }: { ctx: ThreadContext; parent?: string }) {
   const { t } = useTranslation();
-  const query = useRepliesQuery(ctx.owner, ctx.postID, parent);
+  const query = useRepliesQuery(
+    ctx.owner,
+    ctx.postID,
+    parent,
+    startOf(ctx, parent),
+  );
   const replies = query.data?.pages.flatMap((page) => page.replies) ?? [];
   const cards = useProfileCards(
     replies
       .filter((r) => r.state !== "placeholder")
       .map((r) => r.author_handle),
   );
-  const target =
-    parent === undefined
-      ? ctx.focusParent === undefined
-        ? undefined
-        : (ctx.focusParent ?? ctx.focusID)
-      : ctx.focusParent === parent
-        ? ctx.focusID
-        : undefined;
-  const found =
-    target === undefined || replies.some((r) => r.reply_id === target);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
-  useEffect(() => {
-    if (!found && hasNextPage && !isFetchingNextPage) void fetchNextPage();
-  }, [found, hasNextPage, isFetchingNextPage, fetchNextPage]);
   return (
     <Flex vertical gap="small">
       {query.isError ? <APIErrorAlert error={query.error} /> : null}
@@ -493,6 +497,9 @@ export function Thread({
 }) {
   const { t } = useTranslation();
   const locate = useLocateReply(owner, post.post_id, focusID);
+  const focusParent =
+    locate.isSuccess && locate.data !== false ? locate.data : undefined;
+  const located = focusParent !== undefined;
   const ctx: ThreadContext = {
     owner,
     postID: post.post_id,
@@ -500,15 +507,32 @@ export function Thread({
     isPostOwner: viewer !== undefined && viewer === post.owner.handle,
     canReply: !post.locked && post.reply_policy === "everyone",
     focusID,
-    focusParent: locate.data === false ? undefined : locate.data,
+    focusParent,
   };
   return (
     <Flex vertical gap="middle">
       {focusID !== undefined && locate.data === false ? (
         <Alert type="info" showIcon title={t("posts.thread.replyGone")} />
       ) : null}
+      {locate.isError ? <APIErrorAlert error={locate.error} /> : null}
+      {located ? (
+        <Alert
+          type="info"
+          showIcon
+          title={t("posts.thread.fromReply")}
+          action={
+            <Link to={`/u/${owner}/posts/${post.post_id}`}>
+              {t("posts.thread.showAll")}
+            </Link>
+          }
+        />
+      ) : null}
       <PostReplyComposer ctx={ctx} />
-      <ReplyList ctx={ctx} />
+      {focusID !== undefined && locate.isPending ? (
+        <Typography.Text>{t("posts.thread.loading")}</Typography.Text>
+      ) : (
+        <ReplyList ctx={ctx} />
+      )}
     </Flex>
   );
 }

@@ -157,3 +157,25 @@ SELECT r.muted_hub_user_did
 FROM vetchium.hub_user_mutes AS r
 WHERE r.muter_hub_user_did = sqlc.arg(muter_hub_user_did)
   AND r.muted_hub_user_did = ANY(sqlc.arg(candidate_dids)::uuid[]);
+
+-- The blocks among the given blockers and blocked users, for embed reads
+-- (PST-QTE-009). The caller matches the pairs it asked about.
+-- name: HubUserBlockPairs :many
+SELECT r.blocker_hub_user_did, r.blocked_hub_user_did
+FROM vetchium.hub_user_blocks AS r
+WHERE r.blocker_hub_user_did = ANY(sqlc.arg(blocker_dids)::uuid[])
+  AND r.blocked_hub_user_did = ANY(sqlc.arg(blocked_dids)::uuid[]);
+
+-- Finds a blocked user by the permanent handle the block stored, so an unblock
+-- needs no directory (PST-BLK-006).
+-- name: GetHubUserBlockByHandle :one
+SELECT r.blocked_hub_user_did
+FROM vetchium.hub_user_blocks AS r
+WHERE r.blocker_hub_user_did = sqlc.arg(blocker_hub_user_did)
+  AND r.blocked_handle = sqlc.arg(blocked_handle);
+
+-- name: GetHubUserMuteByHandle :one
+SELECT r.muted_hub_user_did
+FROM vetchium.hub_user_mutes AS r
+WHERE r.muter_hub_user_did = sqlc.arg(muter_hub_user_did)
+  AND r.muted_handle = sqlc.arg(muted_handle);

@@ -75,7 +75,7 @@ func TestAuthorReplyHoldsNoWordsAfterPostRemoval(t *testing.T) {
 		Body:  pgtype.Text{String: "words", Valid: true}, Revision: 1,
 		CreatedAt: pgtype.Timestamptz{Time: time.Unix(1, 0), Valid: true},
 	})
-	if item.State != postsspec.AuthorReplyPostRemoved || item.Body != "" {
+	if item.State != postsspec.AuthorReplyPostRemoved || item.Body != nil {
 		t.Fatalf("item = %+v", item)
 	}
 }

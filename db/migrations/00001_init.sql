@@ -4113,6 +4113,11 @@ CREATE INDEX hub_posts_author_live_idx ON vetchium.hub_posts
     WHERE state = 'live';
 CREATE INDEX hub_posts_author_created_idx ON vetchium.hub_posts
     (author_hub_user_did, created_at);
+-- The retention scan (PST-RET-001).
+CREATE INDEX hub_posts_created_idx ON vetchium.hub_posts (created_at, post_id);
+-- The post cleanup scan (PST-RPL-013).
+CREATE INDEX hub_posts_cleanup_idx ON vetchium.hub_posts (removed_at, post_id)
+    WHERE state <> 'live' AND cleanup_done_at IS NULL;
 
 CREATE TABLE vetchium.hub_post_revisions (
     post_id text COLLATE "C" NOT NULL
@@ -4197,6 +4202,9 @@ CREATE INDEX hub_reply_texts_post_idx ON vetchium.hub_reply_texts
     (post_owner_hub_user_did, post_id);
 CREATE INDEX hub_reply_texts_operation_idx ON vetchium.hub_reply_texts
     (operation_id) WHERE operation_id IS NOT NULL;
+-- The retention scan (PST-RET-001).
+CREATE INDEX hub_reply_texts_created_idx ON vetchium.hub_reply_texts
+    (created_at, reply_id);
 
 CREATE TABLE vetchium.hub_reply_revisions (
     reply_id text COLLATE "C" NOT NULL

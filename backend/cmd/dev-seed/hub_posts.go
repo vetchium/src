@@ -168,7 +168,7 @@ func (s *postSeeder) seed(ctx context.Context) error {
 				request.ReplyPolicy = &nobody
 			}
 			var post posts.Post
-			if err := s.hubPost(ctx, author.seededApplicant, "posts/create", request, http.StatusCreated, &post); err != nil {
+			if err := s.hubPostWithKey(ctx, author.seededApplicant, "posts/create", request, http.StatusCreated, &post); err != nil {
 				return fmt.Errorf("create post of %s: %w", author.email, err)
 			}
 			written[index] = append(written[index], post)
@@ -241,7 +241,7 @@ func (s *postSeeder) seed(ctx context.Context) error {
 		}, seedOpeningQuote},
 	}
 	for _, quote := range quotes {
-		if err := s.hubPost(ctx, quote.author, "posts/create-quote", posts.CreateQuoteRequest{
+		if err := s.hubPostWithKey(ctx, quote.author, "posts/create-quote", posts.CreateQuoteRequest{
 			Target: quote.target, Body: quote.body,
 		}, http.StatusCreated, nil); err != nil {
 			return fmt.Errorf("quote as %s: %w", quote.author.email, err)
@@ -262,6 +262,18 @@ func (s *postSeeder) seed(ctx context.Context) error {
 	}
 	log.Printf("seeded posts of %s", s.tenant)
 	return nil
+}
+
+// hubPostWithKey is hubPost for a write that takes an Idempotency-Key.
+func (s *postSeeder) hubPostWithKey(
+	ctx context.Context, applicant seededApplicant, path string, body any, want int, out any,
+) error {
+	session, err := s.hubLogin(ctx, applicant)
+	if err != nil {
+		return err
+	}
+	return s.postAtWithKey(ctx, session.origin, "/api/hub/"+path, body, session.token,
+		newIdempotencyKey(), want, out)
 }
 
 // reply sends a reply as one user and waits until it settles. A reply to a

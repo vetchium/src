@@ -439,9 +439,9 @@ func EditReply(s *hubruntime.Server) http.HandlerFunc {
 	}
 }
 
-// RemoveReply clears the caller's own live reply and enqueues
-// hub-reply-removed for the post owner in the same transaction
-// (PST-RPL-011).
+// RemoveReply clears the caller's own live reply, or a reply on a removed
+// post, and enqueues hub-reply-removed for the post owner in the same
+// transaction when the owner still holds a copy (PST-RPL-011).
 func RemoveReply(s *hubruntime.Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request postsspec.RemoveReplyRequest
@@ -480,13 +480,16 @@ func RemoveReply(s *hubruntime.Server) http.HandlerFunc {
 			s.Problem(ctx, w, hubproblem.HubReplyNotFoundError)
 			return
 		}
-		if err := hubreplies.EnqueueRemoved(ctx, q, hubreplies.Removed{
-			PostID: current.PostID, ReplyID: current.ReplyID,
-			PostOwnerDID: current.PostOwnerHubUserDid,
-			AuthorDID:    identity.UserDID, Version: removed.NewVersion,
-		}); err != nil {
-			s.InternalError(ctx, w, "enqueue reply removal", err)
-			return
+		// After a post removal the owner's tenant keeps no copy to clear.
+		if removed.WasLive {
+			if err := hubreplies.EnqueueRemoved(ctx, q, hubreplies.Removed{
+				PostID: current.PostID, ReplyID: current.ReplyID,
+				PostOwnerDID: current.PostOwnerHubUserDid,
+				AuthorDID:    identity.UserDID, Version: removed.NewVersion,
+			}); err != nil {
+				s.InternalError(ctx, w, "enqueue reply removal", err)
+				return
+			}
 		}
 		if err := tx.Commit(ctx); err != nil {
 			s.InternalError(ctx, w, "commit reply removal", err)
@@ -713,13 +716,17 @@ func ListReplies(s *hubruntime.Server) http.HandlerFunc {
 			var err error
 			page, next, err = reader(s).Thread(
 				ctx, target.did, string(request.PostID), request.ParentReplyID,
-				identity.UserDID, key, request.EffectiveLimit())
+				request.FromReplyID, identity.UserDID, key,
+				request.EffectiveLimit())
 			switch {
 			case errors.Is(err, postread.ErrInvalidKey):
 				s.Problem(ctx, w, problem.InvalidPaginationKeyError)
 				return
 			case errors.Is(err, postread.ErrPostNotFound):
 				s.Problem(ctx, w, hubproblem.HubPostNotFoundError)
+				return
+			case errors.Is(err, postread.ErrReplyNotFound):
+				s.Problem(ctx, w, hubproblem.HubReplyNotFoundError)
 				return
 			case err != nil:
 				s.InternalError(ctx, w, "list replies", err)
@@ -734,6 +741,7 @@ func ListReplies(s *hubruntime.Server) http.HandlerFunc {
 			outcome, err := s.Posts.ListReplies(ctx, postsspec.MeshListRepliesRequest{
 				OwnerHubUserDID: hubspec.HubUserDID(dbvalue.FormatUUID(target.did)),
 				PostID:          request.PostID, ParentReplyID: request.ParentReplyID,
+				FromReplyID:      request.FromReplyID,
 				ViewerHubUserDID: viewerDID, ViewerHandle: viewerHandle,
 				PaginationKey: key, Limit: request.Limit,
 			})
@@ -743,7 +751,8 @@ func ListReplies(s *hubruntime.Server) http.HandlerFunc {
 			}
 			if outcome.Problem != nil {
 				s.Problem(ctx, w, remoteProblem(outcome.Problem,
-					problem.InvalidPaginationKeyError, hubproblem.HubPostNotFoundError))
+					problem.InvalidPaginationKeyError, hubproblem.HubPostNotFoundError,
+					hubproblem.HubReplyNotFoundError))
 				return
 			}
 			page, next = outcome.Value.Replies, outcome.Value.NextPaginationKey
@@ -764,6 +773,70 @@ func ListReplies(s *hubruntime.Server) http.HandlerFunc {
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		s.JSON(ctx, w, http.StatusOK, response)
+	}
+}
+
+// LocateReply tells which list a reply is in, so a reply link opens the
+// thread at it with list-replies `from_reply_id` (PST-THR-009). It holds no
+// words.
+func LocateReply(s *hubruntime.Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request postsspec.LocateReplyRequest
+		if !apiserver.Decode(s, w, r, &request) {
+			return
+		}
+		ctx := r.Context()
+		identity, _ := middleware.HubIdentityFromContext(ctx)
+		target, details := resolveOwner(
+			ctx, s, request.Owner,
+			hubproblem.HubPostNotFoundError, hubproblem.HubPostUnavailableError,
+		)
+		if details != nil {
+			s.Problem(ctx, w, details)
+			return
+		}
+		var found postsspec.MeshGetReplyResponse
+		if target.local {
+			var err error
+			found, err = reader(s).Reply(
+				ctx, target.did, string(request.PostID), string(request.ReplyID))
+			switch {
+			case errors.Is(err, postread.ErrPostNotFound):
+				s.Problem(ctx, w, hubproblem.HubPostNotFoundError)
+				return
+			case errors.Is(err, postread.ErrReplyNotFound):
+				s.Problem(ctx, w, hubproblem.HubReplyNotFoundError)
+				return
+			case err != nil:
+				s.InternalError(ctx, w, "locate reply", err)
+				return
+			}
+		} else {
+			viewerDID, viewerHandle, err := viewerFields(ctx, s, identity.UserDID)
+			if err != nil {
+				s.InternalError(ctx, w, "read locate viewer", err)
+				return
+			}
+			outcome, err := s.Posts.GetReply(ctx, postsspec.MeshGetReplyRequest{
+				OwnerHubUserDID: hubspec.HubUserDID(dbvalue.FormatUUID(target.did)),
+				PostID:          request.PostID, ReplyID: request.ReplyID,
+				ViewerHubUserDID: viewerDID, ViewerHandle: viewerHandle,
+			})
+			if err != nil {
+				s.Problem(ctx, w, hubproblem.HubPostUnavailableError)
+				return
+			}
+			if outcome.Problem != nil {
+				s.Problem(ctx, w, remoteProblem(outcome.Problem,
+					hubproblem.HubPostNotFoundError, hubproblem.HubReplyNotFoundError))
+				return
+			}
+			found = *outcome.Value
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		s.JSON(ctx, w, http.StatusOK, postsspec.LocateReplyResponse{
+			ReplyID: found.ReplyID, ParentReplyID: found.ParentReplyID,
+		})
 	}
 }
 

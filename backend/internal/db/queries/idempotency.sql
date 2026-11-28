@@ -55,3 +55,15 @@ USING candidates
 WHERE ledger.operation = candidates.operation
   AND ledger.binding_id = candidates.binding_id
   AND ledger.idempotency_key = candidates.idempotency_key;
+
+-- name: IdempotencyRecorded :one
+-- Tells, without a lock, whether a live record answers this key. A handler
+-- that reads another tenant before its transaction uses it to skip that read
+-- on a replay.
+SELECT EXISTS (
+    SELECT 1 FROM vetchium.idempotency_ledger
+    WHERE operation = $1
+      AND binding_id = $2
+      AND idempotency_key = $3
+      AND expires_at > now()
+)::boolean AS recorded;
